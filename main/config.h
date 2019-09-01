@@ -32,7 +32,7 @@ BLETrackedDevice BLETrackedDevices[99] = {};
 
 #define MQTT_CONNECTION_TIMEOUT 5000 // [ms]
 
-#ifndef GATEWAY
+#ifndef GATEWAY_NAME
 #define GATEWAY_NAME "BLETracker"
 #endif
 
