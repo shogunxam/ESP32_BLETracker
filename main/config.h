@@ -14,8 +14,12 @@ BLETrackedDevice BLETrackedDevices[99] = {};
 #define DEBUG_SERIAL
 
 // Wi-Fi credentials
-#define WIFI_SSID     "XXXXXXXXXX"
-#define WIFI_PASSWORD "XXXXXXXXXX"
+//#define WIFI_SSID     "XXXXXXXXXX"
+//#define WIFI_PASSWORD "XXXXXXXXXX"
+
+#define WIFI_SSID     "HURRICANE1"
+#define WIFI_PASSWORD "RYOSAEBA@HURRICANEPOLYMAR"
+
 
 // Over-the-Air update
 // Not implemented yet
@@ -25,14 +29,18 @@ BLETrackedDevice BLETrackedDevices[99] = {};
 //#define OTA_PORT      8266  // port 8266 by default
 
 // MQTT
-#define MQTT_USERNAME     "XXXXXXXXXX"
-#define MQTT_PASSWORD     "XXXXXXXXXX"
-#define MQTT_SERVER       "XXX.XXX.XXX.XXX"
+//#define MQTT_USERNAME     "XXXXXXXXXX"
+//#define MQTT_PASSWORD     "XXXXXXXXXX"
+//#define MQTT_SERVER       "XXX.XXX.XXX.XXX"
+
+#define MQTT_USERNAME     "ryo"
+#define MQTT_PASSWORD     "nonteladico"
+#define MQTT_SERVER       "192.168.1.7"
 #define MQTT_SERVER_PORT  1883
 
 #define MQTT_CONNECTION_TIMEOUT 5000 // [ms]
 
-#ifndef GATEWAY
+#ifndef GATEWAY_NAME
 #define GATEWAY_NAME "BLETracker"
 #endif
 

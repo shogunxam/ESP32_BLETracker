@@ -215,6 +215,51 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
   }
 };
 
+static BLEUUID service_BATT_UUID(BLEUUID((uint16_t)0x180F));
+static BLEUUID char_BATT_UUID(BLEUUID((uint16_t)0x2A19));
+
+#if 0
+bool batteryLevel(const String& address, String &batteryLevel) 
+{
+    std::ostringstream osAddress;
+    int len = address.length();
+    for(int i= 0;i < len;i++)
+    { 
+       osAddress << address[i];
+       if( (i & 1) == 1  && i != len-1)
+          osAddress << ':';
+    }
+
+    BLEAddress* pAddress = new BLEAddress(osAddress.str());
+    Serial.print("connecting to : ");
+    Serial.println(pAddress->toString().c_str());
+    // create a new client
+    BLEClient*  pClient;
+    pClient  = BLEDevice::createClient();
+    Serial.println("Created client");
+
+    // Connect to the remove BLE Server.
+    pClient->connect(*pAddress);
+    Serial.println("Connected to server");
+	BLERemoteService* pRemote_BATT_Service = pClient->getService(service_BATT_UUID);
+	if (pRemote_BATT_Service == nullptr) {
+		Serial.print("Failed to find BATT service : ");
+		//Serial.println(service_BATT_UUID.toString().c_str());
+		return false;
+    }
+	BLERemoteCharacteristic* pRemote_BATT_Characteristic = pRemote_BATT_Service->getCharacteristic(char_BATT_UUID);
+	if (pRemote_BATT_Characteristic == nullptr) {
+		Serial.print("Failed to find BATT characteristic : ");
+		//Serial.println(char_BATT_UUID.toString().c_str());
+		return false;
+	}
+    std::string value = pRemote_BATT_Characteristic->readValue();
+    batteryLevel = value.c_str();
+    pClient->disconnect();
+    delete pClient;
+    delete pAddress;
+}
+#endif
 ///////////////////////////////////////////////////////////////////////////
 //   SETUP() & LOOP()
 ///////////////////////////////////////////////////////////////////////////
@@ -249,6 +294,16 @@ void publishBLEState(String address, const char *state, const char *rssi)
   std::ostringstream payload;
   payload << "{ \"state\":\"" << state << "\",\"rssi\":" << rssi << "}";
   publishToMQTT(baseTopic.c_str(), payload.str().c_str(), false);
+
+#if 0
+  String battLevel;
+  if(batteryLevel(address,battLevel))
+  {
+    DEBUG_PRINT("batteryLevel ");
+    DEBUG_PRINT(address.c_str());
+    DEBUG_PRINTLN(battLevel.c_str());
+  }
+  #endif
 }
 
 void publishSySInfo()
@@ -279,7 +334,7 @@ void loop()
     DEBUG_PRINTLN("INFO: Riavvio perché ho finito l'array\n");
     esp_restart();
   }
-
+  pBLEScan->setActiveScan(true);
   pBLEScan->start(BLE_SCANNING_PERIOD);
 
   for (uint8_t i = 0; i < NB_OF_BLE_DISCOVERED_DEVICES; i++)
