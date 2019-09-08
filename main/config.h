@@ -4,9 +4,9 @@
 uint8_t NB_OF_BLE_DISCOVERED_DEVICES = 0;
 BLETrackedDevice BLETrackedDevices[99] = {};
 
-#define BLE_SCANNING_PERIOD   10
-#define MAX_NON_ADV_PERIOD    120000
-
+#define BLE_SCANNING_PERIOD   10    /*10 s*/
+#define MAX_NON_ADV_PERIOD    120000 /*2m*/
+#define MAX_BATTERY_READ_PERIOD    3600000 /*1h*/
 // Location of the BLE scanner
 #define LOCATION "home"
 
@@ -53,3 +53,6 @@ BLETrackedDevice BLETrackedDevices[99] = {};
 
 #define MQTT_PAYLOAD_AVAILABLE    "online"
 #define MQTT_PAYLOAD_UNAVAILABLE  "offline"
+
+
+//#define CONFIG_ESP32_DEBUG_OCDAWARE 1
