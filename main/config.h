@@ -7,6 +7,9 @@ BLETrackedDevice BLETrackedDevices[99] = {};
 #define BLE_SCANNING_PERIOD   10    /*10 s*/
 #define MAX_NON_ADV_PERIOD    120000 /*2m*/
 #define MAX_BATTERY_READ_PERIOD    3600000 /*1h*/
+//Retries to read the battery level if connections fails before to give up until MAX_BATTERY_READ_PERIOD expires
+#define MAX_BLE_CONNECTION_RETRIES 3
+
 // Location of the BLE scanner
 #define LOCATION "home"
 
@@ -40,5 +43,6 @@ BLETrackedDevice BLETrackedDevices[99] = {};
 #define MQTT_PAYLOAD_AVAILABLE    "online"
 #define MQTT_PAYLOAD_UNAVAILABLE  "offline"
 
-
+#define PUBLISH_SIMPLE_JSON         true
+#define PUBLISH_SEPARATED_TOPICS    false
 //#define CONFIG_ESP32_DEBUG_OCDAWARE 1
