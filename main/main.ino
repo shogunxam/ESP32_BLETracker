@@ -25,7 +25,9 @@ typedef struct
   long lastDiscovery;
   long lastBattMeasure;
   int batteryLevel;
-  bool advertised;
+  bool advertised;  //TRUE if the device is just advertised
+  bool hasBatteryService;//Used to avoid coonections with BLE without battery service
+  int connectionRetry;//Number of retries if connection with teh device fails
 } BLETrackedDevice;
 
 #include "config.h"
@@ -71,7 +73,7 @@ BLEScan *pBLEScan;
 WiFiClient wifiClient;
 PubSubClient mqttClient(wifiClient);
 
-#define VERSION 1.0
+#define VERSION "1.2"
 #define SYS_INFORMATION_DELAY 120000 /*2 minutes*/
 unsigned long lastSySInfoTime = 0;
 
@@ -178,6 +180,7 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
         {
           BLETrackedDevices[i].isDiscovered = true;
           BLETrackedDevices[i].lastDiscovery = millis();
+          BLETrackedDevices[i].connectionRetry = 0;
           itoa(advertisedDevice.getRSSI(), BLETrackedDevices[i].rssi, 10);
           DEBUG_PRINTF("INFO: Tracked device newly discovered, Address: %s , RSSI: %d",address.c_str(), advertisedDevice.getRSSI());
           //DEBUG_PRINT(F("INFO: Tracked device newly discovered, Address: "));
@@ -208,6 +211,8 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
       BLETrackedDevices[NB_OF_BLE_DISCOVERED_DEVICES - 1].isDiscovered = true;
       BLETrackedDevices[NB_OF_BLE_DISCOVERED_DEVICES - 1].lastDiscovery = millis();
       BLETrackedDevices[NB_OF_BLE_DISCOVERED_DEVICES - 1].lastBattMeasure = 0;
+      BLETrackedDevices[NB_OF_BLE_DISCOVERED_DEVICES - 1].hasBatteryService = true;
+      BLETrackedDevices[NB_OF_BLE_DISCOVERED_DEVICES - 1].connectionRetry = 0;
       itoa(advertisedDevice.getRSSI(), BLETrackedDevices[NB_OF_BLE_DISCOVERED_DEVICES - 1].rssi, 10);
 
       DEBUG_PRINTF("INFO: Device discovered, Address: %s , RSSI: %d",address.c_str(), advertisedDevice.getRSSI());
@@ -240,7 +245,7 @@ class MyBLEClientCallBack : public BLEClientCallbacks
   }
 };
 
-bool batteryLevel(const String &address, int &battLevel)
+bool batteryLevel(const String &address, int &battLevel, bool &hasBatteryService)
 {
   log_i(">> ------------------batteryLevel----------------- ");
   BLEClient *pClient = nullptr;
@@ -272,6 +277,7 @@ bool batteryLevel(const String &address, int &battLevel)
     if (pRemote_BATT_Service == nullptr)
     {
       log_i("Failed to find BATTERY service.");
+      hasBatteryService = false;
     }
     else
     {
@@ -279,6 +285,7 @@ bool batteryLevel(const String &address, int &battLevel)
       if (pRemote_BATT_Characteristic == nullptr)
       {
         log_i("Failed to find BATTERY characteristic.");
+        hasBatteryService = false;
       }
       else
       {
@@ -287,6 +294,7 @@ bool batteryLevel(const String &address, int &battLevel)
         if (value.length() > 0)
           battLevel = (int)value[0];
         log_i("Reading BATTERY level : %d", battLevel);
+        hasBatteryService = true;
       }
     }
     //Before disconnecting I need to pause the task to wait (I'don't know what), otherwhise we have an heap corruption
@@ -303,7 +311,7 @@ bool batteryLevel(const String &address, int &battLevel)
   delete pClient;
   pClient = nullptr;
   log_i("<< ------------------batteryLevel----------------- ");
-  return result;
+  return bleconnected;
 }
 #endif
 ///////////////////////////////////////////////////////////////////////////
@@ -336,17 +344,23 @@ void publishBLEState(String address, const char *state, const char *rssi, int ba
 {
   String baseTopic = MQTT_BASE_SENSOR_TOPIC;
   baseTopic += "/" + address;
+  char batteryStr [5];
+  itoa(batteryLevel,batteryStr,10);
+
+#if PUBLISH_SEPARATED_TOPICS
   String stateTopic = baseTopic + "/state";
   String rssiTopic = baseTopic + "/rssi";
   String batteryTopic = baseTopic + "/battery";
   publishToMQTT(stateTopic.c_str(), state, false);
   publishToMQTT(rssiTopic.c_str(), rssi, false);
-  char batteryStr [5];
-  itoa(batteryLevel,batteryStr,10);
   publishToMQTT(batteryTopic.c_str(), batteryStr, false);
+#endif 
+
+#if PUBLISH_SIMPLE_JSON
   std::ostringstream payload;
   payload << "{ \"state\":\"" << state << "\",\"rssi\":" << rssi <<  ",\"battery\":" << batteryLevel << "}";
   publishToMQTT(baseTopic.c_str(), payload.str().c_str(), false);
+#endif
 }
 
 void publishSySInfo()
@@ -397,13 +411,31 @@ void loop()
   {
     //We need to connect to the device to read the battery value
     //So that we check only the device really advertised by the scan
-    if (BLETrackedDevices[i].advertised && ((BLETrackedDevices[i].lastBattMeasure + MAX_BATTERY_READ_PERIOD) < millis() 
-                                            || BLETrackedDevices[i].lastBattMeasure == 0 ))
+    if (BLETrackedDevices[i].advertised && BLETrackedDevices[i].hasBatteryService &&
+        ((BLETrackedDevices[i].lastBattMeasure + MAX_BATTERY_READ_PERIOD) < millis() 
+          || BLETrackedDevices[i].lastBattMeasure == 0 ))
     {
-      DEBUG_PRINTF("\nReading Battery level for %s\n",BLETrackedDevices[i].address.c_str());
+      DEBUG_PRINTF("\nReading Battery level for %s: Retries: %d\n",BLETrackedDevices[i].address.c_str(), BLETrackedDevices[i].connectionRetry);
       int battLevel;
-      batteryLevel(BLETrackedDevices[i].address, BLETrackedDevices[i].batteryLevel);
-      BLETrackedDevices[i].lastBattMeasure = millis();
+      bool connectionExtabilished = batteryLevel(BLETrackedDevices[i].address, BLETrackedDevices[i].batteryLevel, BLETrackedDevices[i].hasBatteryService);
+      if(connectionExtabilished || !BLETrackedDevices[i].hasBatteryService)
+      {
+          log_i("Device %s has battery service: %s", BLETrackedDevices[i].address.c_str(), BLETrackedDevices[i].hasBatteryService?"YES":"NO");
+          BLETrackedDevices[i].connectionRetry=0;
+          BLETrackedDevices[i].lastBattMeasure = millis();
+      }
+      else
+      {
+        BLETrackedDevices[i].connectionRetry++;
+        if(BLETrackedDevices[i].connectionRetry >= MAX_BLE_CONNECTION_RETRIES)
+        {
+          BLETrackedDevices[i].connectionRetry=0;
+          BLETrackedDevices[i].lastBattMeasure = millis();
+        }
+      }
+      
+
+      
     }
   }
 #endif
