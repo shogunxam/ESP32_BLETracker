@@ -9,7 +9,6 @@ BLETrackedDevice BLETrackedDevices[99] = {};
 #define MAX_BATTERY_READ_PERIOD    3600000 /*1h*/
 //Retries to read the battery level if connections fails before to give up until MAX_BATTERY_READ_PERIOD expires
 #define MAX_BLE_CONNECTION_RETRIES 3
-
 // Location of the BLE scanner
 #define LOCATION "home"
 
@@ -45,4 +44,8 @@ BLETrackedDevice BLETrackedDevices[99] = {};
 
 #define PUBLISH_SIMPLE_JSON         true
 #define PUBLISH_SEPARATED_TOPICS    false
+#define PUBLISH_BATTERY_LEVEL       true
+
+//Replace using correct MAC Address values or undef
+#define BLE_BATTERY_WHITELIST       "XXXXXXXXX","YYYYYYYY"
 //#define CONFIG_ESP32_DEBUG_OCDAWARE 1
