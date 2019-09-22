@@ -4,6 +4,9 @@ A simple example describing how to track a Bluetooth Low Energy device with an E
 Use PlatformIO to build and deploy this application.<br>
 You have to modify the config.h inserting the correct informations to connect to the WiFi and to the MQTT broker.<br>
 The GATEWAY_NAME is used as Client ID to connect to the broker so be sure it's unique.<br>
+If many devices are discovered the battery level check can be very slow causing frequent Wi-Fi disconnection so that I have introduced a whitelist containing the Mac Address of the devices to check. The whitelist is in the form:
+BLE_BATTERY_WHITELIST       "XXXXXXXXX","YYYYYYYY"
+Mac Address have to be uppercase without ":" or "-" i.e "CA67347FD139"
 
 The application generates the following topics:<br>
 &lt;LOCATION&gt;/&lt;GATEWAY_NAME&gt;/&lt;BLE_ADDRESS&gt;/LWT payload: &lt;online|offline&gt;<br>
