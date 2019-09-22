@@ -6,7 +6,7 @@ You have to modify the config.h inserting the correct informations to connect to
 The GATEWAY_NAME is used as Client ID to connect to the broker so be sure it's unique.<br>
 If many devices are discovered the battery level check can be very slow causing frequent Wi-Fi disconnection so that I have introduced a whitelist containing the Mac Address of the devices to check. The whitelist is in the form:<br>
 BLE_BATTERY_WHITELIST       "XXXXXXXXX","YYYYYYYY"<br>
-Mac Addresses have to be uppercase without ":" or "-" i.e "CA67347FD139"
+Mac Addresses have to be uppercase without ":" or "-" i.e "DA68347EC159"
 
 The application generates the following topics:<br>
 &lt;LOCATION&gt;/&lt;GATEWAY_NAME&gt;/&lt;BLE_ADDRESS&gt;/LWT payload: &lt;online|offline&gt;<br>
@@ -15,6 +15,109 @@ The application generates the following topics:<br>
 &lt;LOCATION&gt;/&lt;GATEWAY_NAME&gt;/&lt;BLE_ADDRESS&gt;/rssi payload: &lt;dBvalue&gt;<br>
 &lt;LOCATION&gt;/&lt;GATEWAY_NAME&gt;/&lt;BLE_ADDRESS&gt;/battery payload: &lt;batterylevel&gt;<br>
 &lt;LOCATION&gt;/&lt;GATEWAY_NAME&gt;/&lt;BLE_ADDRESS&gt;/sysinfo, payload: { "uptime":&lt;timesinceboot&gt;,"version":&lt;versionnumber&gt;,"SSID":&lt;WiFiSSID&gt;}
+
+# Home Assistant integration
+This is a simple example of a package to manage a Nut Traker device.<br>
+```
+###################################################
+#Sensors
+sensor:
+- platform: mqtt
+  state_topic: 'home/BLETracker/XXXXXXXXXXXX'
+  name: 'bt_nut_upstairs_state' 
+  value_template: "{{ value_json.state }}"
+  expire_after: 120 
+  force_update: true
+
+- platform: mqtt
+  state_topic: 'home/BLETracker/XXXXXXXXXXXX'
+  name: 'bt_nut_upstairs_battery' 
+  value_template: "{{ value_json.battery }}"
+  force_update: true  
+
+###############################################
+#Battery Sensor to resolve unknown device state
+- platform: template
+  sensors:
+    bt_nut_battery:
+      unit_of_measurement: '%'
+      value_template: >
+          {% if (is_state('sensor.bt_nut_upstairs_battery', 'unknown') or is_state('sensor.bt_nut_upstairs_battery', '-1')) %}
+            unknown
+          {% else %}
+            {{ states('sensor.bt_nut_upstairs_battery')|int }}
+          {% endif %}
+      icon_template: >
+        {% set battery_level = states.sensor.bt_nut_battery.state|default(0)|int %}
+        {% set battery_round = (battery_level / 10) |int * 10 %}
+        {% if battery_round >= 100 %}
+          mdi:battery
+        {% elif battery_round > 0 %}
+          mdi:battery-{{ battery_round }}
+        {% else %}
+          mdi:battery-alert
+        {% endif %}
+
+
+###############################################
+#Binary Sensors to resolve unknown device state
+
+binary_sensor:
+- platform: template
+  sensors:
+    ble_tracker_nut_mario:
+      friendly_name: 'ble_tracker_nut'
+      value_template: >
+        {% if (is_state('sensor.bt_nut_upstairs_state', 'unknown') or is_state('sensor.bt_nut_upstairs_state', 'off')) %}
+          false
+        {% else %}
+          true
+        {% endif %}
+      device_class: presence
+      delay_off: 
+        minutes: 1
+        
+#######################
+#Check BLETracker state
+- platform: mqtt
+  name: BLETracker_state
+  state_topic: 'home/BLETracker/LWT'
+  payload_on: "online"
+  payload_off: "offline"
+  device_class: "connectivity"
+
+########################
+#Automations
+automation:
+- id: notify_BLETracker_state
+  alias: Notify BLETracker offline
+  initial_state: true
+  trigger:
+  - platform: state
+    entity_id: binary_sensor.BLETracker_state
+    to: 'off'
+    for:
+      minutes: 5 
+  action:
+  - service: notify.telegram
+    data:
+      title: BLETracker
+      message: "BLETracker offline"
+
+- id: notify_nut_battery
+  alias: Notify Battery low
+  initial_state: true
+  trigger:
+  - platform: template
+    value_template: >
+      {{ ((states.sensor.bt_nut_battery.state | int ) <= 20 ) and ( states.sensor.bt_nut_battery.state != 'unknown') and ( states.sensor.bt_nut_battery.state | int >= 0) }}
+  action:
+  - service: notify.telegram
+    data_template:
+      title: BLETracker
+      message: "Nut battery at {{states.sensor.bt_nut_battery.state}}%"
+
+```
 
 ## Licence
 > THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
