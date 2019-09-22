@@ -18,6 +18,7 @@ The application generates the following topics:<br>
 
 # Home Assistant integration
 This is a simple example of a package to manage a Nut Traker device.<br>
+![Alt text](/image.png?raw=true "Screenshot")
 ```
 ###################################################
 #Sensors
