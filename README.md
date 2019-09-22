@@ -6,7 +6,7 @@ You have to modify the config.h inserting the correct informations to connect to
 The GATEWAY_NAME is used as Client ID to connect to the broker so be sure it's unique.<br>
 If many devices are discovered the battery level check can be very slow causing frequent Wi-Fi disconnection so that I have introduced a whitelist containing the Mac Address of the devices to check. The whitelist is in the form:<br>
 BLE_BATTERY_WHITELIST       "XXXXXXXXX","YYYYYYYY"<br>
-Mac Address have to be uppercase without ":" or "-" i.e "CA67347FD139"
+Mac Addresses have to be uppercase without ":" or "-" i.e "CA67347FD139"
 
 The application generates the following topics:<br>
 &lt;LOCATION&gt;/&lt;GATEWAY_NAME&gt;/&lt;BLE_ADDRESS&gt;/LWT payload: &lt;online|offline&gt;<br>
