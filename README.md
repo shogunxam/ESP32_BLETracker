@@ -16,6 +16,13 @@ The application generates the following topics:<br>
 &lt;LOCATION&gt;/&lt;GATEWAY_NAME&gt;/&lt;BLE_ADDRESS&gt;/battery payload: &lt;batterylevel&gt;<br>
 &lt;LOCATION&gt;/&lt;GATEWAY_NAME&gt;/&lt;BLE_ADDRESS&gt;/sysinfo, payload: { "uptime":&lt;timesinceboot&gt;,"version":&lt;versionnumber&gt;,"SSID":&lt;WiFiSSID&gt;}
 
+### OTA Update
+Since version 1.3 it's possible update the firmware using the web server integrated in the BLETracker.<br>
+Simply acces the device inside a browser using its ip or networkname and choose the .bin file to upload.<br>
+Default user and password are:<br>
+user: admin<br>
+password: admin<br>
+
 # Home Assistant integration
 This is a simple example of a package to manage a Nut Traker device.<br>
 ![Alt text](/image.png?raw=true "Screenshot")
