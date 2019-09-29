@@ -130,3 +130,10 @@ automation:
   SOFTWARE.
 
 *If you like the content of this repo, please add a star! Thank you!*
+
+# Support my work
+If you like my work and you want support me you can buy me a coffe :grin:<br>
+[![Buy me a coffee][buymeacoffee-shield]][buymeacoffee]
+
+[buymeacoffee-shield]: https://www.buymeacoffee.com/assets/img/guidelines/download-assets-sm-2.svg
+[buymeacoffee]: https://www.buymeacoffee.com/shogunxam
