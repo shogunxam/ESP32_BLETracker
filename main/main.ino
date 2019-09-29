@@ -1,40 +1,10 @@
-/*
-  MQTT Binary Sensor - Bluetooth LE Device Tracker - Home Assistant
-
-  Libraries:
-    - PubSubClient: https://github.com/knolleary/pubsubclient
-    - ESP32 BLE:    https://github.com/nkolban/ESP32_BLE_Arduino
-
-  Sources:
-    - https://github.com/nkolban/ESP32_BLE_Arduino/blob/master/examples/BLE_scan/BLE_scan.ino
-    - https://www.youtube.com/watch?v=KNoFdKgvskU
-
-  Samuel M. - v1.0 - 01.2018
-  If you like this example, please add a star! Thank you!
-  https://github.com/mertenats/open-home-automation
-
-  SDeSalve -  v4.2 - 21.08.2019
-  https://github.com/sdesalve/dss_mqtt_binary_sensor_ble_scanner
-*/
-#define CONFIG_ESP32_DEBUG_OCDAWARE 1
-typedef struct
-{
-  String address;
-  char rssi[4];
-  bool isDiscovered;
-  long lastDiscovery;
-  long lastBattMeasure;
-  int batteryLevel;
-  bool advertised;  //TRUE if the device is just advertised
-  bool hasBatteryService;//Used to avoid coonections with BLE without battery service
-  int connectionRetry;//Number of retries if connection with teh device fails
-} BLETrackedDevice;
-
-#include "config.h"
-
 #include <BLEDevice.h>
 #include <WiFi.h>
 #include <sstream>
+
+#include "config.h"
+
+#define CONFIG_ESP32_DEBUG_OCDAWARE 1
 
 // MQTT_KEEPALIVE : keepAlive interval in Seconds
 // Keepalive timeout for default MQTT Broker is 10s
@@ -50,24 +20,31 @@ typedef struct
 #include <PubSubClient.h> // https://github.com/knolleary/pubsubclient
 
 #include "esp_system.h"
+#include "DebugPrint.h"
 
-static char _printbuffer_[256];
-#if defined(DEBUG_SERIAL)
-#define DEBUG_PRINT(x) Serial.print(x)
-#define DEBUG_PRINTLN(x) Serial.println(x)
-#define DEBUG_PRINTF(x,...) {\
-snprintf(_printbuffer_,255,x,__VA_ARGS__);\
-Serial.print(_printbuffer_);\
-}
-#else
-#define DEBUG_PRINT(x)
-#define DEBUG_PRINTLN(x)
-#define DEBUG_PRINTF(x,...) 
+#if ENABLE_OTA_WEBSERVER
+#include "OTAWebServer.h"
 #endif
-#define SERIAL_PRINTF(x,...) {\
-snprintf(_printbuffer_,255,x,__VA_ARGS__);\
-Serial.print(_printbuffer_);\
-}
+
+typedef struct
+{
+  String address;
+  char rssi[4];
+  bool isDiscovered;
+  long lastDiscovery;
+  long lastBattMeasure;
+  int batteryLevel;
+  bool advertised;  //TRUE if the device is just advertised
+  bool hasBatteryService;//Used to avoid coonections with BLE without battery service
+  int connectionRetry;//Number of retries if connection with teh device fails
+} BLETrackedDevice;
+
+
+char _printbuffer_[256];
+
+uint8_t NB_OF_BLE_DISCOVERED_DEVICES = 0;
+BLETrackedDevice BLETrackedDevices[99] = {};
+
 
 BLEScan *pBLEScan;
 WiFiClient wifiClient;
@@ -80,6 +57,10 @@ std::vector<String> bleWhiteList = {BLE_BATTERY_WHITELIST};
 #define VERSION "1.3"
 #define SYS_INFORMATION_DELAY 120000 /*2 minutes*/
 unsigned long lastSySInfoTime = 0;
+
+#if ENABLE_OTA_WEBSERVER
+OTAWebServer webserver;
+#endif
 
 ///////////////////////////////////////////////////////////////////////////
 //   MQTT
@@ -368,6 +349,10 @@ void setup()
 
   Serial.println("INFO: Running setup");
 
+#if ENABLE_OTA_WEBSERVER
+  webserver.setup(GATEWAY_NAME,WIFI_SSID,WIFI_PASSWORD);
+#endif
+
   timer = timerBegin(0, 80, true); //timer 0, div 80
   timerAttachInterrupt(timer, &resetModule, true);
   timerAlarmWrite(timer, 120000000, false); //set time in us 120000000 = 120 sec
@@ -429,6 +414,10 @@ void loop()
   {
     lastSySInfoTime = millis();
   }
+
+  #if ENABLE_OTA_WEBSERVER
+  webserver.loop();
+  #endif
 
   mqttClient.loop();
   timerWrite(timer, 0); //reset timer (feed watchdog)

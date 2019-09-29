@@ -1,8 +1,8 @@
 ///////////////////////////////////////////////////////////////////////////
 //  CONFIGURATION - SOFTWARE
 ///////////////////////////////////////////////////////////////////////////
-uint8_t NB_OF_BLE_DISCOVERED_DEVICES = 0;
-BLETrackedDevice BLETrackedDevices[99] = {};
+#ifndef CONFIG_ESP32_BLETRACKER
+#define CONFIG_ESP32_BLETRACKER
 
 #define BLE_SCANNING_PERIOD   10    /*10 s*/
 #define MAX_NON_ADV_PERIOD    120000 /*2m*/
@@ -48,4 +48,7 @@ BLETrackedDevice BLETrackedDevices[99] = {};
 
 //Replace using correct MAC Address values or undef
 #define BLE_BATTERY_WHITELIST       "XXXXXXXXX","YYYYYYYY"
-//#define CONFIG_ESP32_DEBUG_OCDAWARE 1
+
+#define ENABLE_OTA_WEBSERVER    true
+
+#endif /*CONFIG_ESP32_BLETRACKER*/
