@@ -132,7 +132,7 @@ automation:
 *If you like the content of this repo, please add a star! Thank you!*
 
 # Support my work
-If you like my work and you want support me you can buy me a coffe :grin:<br>
+If you like my work, please consider buying me a coffee. Thank you for your support! :grin:<br><br>
 [![Buy me a coffee][buymeacoffee-shield]][buymeacoffee]
 
 [buymeacoffee-shield]: https://www.buymeacoffee.com/assets/img/guidelines/download-assets-sm-2.svg
