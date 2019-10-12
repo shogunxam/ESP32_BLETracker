@@ -26,6 +26,11 @@ Default user and password are:<br>
 user: admin<br>
 password: admin<br>
 
+# Arduino IDE Notes
+You can build this skatch using Arduino IDE, but be sure to install the required dependencies:<br>
+* You have to install the library PubSubClient v2.7
+* You have to replace the BLE library provided by arduino-esp32 with this one https://github.com/shogunxam/ESP32-BLE-Arduino. The libray to replace should be located in the folder ~/.arduino15/packages/esp32/hardware/esp32/x.x.x/libraries/BLE for Unix users and in C:\Users\YourUserName\AppData\Local\Arduino15\packages\esp32\hardware\esp32\x.x.x\libraries\BLE for Windows users
+
 # Home Assistant integration
 This is a simple example of a package to manage a Nut Traker device.<br>
 ![Alt text](/image.png?raw=true "Screenshot")
