@@ -14,6 +14,9 @@
 #define MQTT_SERVER       "YOUR_MQTT_SERVER_IP_ADDRESS"
 #define MQTT_SERVER_PORT  1883
 
+#define OTA_USER    "admin"
+#define OTA_PASSWORD "admin"
+
 //List of MAC Address devices for which to return the battery level
 //Mac Addresses are in the form "A6B5C4D3E2F1" and coma separated
 //Undef or comment this line to check all the advertised devices

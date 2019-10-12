@@ -54,7 +54,7 @@ PubSubClient mqttClient(wifiClient);
 std::vector<String> bleWhiteList = {BLE_BATTERY_WHITELIST};
 #endif
 
-#define VERSION "1.3"
+#define VERSION "1.4"
 #define SYS_INFORMATION_DELAY 120000 /*2 minutes*/
 unsigned long lastSySInfoTime = 0;
 
