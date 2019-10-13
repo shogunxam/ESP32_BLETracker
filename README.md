@@ -16,8 +16,9 @@ A single topic with the palyload in JSON format containing all the items retrune
 A topic for each item returned by the advertised device:<br>
 &lt;LOCATION&gt;/&lt;GATEWAY_NAME&gt;/&lt;BLE_ADDRESS&gt;/state payload: &lt;"on"|"off"&gt;<br>
 &lt;LOCATION&gt;/&lt;GATEWAY_NAME&gt;/&lt;BLE_ADDRESS&gt;/rssi payload: &lt;dBvalue&gt;<br>
-&lt;LOCATION&gt;/&lt;GATEWAY_NAME&gt;/&lt;BLE_ADDRESS&gt;/battery payload: &lt;batterylevel&gt;<br>
-&lt;LOCATION&gt;/&lt;GATEWAY_NAME&gt;/&lt;BLE_ADDRESS&gt;/sysinfo, payload: { "uptime":&lt;timesinceboot&gt;,"version":&lt;versionnumber&gt;,"SSID":&lt;WiFiSSID&gt;}
+&lt;LOCATION&gt;/&lt;GATEWAY_NAME&gt;/&lt;BLE_ADDRESS&gt;/battery payload: &lt;batterylevel&gt;<br><br>
+A topic with helpfull system information:<br>
+&lt;LOCATION&gt;/&lt;GATEWAY_NAME&gt;/&lt;BLE_ADDRESS&gt;/sysinfo, payload: { "uptime":&lt;timesinceboot&gt;,"version":&lt;versionnumber&gt;,"SSID":&lt;WiFiSSID&gt;,"IP":&lt;ipnumber&gt;}
 
 ### OTA Update
 Since version 1.3 it's possible update the firmware using the web server integrated in the BLETracker.<br>
@@ -29,7 +30,8 @@ password: admin<br>
 # Arduino IDE Notes
 You can build this skatch using Arduino IDE, but be sure to install the required dependencies:<br>
 * You have to install the library PubSubClient v2.7
-* You have to replace the BLE library provided by arduino-esp32 with this one https://github.com/shogunxam/ESP32-BLE-Arduino. The libray to replace should be located in the folder ~/.arduino15/packages/esp32/hardware/esp32/x.x.x/libraries/BLE for Unix users and in C:\Users\YourUserName\AppData\Local\Arduino15\packages\esp32\hardware\esp32\x.x.x\libraries\BLE for Windows users
+* You have to replace the BLE library provided by arduino-esp32 with this one https://github.com/shogunxam/ESP32-BLE-Arduino. The libray to replace should be located in the folder ~/.arduino15/packages/esp32/hardware/esp32/x.x.x/libraries/BLE for Unix users and in C:\Users\YourUserName\AppData\Local\Arduino15\packages\esp32\hardware\esp32\x.x.x\libraries\BLE for Windows users<br>
+Build using the *Minimal SPIFFS* partition schema
 
 # Home Assistant integration
 This is a simple example of a package to manage a Nut Traker device.<br>

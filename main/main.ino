@@ -1,6 +1,7 @@
 #include <BLEDevice.h>
 #include <WiFi.h>
 #include <sstream>
+#include <iomanip>
 
 #include "config.h"
 
@@ -399,22 +400,32 @@ void publishBLEState(String address, const char *state, const char *rssi, int ba
 #endif
 }
 
+std::string formatMillis(unsigned long milliseconds)
+{
+  unsigned long seconds = milliseconds / 1000;
+  unsigned long minutes = seconds / 60;
+  unsigned long hours = minutes / 60;
+  unsigned long days = hours / 24;
+  std::ostringstream ostime;
+  ostime << days << "." << std::setfill('0') << std::setw(2) << (hours % 24) << ":"
+                        << std::setfill('0') << std::setw(2) << (minutes % 60) << ":" 
+                        << std::setfill('0') << std::setw(2) << (seconds % 60);
+  return ostime.str();
+}
+
 void publishSySInfo()
 {
   String baseTopic = MQTT_BASE_SENSOR_TOPIC;
   String sysTopic = baseTopic + "/sysinfo";
   std::ostringstream payload;
-  payload << "{ \"uptime\":\"" << millis() << "\",\"version\":" << VERSION << ",\"SSID\":\"" << WIFI_SSID << "\"}";
+  std::string IP = WiFi.localIP().toString().c_str();
+
+  payload << "{ \"uptime\":\"" << formatMillis(millis()) << "\",\"version\":" << VERSION << ",\"SSID\":\"" << WIFI_SSID << "\", \"IP\":\"" << IP << "\"}";
   publishToMQTT(sysTopic.c_str(), payload.str().c_str(), false);
 }
 
 void loop()
 {
-  if (lastSySInfoTime == 0)
-  {
-    lastSySInfoTime = millis();
-  }
-
   #if ENABLE_OTA_WEBSERVER
   webserver.loop();
   #endif
@@ -428,7 +439,7 @@ void loop()
 
   if (NB_OF_BLE_DISCOVERED_DEVICES > 90)
   {
-    DEBUG_PRINTLN("INFO: Riavvio perché ho finito l'array\n");
+    DEBUG_PRINTLN("INFO: Restart because the array is eneded\n");
     esp_restart();
   }
 
@@ -466,7 +477,7 @@ void loop()
   }
 
   //System Information
-  if ((lastSySInfoTime + SYS_INFORMATION_DELAY) < millis())
+  if (((lastSySInfoTime + SYS_INFORMATION_DELAY) < millis()) || (lastSySInfoTime == 0) )
   {
     publishSySInfo();
     lastSySInfoTime = millis();
