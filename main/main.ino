@@ -1,3 +1,5 @@
+#include "main.h"
+
 #include <BLEDevice.h>
 #include <WiFi.h>
 #include <sstream>
@@ -27,20 +29,6 @@
 #include "OTAWebServer.h"
 #endif
 
-typedef struct
-{
-  String address;
-  char rssi[4];
-  bool isDiscovered;
-  long lastDiscovery;
-  long lastBattMeasure;
-  int batteryLevel;
-  bool advertised;  //TRUE if the device is just advertised
-  bool hasBatteryService;//Used to avoid coonections with BLE without battery service
-  int connectionRetry;//Number of retries if connection with teh device fails
-  esp_ble_addr_type_t addressType;
-} BLETrackedDevice;
-
 
 char _printbuffer_[256];
 
@@ -56,7 +44,6 @@ PubSubClient mqttClient(wifiClient);
 std::vector<String> bleWhiteList = {BLE_BATTERY_WHITELIST};
 #endif
 
-#define VERSION "1.4"
 #define SYS_INFORMATION_DELAY 120000 /*2 minutes*/
 unsigned long lastSySInfoTime = 0;
 

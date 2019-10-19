@@ -1,3 +1,4 @@
+#include "main.h"
 #include "config.h"
 
 #if ENABLE_OTA_WEBSERVER
@@ -9,6 +10,10 @@
 
 #include "DebugPrint.h"
 #include "OTAWebServer.h"
+
+extern uint8_t NB_OF_BLE_DISCOVERED_DEVICES;
+extern BLETrackedDevice BLETrackedDevices[99];
+
 /* Style */
 String style =
 "<style>#file-input,input{width:100%;height:44px;border-radius:4px;margin:10px auto;font-size:15px}"
@@ -18,24 +23,8 @@ String style =
 "form{background:#fff;max-width:258px;margin:75px auto;padding:30px;border-radius:5px;text-align:center}"
 ".btn{background:#3498db;color:#fff;cursor:pointer}</style>";
 
-/* Login page */
-String loginIndex = 
-"<form name=loginForm>"
-"<h1>"GATEWAY_NAME" Login</h1>"
-"<input name=userid placeholder='User ID'> "
-"<input name=pwd placeholder=Password type=Password> "
-"<input type=submit onclick=check(this.form) class=btn value=Login><br><br><label>by Shogunxam<label></form>"
-"<script>"
-"function check(form) {"
-"if(form.userid.value=='"OTA_USER"' && form.pwd.value=='"OTA_PASSWORD"')"
-"{window.open('/serverIndex')}"
-"else"
-"{alert('Error Password or Username')}"
-"}"
-"</script>" + style;
- 
 /* Server Index Page */
-String serverIndex = 
+String otaUpdate = 
 "<script src='https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js'></script>"
 "<form method='POST' action='#' enctype='multipart/form-data' id='upload_form'>"
 "<input type='file' name='update' id='file' onchange='sub(this)' style=display:none>"
@@ -79,7 +68,12 @@ String serverIndex =
 "});"
 "</script>" + style;
 
-
+String serverIndex = 
+"<form name=indexForm>"
+"<h1>"GATEWAY_NAME"</h1><h2>Index</h2>"
+"<input type=button onclick=\"window.open('/serverinfo','_self')\" class=btn value=\"System Information\"><br>"
+"<input type=button onclick=\"window.open('/otaupdate','_self')\" class=btn value=\"OTA Update\">"
+"<br><br><label>by Shogunxam<label></form>" + style ;
 
 OTAWebServer::OTAWebServer()
   :server(80)
@@ -123,15 +117,59 @@ void OTAWebServer::setup(const String& hN, const String& _ssid_, const String& _
     }
   }
   DEBUG_PRINTLN("mDNS responder started");
+
   /*return index page which is stored in serverIndex */
   server.on("/", HTTP_GET, [&]() {
-    server.sendHeader("Connection", "close");
-    server.send(200, "text/html", loginIndex);
-  });
-  server.on("/serverIndex", HTTP_GET, [&]() {
+    if (!server.authenticate(OTA_USER, OTA_PASSWORD)) {
+        return server.requestAuthentication();
+        }
     server.sendHeader("Connection", "close");
     server.send(200, "text/html", serverIndex);
   });
+
+
+  server.on("/otaupdate", HTTP_GET, [&]() {
+    if (!server.authenticate(OTA_USER, OTA_PASSWORD)) {
+        return server.requestAuthentication();
+        }    
+    server.sendHeader("Connection", "close");
+    server.send(200, "text/html", otaUpdate);
+  });
+
+  server.on("/serverinfo", HTTP_GET, [&]() {
+    String serverInfo;
+    serverInfo+="<form name=indexForm>";
+    serverInfo+="<h1>"GATEWAY_NAME"<h1>";
+    serverInfo+="<h2>System Information</h2>";
+    serverInfo+="<table style='width:100%'>";
+    serverInfo+="<tr><th>Program Version<th><td>"VERSION"</td></tr>";
+    std::string uptime = formatMillis(millis());
+    serverInfo+="<tr><th>Uptime<th><td>"; serverInfo+=uptime.c_str(); serverInfo+=+"</td></tr>";
+    serverInfo+="<tr><th>SSID<th><td>"WIFI_SSID"</td></tr>";
+    serverInfo+="</table>";
+    serverInfo+="<br><h2>Devices</h2>";
+    serverInfo+="<table style='width:100%'>";
+    serverInfo+="<tr><th>Device</th><th>RSSI</th><th>Battery</th></tr>";
+
+    for (int i=0;i<NB_OF_BLE_DISCOVERED_DEVICES; i++)
+    {
+      std::ostringstream row;
+      row <<"<tr><td>"<<BLETrackedDevices[i].address.c_str()<<"</td>";
+      row <<"<td>"<<BLETrackedDevices[i].rssi<<"</td>";
+      row <<"<td>"<<BLETrackedDevices[i].batteryLevel<<"</td></tr>";
+      serverInfo += row.str().c_str();
+    }
+    serverInfo +="</table>";
+    serverInfo +="<br><input type=button onclick=\"window.open('/','_self')\" class=btn value=\"Back\">";
+    serverInfo +="<br><br><label>by Shogunxam<label></form>";
+    serverInfo += style + "<style>th,td{text-align:left;}</style>";
+    if (!server.authenticate(OTA_USER, OTA_PASSWORD)) {
+    return server.requestAuthentication();
+    }
+    server.sendHeader("Connection", "close");
+    server.send(200, "text/html", serverInfo);
+  });
+
   /*handling uploading firmware file */
   server.on("/update", HTTP_POST, [&]() {
     server.sendHeader("Connection", "close");
