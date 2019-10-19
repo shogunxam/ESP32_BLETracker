@@ -20,7 +20,7 @@ String style =
 "input{background:#f1f1f1;border:0;padding:0 15px}body{background:#3498db;font-family:sans-serif;font-size:14px;color:#777}"
 "#file-input{padding:0;border:1px solid #ddd;line-height:44px;text-align:left;display:block;cursor:pointer}"
 "#bar,#prgbar{background-color:#f1f1f1;border-radius:10px}#bar{background-color:#3498db;width:0%;height:10px}"
-"form{background:#fff;max-width:258px;margin:75px auto;padding:30px;border-radius:5px;text-align:center}"
+"form{background:#fff;max-width:358px;margin:75px auto;padding:30px;border-radius:5px;text-align:center}"
 ".btn{background:#3498db;color:#fff;cursor:pointer}</style>";
 
 /* Server Index Page */
@@ -149,14 +149,15 @@ void OTAWebServer::setup(const String& hN, const String& _ssid_, const String& _
     serverInfo+="</table>";
     serverInfo+="<br><h2>Devices</h2>";
     serverInfo+="<table style='width:100%'>";
-    serverInfo+="<tr><th>Device</th><th>RSSI</th><th>Battery</th></tr>";
+    serverInfo+="<tr><th>Device</th><th>RSSI</th><th>Battery</th><th>State</th></tr>";
 
     for (int i=0;i<NB_OF_BLE_DISCOVERED_DEVICES; i++)
     {
       std::ostringstream row;
       row <<"<tr><td>"<<BLETrackedDevices[i].address.c_str()<<"</td>";
-      row <<"<td>"<<BLETrackedDevices[i].rssi<<"</td>";
-      row <<"<td>"<<BLETrackedDevices[i].batteryLevel<<"</td></tr>";
+      row <<"<td style=\"text-align:center\">"<<BLETrackedDevices[i].rssi<<"</td>";
+      row <<"<td style=\"text-align:center\">"<<BLETrackedDevices[i].batteryLevel<<"</td>";
+      row <<"<td style=\"text-align:center\">"<<(BLETrackedDevices[i].isDiscovered ? "On": "Off") <<"</td></tr>";
       serverInfo += row.str().c_str();
     }
     serverInfo +="</table>";
