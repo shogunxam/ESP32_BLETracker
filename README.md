@@ -4,6 +4,7 @@ A simple example describing how to track a Bluetooth Low Energy device with an E
 Use [PlatformIO](https://platformio.org/) to build and deploy this application.<br>
 You have to modify the user_config.h file inserting the correct informations to connect to the WiFi and to the MQTT broker.<br>
 The GATEWAY_NAME is used as Client ID to connect to the broker so be sure it's unique.<br>
+The battery level can be read for the devices providing the service 0x180F<br>
 If many devices are discovered the battery level check can be very slow causing frequent Wi-Fi disconnection so that I have introduced a whitelist containing the Mac Address of the devices to check. The whitelist is in the form:<br>
 BLE_BATTERY_WHITELIST       "XXXXXXXXX","YYYYYYYY"<br>
 Mac Addresses have to be uppercase without ":" or "-" i.e "BA683F7EC159"
@@ -20,10 +21,10 @@ A topic for each item returned by the advertised device:<br>
 A topic with helpfull system information:<br>
 &lt;LOCATION&gt;/&lt;GATEWAY_NAME&gt;/&lt;BLE_ADDRESS&gt;/sysinfo, payload: { "uptime":&lt;timesinceboot&gt;,"version":&lt;versionnumber&gt;,"SSID":&lt;WiFiSSID&gt;,"IP":&lt;ipnumber&gt;}
 
-### OTA Update
-Since version 1.3 it's possible update the firmware using the web server integrated in the BLETracker.<br>
-Simply acces the device inside a browser using its ip or networkname and choose the .bin file to upload.<br>
-Default user and password are:<br>
+### WEB Server
+A WEB server is integrated into the BLETracker, it can be accessed using a web browser and the ip or the network name of the traker.<br>
+The WEB server can be used to see some system informations and to update the firmware using an OTA Update, simply choosing the .bin file to upload.<br>
+Default credential to access the WEB Server are:<br>
 user: admin<br>
 password: admin<br>
 
