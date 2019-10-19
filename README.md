@@ -23,7 +23,7 @@ A topic with helpfull system information:<br>
 
 ### WEB Server
 A WEB server is integrated into the BLETracker, it can be accessed using a web browser and the ip or the network name of the traker.<br>
-The WEB server can be used to see some system informations and to update the firmware using an OTA Update, simply choosing the .bin file to upload.<br>
+The WEB server can be used to see some system informations and to update the firmware using an **OTA Update**, simply choosing the .bin file to upload.<br>
 Default credential to access the WEB Server are:<br>
 user: admin<br>
 password: admin<br>
