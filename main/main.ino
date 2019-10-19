@@ -38,6 +38,7 @@ typedef struct
   bool advertised;  //TRUE if the device is just advertised
   bool hasBatteryService;//Used to avoid coonections with BLE without battery service
   int connectionRetry;//Number of retries if connection with teh device fails
+  esp_ble_addr_type_t addressType;
 } BLETrackedDevice;
 
 
@@ -188,6 +189,7 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
       NB_OF_BLE_DISCOVERED_DEVICES = NB_OF_BLE_DISCOVERED_DEVICES + 1;
       BLETrackedDevices[NB_OF_BLE_DISCOVERED_DEVICES - 1].advertised = true;
       BLETrackedDevices[NB_OF_BLE_DISCOVERED_DEVICES - 1].address = address;
+      BLETrackedDevices[NB_OF_BLE_DISCOVERED_DEVICES - 1].addressType =  advertisedDevice.getAddressType();
       BLETrackedDevices[NB_OF_BLE_DISCOVERED_DEVICES - 1].isDiscovered = true;
       BLETrackedDevices[NB_OF_BLE_DISCOVERED_DEVICES - 1].lastDiscovery = millis();
       BLETrackedDevices[NB_OF_BLE_DISCOVERED_DEVICES - 1].lastBattMeasure = 0;
@@ -248,7 +250,7 @@ void batteryTask()
           || BLETrackedDevices[i].lastBattMeasure == 0 ))
     {
       DEBUG_PRINTF("\nReading Battery level for %s: Retries: %d\n",BLETrackedDevices[i].address.c_str(), BLETrackedDevices[i].connectionRetry);
-      bool connectionExtabilished = batteryLevel(BLETrackedDevices[i].address, BLETrackedDevices[i].batteryLevel, BLETrackedDevices[i].hasBatteryService);
+      bool connectionExtabilished = batteryLevel(BLETrackedDevices[i].address,BLETrackedDevices[i].addressType, BLETrackedDevices[i].batteryLevel, BLETrackedDevices[i].hasBatteryService);
       if(connectionExtabilished || !BLETrackedDevices[i].hasBatteryService)
       {
           log_i("Device %s has battery service: %s", BLETrackedDevices[i].address.c_str(), BLETrackedDevices[i].hasBatteryService?"YES":"NO");
@@ -269,7 +271,7 @@ void batteryTask()
  //DEBUG_PRINTF("\n*** Memory after battery scan: %u\n",xPortGetFreeHeapSize());
 }
 
-bool batteryLevel(const String &address, int &battLevel, bool &hasBatteryService)
+bool batteryLevel(const String &address, esp_ble_addr_type_t addressType, int &battLevel, bool &hasBatteryService)
 {
   log_i(">> ------------------batteryLevel----------------- ");
   bool bleconnected;
@@ -294,7 +296,8 @@ bool batteryLevel(const String &address, int &battLevel, bool &hasBatteryService
 
   // Connect to the remote BLE Server.
   bool result = false;
-  bleconnected = pClient->connect(bleAddress, BLE_ADDR_TYPE_RANDOM);
+  
+  bleconnected = pClient->connect(bleAddress, addressType);
   if (bleconnected)
   {
     log_i("Connected to server");
