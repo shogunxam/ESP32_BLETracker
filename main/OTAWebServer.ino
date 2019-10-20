@@ -91,6 +91,7 @@ void OTAWebServer::setup(const String& hN, const String& _ssid_, const String& _
   ssid = _ssid_;
   password =_password_;
 
+  DEBUG_PRINTLN("WebServer Setup");
   if (WiFi.status() != WL_CONNECTED)
   {
     // Connect to WiFi network
@@ -99,7 +100,7 @@ void OTAWebServer::setup(const String& hN, const String& _ssid_, const String& _
 
     // Wait for connection
     while (WiFi.status() != WL_CONNECTED) {
-      delay(1000);
+      delay(500);
       DEBUG_PRINT(".");
     }
   }
@@ -211,7 +212,7 @@ void WebServerLoop(void* param)
   while(true)
   {
       server->handleClient();
-      delay(500);
+      delay(1000);
   }
 }
 
