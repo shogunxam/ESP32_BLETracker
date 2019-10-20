@@ -14,12 +14,17 @@
 #define MQTT_SERVER       "YOUR_MQTT_SERVER_IP_ADDRESS"
 #define MQTT_SERVER_PORT  1883
 
-#define OTA_USER    "admin"
-#define OTA_PASSWORD "admin"
+#define WEBSERVER_USER        "admin"
+#define WEBSERVER_PASSWORD    "admin"
 
-//List of MAC Address devices for which to return the battery level
-//Mac Addresses are in the form "A6B5C4D3E2F1" and coma separated
-//Undef or comment this line to check all the advertised devices
+//List of devices you want track
+//Replace using correct MAC Address values or undef/comment to track all the advertised devices
+//Mac Addresses are in the form "A6B5C4D3E2F1" (uppercase and no separator) and coma separated
+//#define BLE_TRACKER_WHITELIST  "A6B5C4D3E2F1","F6E5D4C3B2A1","54FA8BC0467C"
+
+//List of devices for which you want to know the battery level.
+//Replace using correct MAC Address values or undef/comment to read the battery level of all the tracked devices
+//Mac Addresses are in the form "A6B5C4D3E2F1" (uppercase and no separator) and coma separated
 #define BLE_BATTERY_WHITELIST  "A6B5C4D3E2F1","F6E5D4C3B2A1"
 
 #endif

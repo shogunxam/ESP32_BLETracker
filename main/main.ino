@@ -41,8 +41,13 @@ WiFiClient wifiClient;
 PubSubClient mqttClient(wifiClient);
 
 #ifdef BLE_BATTERY_WHITELIST
-std::vector<String> bleWhiteList = {BLE_BATTERY_WHITELIST};
+std::vector<String> bleBatteryWhiteList = {BLE_BATTERY_WHITELIST};
 #endif
+
+#ifdef BLE_TRACKER_WHITELIST
+std::vector<String> bleTrackerWhiteList = {BLE_TRACKER_WHITELIST};
+#endif
+
 
 #define SYS_INFORMATION_DELAY 120000 /*2 minutes*/
 unsigned long lastSySInfoTime = 0;
@@ -134,6 +139,18 @@ void IRAM_ATTR resetModule()
   esp_restart();
 }
 
+bool InWhiteList(const String& value, const std::vector<String>& whiteList)
+{
+    bool inWhiteList=false;
+    for(uint8_t j =0; j < whiteList.size();j++)
+        if(value == whiteList[j])
+        {
+          inWhiteList = true;
+          break;
+        }
+    return inWhiteList;
+}
+
 ///////////////////////////////////////////////////////////////////////////
 //   BLUETOOTH
 ///////////////////////////////////////////////////////////////////////////
@@ -146,6 +163,12 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
     String address(std_address.c_str());
     address.replace(":", "");
     address.toUpperCase();
+
+    #ifdef BLE_TRACKER_WHITELIST
+    if(!InWhiteList(address,bleTrackerWhiteList))
+      return;
+    #endif
+
     int RSSI = advertisedDevice.getRSSI();
     for (uint8_t i = 0; i < NB_OF_BLE_DISCOVERED_DEVICES; i++)
     {
@@ -218,17 +241,10 @@ void batteryTask()
   
   for (uint8_t i = 0; i < NB_OF_BLE_DISCOVERED_DEVICES; i++)
   {
-      #ifdef BLE_BATTERY_WHITELIST
-      bool inWhiteList=false;
-      for(uint8_t j =0; j < bleWhiteList.size();j++)
-          if(BLETrackedDevices[i].address == bleWhiteList[j])
-          {
-            inWhiteList = true;
-            break;
-          }
-      if(!inWhiteList)
-        continue;
-      #endif
+    #ifdef BLE_BATTERY_WHITELIST
+    if(!InWhiteList(BLETrackedDevices[i].address,bleBatteryWhiteList))
+      continue;
+    #endif
 
     //We need to connect to the device to read the battery value
     //So that we check only the device really advertised by the scan
@@ -413,6 +429,7 @@ void publishSySInfo()
   payload << "{ \"uptime\":\"" << formatMillis(millis()) << "\",\"version\":" << VERSION << ",\"SSID\":\"" << WIFI_SSID << "\", \"IP\":\"" << IP << "\"}";
   publishToMQTT(sysTopic.c_str(), payload.str().c_str(), false);
 }
+
 
 void loop()
 {

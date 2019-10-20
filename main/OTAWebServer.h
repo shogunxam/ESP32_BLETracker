@@ -13,5 +13,6 @@ class OTAWebServer
         String hostName;
         String ssid;
         String password;
+        bool serverRunning;
 };
 #endif /*OTA_WEB_SERVER*/
