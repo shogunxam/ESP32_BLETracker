@@ -77,6 +77,7 @@ String serverIndex =
 
 OTAWebServer::OTAWebServer()
   :server(80)
+  ,serverRunning(false)
 {
 
 }
@@ -90,6 +91,7 @@ void OTAWebServer::setup(const String& hN, const String& _ssid_, const String& _
   ssid = _ssid_;
   password =_password_;
 
+  DEBUG_PRINTLN("WebServer Setup");
   if (WiFi.status() != WL_CONNECTED)
   {
     // Connect to WiFi network
@@ -120,7 +122,7 @@ void OTAWebServer::setup(const String& hN, const String& _ssid_, const String& _
 
   /*return index page which is stored in serverIndex */
   server.on("/", HTTP_GET, [&]() {
-    if (!server.authenticate(OTA_USER, OTA_PASSWORD)) {
+    if (!server.authenticate(WEBSERVER_USER, WEBSERVER_PASSWORD)) {
         return server.requestAuthentication();
         }
     server.sendHeader("Connection", "close");
@@ -129,7 +131,7 @@ void OTAWebServer::setup(const String& hN, const String& _ssid_, const String& _
 
 
   server.on("/otaupdate", HTTP_GET, [&]() {
-    if (!server.authenticate(OTA_USER, OTA_PASSWORD)) {
+    if (!server.authenticate(WEBSERVER_USER, WEBSERVER_PASSWORD)) {
         return server.requestAuthentication();
         }    
     server.sendHeader("Connection", "close");
@@ -164,7 +166,9 @@ void OTAWebServer::setup(const String& hN, const String& _ssid_, const String& _
     serverInfo +="<br><input type=button onclick=\"window.open('/','_self')\" class=btn value=\"Back\">";
     serverInfo +="<br><br><label>by Shogunxam<label></form>";
     serverInfo += style + "<style>th,td{text-align:left;}</style>";
-    if (!server.authenticate(OTA_USER, OTA_PASSWORD)) {
+
+    serverInfo +="<script>function timedRefresh(timeoutPeriod){setTimeout(\"location.reload(true);\",timeoutPeriod);}window.onload = timedRefresh(5000);</script>";
+    if (!server.authenticate(WEBSERVER_USER, WEBSERVER_PASSWORD)) {
     return server.requestAuthentication();
     }
     server.sendHeader("Connection", "close");
@@ -199,8 +203,33 @@ void OTAWebServer::setup(const String& hN, const String& _ssid_, const String& _
   server.begin();
 }
 
+void WebServerLoop(void* param)
+{
+  if (param == NULL)
+    return;
+
+  WebServer* server = (WebServer* ) param;
+  while(true)
+  {
+      server->handleClient();
+      delay(1000);
+  }
+}
+
 void OTAWebServer::loop(void) {
-  server.handleClient();
-  delay(1);
+
+  if(serverRunning)
+    return;
+
+  xTaskCreatePinnedToCore(
+  WebServerLoop,               /* Function to implement the task */
+  "WebServerLoop",              /* Name of the task */
+  10000,                   /* Stack size in words */
+  (void*)&server,         /* Task input parameter */
+  20,                      /* Priority of the task */
+  NULL,                    /* Task handle. */
+  1);
+
+  serverRunning = true;
 }
 #endif /*ENABLE_OTA_WEBSERVER*/
