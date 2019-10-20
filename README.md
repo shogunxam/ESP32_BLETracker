@@ -1,9 +1,10 @@
 # ESP32 BLETracker
 A simple example describing how to track a Bluetooth Low Energy device with an ESP32, the MQTT protocol and Home Assistant. Please note that the targeted device can't have a changing BLE address (normally called random instead of public address).  
 
-Use [PlatformIO](https://platformio.org/) to build and deploy this application.<br>
+Use [PlatformIO](https://platformio.org/) to build and deploy this application, remember to install [git](https://git-scm.com/downloads) in order to allow PlatformIO to download automatically all the required dependencies.<br>
 You have to modify the user_config.h file inserting the correct informations to connect to the WiFi and to the MQTT broker.<br>
 The GATEWAY_NAME is used as Client ID to connect to the broker so be sure it's unique.<br>
+The battery level can be read from the devices providing the Battery Service (0x180F) and the Battery Level characteristic (0x2A19), check the avaiability using a nRF Sniffer i.e. [nRF Connect](https://play.google.com/store/apps/details?id=no.nordicsemi.android.mcp)<br>
 If many devices are discovered the battery level check can be very slow causing frequent Wi-Fi disconnection so that I have introduced a whitelist containing the Mac Address of the devices to check. The whitelist is in the form:<br>
 BLE_BATTERY_WHITELIST       "XXXXXXXXX","YYYYYYYY"<br>
 Mac Addresses have to be uppercase without ":" or "-" i.e "BA683F7EC159"
@@ -16,20 +17,23 @@ A single topic with the palyload in JSON format containing all the items retrune
 A topic for each item returned by the advertised device:<br>
 &lt;LOCATION&gt;/&lt;GATEWAY_NAME&gt;/&lt;BLE_ADDRESS&gt;/state payload: &lt;"on"|"off"&gt;<br>
 &lt;LOCATION&gt;/&lt;GATEWAY_NAME&gt;/&lt;BLE_ADDRESS&gt;/rssi payload: &lt;dBvalue&gt;<br>
-&lt;LOCATION&gt;/&lt;GATEWAY_NAME&gt;/&lt;BLE_ADDRESS&gt;/battery payload: &lt;batterylevel&gt;<br>
-&lt;LOCATION&gt;/&lt;GATEWAY_NAME&gt;/&lt;BLE_ADDRESS&gt;/sysinfo, payload: { "uptime":&lt;timesinceboot&gt;,"version":&lt;versionnumber&gt;,"SSID":&lt;WiFiSSID&gt;}
+&lt;LOCATION&gt;/&lt;GATEWAY_NAME&gt;/&lt;BLE_ADDRESS&gt;/battery payload: &lt;batterylevel&gt;<br><br>
+A topic with helpfull system information:<br>
+&lt;LOCATION&gt;/&lt;GATEWAY_NAME&gt;/&lt;BLE_ADDRESS&gt;/sysinfo, payload: { "uptime":&lt;timesinceboot&gt;,"version":&lt;versionnumber&gt;,"SSID":&lt;WiFiSSID&gt;,"IP":&lt;ipnumber&gt;}
 
-### OTA Update
-Since version 1.3 it's possible update the firmware using the web server integrated in the BLETracker.<br>
-Simply acces the device inside a browser using its ip or networkname and choose the .bin file to upload.<br>
-Default user and password are:<br>
+### WEB Server
+A WEB server is integrated into the BLETracker, it can be accessed using a web browser and the ip or the network name of the traker.<br>
+The WEB server can be used to see some system informations and to update the firmware using an **OTA Update**, simply choosing the .bin file to upload.<br>
+Default credential to access the WEB Server are:<br>
 user: admin<br>
 password: admin<br>
 
 # Arduino IDE Notes
 You can build this skatch using Arduino IDE, but be sure to install the required dependencies:<br>
+* You have to install the esp32 Board in Arduino IDE. You can find a tutorial following this [link]( https://randomnerdtutorials.com/installing-the-esp32-board-in-arduino-ide-windows-instructions/)
 * You have to install the library PubSubClient v2.7
-* You have to replace the BLE library provided by arduino-esp32 with this one https://github.com/shogunxam/ESP32-BLE-Arduino. The libray to replace should be located in the folder ~/.arduino15/packages/esp32/hardware/esp32/x.x.x/libraries/BLE for Unix users and in C:\Users\YourUserName\AppData\Local\Arduino15\packages\esp32\hardware\esp32\x.x.x\libraries\BLE for Windows users
+* You have to replace the BLE library provided by arduino-esp32 with this one https://github.com/shogunxam/ESP32-BLE-Arduino. The libray to replace should be located in the folder ~/.arduino15/packages/esp32/hardware/esp32/x.x.x/libraries/BLE for Unix users and in C:\Users\YourUserName\AppData\Local\Arduino15\packages\esp32\hardware\esp32\x.x.x\libraries\BLE for Windows users<br>
+Build using the *Minimal SPIFFS* partition schema
 
 # Home Assistant integration
 This is a simple example of a package to manage a Nut Traker device.<br>

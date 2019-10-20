@@ -1,6 +1,9 @@
+#include "main.h"
+
 #include <BLEDevice.h>
 #include <WiFi.h>
 #include <sstream>
+#include <iomanip>
 
 #include "config.h"
 
@@ -26,19 +29,6 @@
 #include "OTAWebServer.h"
 #endif
 
-typedef struct
-{
-  String address;
-  char rssi[4];
-  bool isDiscovered;
-  long lastDiscovery;
-  long lastBattMeasure;
-  int batteryLevel;
-  bool advertised;  //TRUE if the device is just advertised
-  bool hasBatteryService;//Used to avoid coonections with BLE without battery service
-  int connectionRetry;//Number of retries if connection with teh device fails
-} BLETrackedDevice;
-
 
 char _printbuffer_[256];
 
@@ -54,7 +44,6 @@ PubSubClient mqttClient(wifiClient);
 std::vector<String> bleWhiteList = {BLE_BATTERY_WHITELIST};
 #endif
 
-#define VERSION "1.4"
 #define SYS_INFORMATION_DELAY 120000 /*2 minutes*/
 unsigned long lastSySInfoTime = 0;
 
@@ -187,6 +176,7 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
       NB_OF_BLE_DISCOVERED_DEVICES = NB_OF_BLE_DISCOVERED_DEVICES + 1;
       BLETrackedDevices[NB_OF_BLE_DISCOVERED_DEVICES - 1].advertised = true;
       BLETrackedDevices[NB_OF_BLE_DISCOVERED_DEVICES - 1].address = address;
+      BLETrackedDevices[NB_OF_BLE_DISCOVERED_DEVICES - 1].addressType =  advertisedDevice.getAddressType();
       BLETrackedDevices[NB_OF_BLE_DISCOVERED_DEVICES - 1].isDiscovered = true;
       BLETrackedDevices[NB_OF_BLE_DISCOVERED_DEVICES - 1].lastDiscovery = millis();
       BLETrackedDevices[NB_OF_BLE_DISCOVERED_DEVICES - 1].lastBattMeasure = 0;
@@ -247,7 +237,7 @@ void batteryTask()
           || BLETrackedDevices[i].lastBattMeasure == 0 ))
     {
       DEBUG_PRINTF("\nReading Battery level for %s: Retries: %d\n",BLETrackedDevices[i].address.c_str(), BLETrackedDevices[i].connectionRetry);
-      bool connectionExtabilished = batteryLevel(BLETrackedDevices[i].address, BLETrackedDevices[i].batteryLevel, BLETrackedDevices[i].hasBatteryService);
+      bool connectionExtabilished = batteryLevel(BLETrackedDevices[i].address,BLETrackedDevices[i].addressType, BLETrackedDevices[i].batteryLevel, BLETrackedDevices[i].hasBatteryService);
       if(connectionExtabilished || !BLETrackedDevices[i].hasBatteryService)
       {
           log_i("Device %s has battery service: %s", BLETrackedDevices[i].address.c_str(), BLETrackedDevices[i].hasBatteryService?"YES":"NO");
@@ -268,7 +258,7 @@ void batteryTask()
  //DEBUG_PRINTF("\n*** Memory after battery scan: %u\n",xPortGetFreeHeapSize());
 }
 
-bool batteryLevel(const String &address, int &battLevel, bool &hasBatteryService)
+bool batteryLevel(const String &address, esp_ble_addr_type_t addressType, int &battLevel, bool &hasBatteryService)
 {
   log_i(">> ------------------batteryLevel----------------- ");
   bool bleconnected;
@@ -293,7 +283,8 @@ bool batteryLevel(const String &address, int &battLevel, bool &hasBatteryService
 
   // Connect to the remote BLE Server.
   bool result = false;
-  bleconnected = pClient->connect(bleAddress, BLE_ADDR_TYPE_RANDOM);
+  
+  bleconnected = pClient->connect(bleAddress, addressType);
   if (bleconnected)
   {
     log_i("Connected to server");
@@ -399,22 +390,32 @@ void publishBLEState(String address, const char *state, const char *rssi, int ba
 #endif
 }
 
+std::string formatMillis(unsigned long milliseconds)
+{
+  unsigned long seconds = milliseconds / 1000;
+  unsigned long minutes = seconds / 60;
+  unsigned long hours = minutes / 60;
+  unsigned long days = hours / 24;
+  std::ostringstream ostime;
+  ostime << days << "." << std::setfill('0') << std::setw(2) << (hours % 24) << ":"
+                        << std::setfill('0') << std::setw(2) << (minutes % 60) << ":" 
+                        << std::setfill('0') << std::setw(2) << (seconds % 60);
+  return ostime.str();
+}
+
 void publishSySInfo()
 {
   String baseTopic = MQTT_BASE_SENSOR_TOPIC;
   String sysTopic = baseTopic + "/sysinfo";
   std::ostringstream payload;
-  payload << "{ \"uptime\":\"" << millis() << "\",\"version\":" << VERSION << ",\"SSID\":\"" << WIFI_SSID << "\"}";
+  std::string IP = WiFi.localIP().toString().c_str();
+
+  payload << "{ \"uptime\":\"" << formatMillis(millis()) << "\",\"version\":" << VERSION << ",\"SSID\":\"" << WIFI_SSID << "\", \"IP\":\"" << IP << "\"}";
   publishToMQTT(sysTopic.c_str(), payload.str().c_str(), false);
 }
 
 void loop()
 {
-  if (lastSySInfoTime == 0)
-  {
-    lastSySInfoTime = millis();
-  }
-
   #if ENABLE_OTA_WEBSERVER
   webserver.loop();
   #endif
@@ -428,7 +429,7 @@ void loop()
 
   if (NB_OF_BLE_DISCOVERED_DEVICES > 90)
   {
-    DEBUG_PRINTLN("INFO: Riavvio perché ho finito l'array\n");
+    DEBUG_PRINTLN("INFO: Restart because the array is eneded\n");
     esp_restart();
   }
 
@@ -466,7 +467,7 @@ void loop()
   }
 
   //System Information
-  if ((lastSySInfoTime + SYS_INFORMATION_DELAY) < millis())
+  if (((lastSySInfoTime + SYS_INFORMATION_DELAY) < millis()) || (lastSySInfoTime == 0) )
   {
     publishSySInfo();
     lastSySInfoTime = millis();
