@@ -98,10 +98,17 @@ void OTAWebServer::setup(const String& hN, const String& _ssid_, const String& _
     WiFi.begin(ssid.c_str(), password.c_str());
     DEBUG_PRINTLN("");
 
+    unsigned long timeout = millis() + WIFI_CONNECTION_TIME_OUT;
     // Wait for connection
     while (WiFi.status() != WL_CONNECTED) {
       delay(500);
       DEBUG_PRINT(".");
+
+      if(millis() > timeout)
+      {
+        DEBUG_PRINTLN("Failed connecting to the network: timeout error!!!");
+        esp_restart();
+      }
     }
   }
 

@@ -4,12 +4,22 @@
 //  CONFIGURATION - SOFTWARE
 ///////////////////////////////////////////////////////////////////////////
 
-#include "user_config.h"
+#include "user_config_custom.h"
 
+//Scanninf to discover devices is performed every BLE_SCANNING_PERIOD seconds
 #define BLE_SCANNING_PERIOD   10    /*10 s*/
-#define MAX_NON_ADV_PERIOD    120000 /*2m*/
-#define MAX_BATTERY_READ_PERIOD    3600000 /*1h*/
-//Retries to read the battery level if connections fails before to give up until MAX_BATTERY_READ_PERIOD expires
+
+//If the device is not advertides for MAX_NON_ADV_PERIOD milliseconds it's considered away
+#define MAX_NON_ADV_PERIOD    120000 /*2m -> 2m*60s*1000milli*/
+
+//The device's battery is read every BATTERY_READ_PERIOD milliseconds
+//If the battery value's is not read after BATTERY_READ_PERIOD it becomes unknown
+#define BATTERY_READ_PERIOD    43200000 /*12h -> 12h*60m*60s*1000milli*/
+
+//In case of failure reading the battery's value we retry after BATTERY_RETRY_PERIOD milliseconds
+#define BATTERY_RETRY_PERIOD    3600000 /*1h -> 60m*60s*1000milli*/
+
+//Retries to read the battery level if connections fails before to give up until BATTERY_RETRY_PERIOD expires
 #define MAX_BLE_CONNECTION_RETRIES 3
 // Location of the BLE scanner
 
@@ -34,5 +44,7 @@
 #define PUBLISH_BATTERY_LEVEL       true
 
 #define ENABLE_OTA_WEBSERVER    true
+
+#define WIFI_CONNECTION_TIME_OUT  30000 /*30 seconds*/
 
 #endif /*CONFIG_ESP32_BLETRACKER*/
