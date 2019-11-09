@@ -5,7 +5,7 @@
 #include <sstream>
 #include <iomanip>
 
-#define VERSION "1.5"
+#define VERSION "1.6R"
 
 typedef struct
 {

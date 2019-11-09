@@ -94,10 +94,16 @@ void connectToMQTT()
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
     randomSeed(micros());
 
+    unsigned long timeout = millis() + WIFI_CONNECTION_TIME_OUT;
     while (WiFi.status() != WL_CONNECTED)
     {
       DEBUG_PRINTF(".",nullptr);
       delay(500);
+      if(millis() > timeout)
+      {
+        DEBUG_PRINTLN("Failed connecting to the network: timeout error!!!");
+        esp_restart();
+      }
     }
 
     DEBUG_PRINTF("Connected to WiFi. Current IP: %s\n",WiFi.localIP().toString().c_str());
@@ -194,6 +200,7 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
       }
     }
 
+    //This is a new edvice...
     if (!findedAdvertisedDevice)
     {
       NB_OF_BLE_DISCOVERED_DEVICES = NB_OF_BLE_DISCOVERED_DEVICES + 1;
@@ -248,9 +255,15 @@ void batteryTask()
 
     //We need to connect to the device to read the battery value
     //So that we check only the device really advertised by the scan
+    unsigned long BatteryReadTimeout  = BLETrackedDevices[i].lastBattMeasure + BATTERY_READ_PERIOD;
+    unsigned long BatteryRetryTimeout = BLETrackedDevices[i].lastBattMeasure + BATTERY_RETRY_PERIOD;
+    unsigned long now = millis();
     if (BLETrackedDevices[i].advertised && BLETrackedDevices[i].hasBatteryService &&
-        ((BLETrackedDevices[i].lastBattMeasure + MAX_BATTERY_READ_PERIOD) < millis() 
-          || BLETrackedDevices[i].lastBattMeasure == 0 ))
+        (
+          (BLETrackedDevices[i].batteryLevel >  0 && (BatteryReadTimeout  < now))  ||
+          (BLETrackedDevices[i].batteryLevel <= 0 && (BatteryRetryTimeout < now)) ||
+          (BLETrackedDevices[i].lastBattMeasure == 0 )
+        ))
     {
       DEBUG_PRINTF("\nReading Battery level for %s: Retries: %d\n",BLETrackedDevices[i].address.c_str(), BLETrackedDevices[i].connectionRetry);
       bool connectionExtabilished = batteryLevel(BLETrackedDevices[i].address,BLETrackedDevices[i].addressType, BLETrackedDevices[i].batteryLevel, BLETrackedDevices[i].hasBatteryService);
@@ -258,7 +271,7 @@ void batteryTask()
       {
           log_i("Device %s has battery service: %s", BLETrackedDevices[i].address.c_str(), BLETrackedDevices[i].hasBatteryService?"YES":"NO");
           BLETrackedDevices[i].connectionRetry=0;
-          BLETrackedDevices[i].lastBattMeasure = millis();
+          BLETrackedDevices[i].lastBattMeasure = now;
       }
       else
       {
@@ -266,9 +279,15 @@ void batteryTask()
         if(BLETrackedDevices[i].connectionRetry >= MAX_BLE_CONNECTION_RETRIES)
         {
           BLETrackedDevices[i].connectionRetry=0;
-          BLETrackedDevices[i].lastBattMeasure = millis();
+          BLETrackedDevices[i].lastBattMeasure = now;
         }
       }
+    }
+    else  if(BatteryReadTimeout < now )
+    {
+      //Here we preserve the lastBattMeasure time to trigger a new read
+      //when the device will be advertised again
+      BLETrackedDevices[i].batteryLevel = -1;
     }
   }
  //DEBUG_PRINTF("\n*** Memory after battery scan: %u\n",xPortGetFreeHeapSize());
@@ -479,7 +498,7 @@ void loop()
     }
     else
     {
-      publishBLEState(BLETrackedDevices[i].address, MQTT_PAYLOAD_OFF, "-100", -1);
+      publishBLEState(BLETrackedDevices[i].address, MQTT_PAYLOAD_OFF, "-100", BLETrackedDevices[i].batteryLevel);
     }
   }
 

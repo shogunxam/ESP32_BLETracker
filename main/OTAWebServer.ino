@@ -98,10 +98,17 @@ void OTAWebServer::setup(const String& hN, const String& _ssid_, const String& _
     WiFi.begin(ssid.c_str(), password.c_str());
     DEBUG_PRINTLN("");
 
+    unsigned long timeout = millis() + WIFI_CONNECTION_TIME_OUT;
     // Wait for connection
     while (WiFi.status() != WL_CONNECTED) {
       delay(500);
       DEBUG_PRINT(".");
+
+      if(millis() > timeout)
+      {
+        DEBUG_PRINTLN("Failed connecting to the network: timeout error!!!");
+        esp_restart();
+      }
     }
   }
 
@@ -144,7 +151,7 @@ void OTAWebServer::setup(const String& hN, const String& _ssid_, const String& _
     serverInfo+="<h1>"GATEWAY_NAME"<h1>";
     serverInfo+="<h2>System Information</h2>";
     serverInfo+="<table style='width:100%'>";
-    serverInfo+="<tr><th>Program Version<th><td>"VERSION"</td></tr>";
+    serverInfo+="<tr><th>Firmware Version<th><td>"VERSION"</td></tr>";
     std::string uptime = formatMillis(millis());
     serverInfo+="<tr><th>Uptime<th><td>"; serverInfo+=uptime.c_str(); serverInfo+=+"</td></tr>";
     serverInfo+="<tr><th>SSID<th><td>"WIFI_SSID"</td></tr>";
@@ -153,6 +160,7 @@ void OTAWebServer::setup(const String& hN, const String& _ssid_, const String& _
     serverInfo+="<table style='width:100%'>";
     serverInfo+="<tr><th>Device</th><th>RSSI</th><th>Battery</th><th>State</th></tr>";
 
+    //Perhaps we need a mutex here to protect BLETrackedDevices but we are in readonly mode
     for (int i=0;i<NB_OF_BLE_DISCOVERED_DEVICES; i++)
     {
       std::ostringstream row;
