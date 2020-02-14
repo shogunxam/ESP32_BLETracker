@@ -1,0 +1,132 @@
+###################################################
+#Sensors
+sensor:
+  #####UPSTAIR
+- platform: mqtt
+  state_topic: 'home/BLETracker2/<MAC-ADDRESS>'
+  name: 'bt_beacon_upstairs_state' 
+  value_template: "{{ value_json.state }}"
+  expire_after: 120 
+  force_update: true
+- platform: mqtt
+  state_topic: 'home/BLETracker2/<MAC-ADDRESS>'
+  name: 'bt_beacon_upstairs_battery' 
+  value_template: "{{ value_json.battery }}"
+  force_update: true  
+  #####DOWNSTAIR
+- platform: mqtt
+  state_topic: 'home/BLETracker1/<MAC-ADDRESS>'
+  name: 'bt_beacon_downstairs_state' 
+  value_template: "{{ value_json.state }}"
+  expire_after: 120
+  force_update: true
+- platform: mqtt
+  state_topic: 'home/BLETracker1/<MAC-ADDRESS>'
+  name: 'bt_beacon_downstairs_battery' 
+  value_template: "{{ value_json.battery }}"  
+#####Battery Sensors
+- platform: template
+  sensors:
+    bt_beacon_battery:
+      unit_of_measurement: '%'
+      value_template: >
+          {% if (is_state('sensor.bt_beacon_upstairs_battery', 'unknown') or is_state('sensor.bt_beacon_upstairs_battery', '-1')) and
+            (is_state('sensor.bt_beacon_downstairs_battery', 'unknown') or is_state('sensor.bt_beacon_downstairs_battery', '-1')) %}
+            unknown
+          {% elif is_state('sensor.bt_beacon_upstairs_battery', 'unknown') or is_state('sensor.bt_beacon_upstairs_battery', '-1') %}
+            {{ states('sensor.bt_beacon_downstairs_battery') |int }}
+          {% elif is_state('sensor.bt_beacon_downstairs_battery', 'unknown') or is_state('sensor.bt_beacon_downstairs_battery', '-1') %}
+            {{ states('sensor.bt_beacon_upstairs_battery') |int }}
+          {% else %}
+            {% set values =states('sensor.bt_beacon_upstairs_battery')|int, states('sensor.bt_beacon_downstairs_battery')|int %}
+            {{ values | min}}
+          {% endif %}
+      icon_template: >
+        {% set battery_level = states.sensor.bt_beacon_battery.state|default(0)|int %}
+        {% set battery_round = (battery_level / 10) |int * 10 %}
+        {% if battery_round >= 100 %}
+          mdi:battery
+        {% elif battery_round > 0 %}
+          mdi:battery-{{ battery_round }}
+        {% else %}
+          mdi:battery-alert
+        {% endif %}
+
+###################################################
+#Binary Sensors
+
+binary_sensor:
+- platform: template
+  sensors:
+    ble_tracker_beacon:
+      friendly_name: 'ble_tracker_beacon'
+      value_template: >
+        {% if (is_state('sensor.bt_beacon_upstairs_state', 'unknown') or is_state('sensor.bt_beacon_upstairs_state', 'off')) and 
+              (is_state('sensor.bt_beacon_downstairs_state', 'unknown') or is_state('sensor.bt_beacon_downstairs_state', 'off')) %}
+          false
+        {% else %}
+          true
+        {% endif %}
+      device_class: presence
+      delay_off: 
+        minutes: 1
+
+########Check gateway status
+- platform: mqtt
+  name: BLETracker1_state
+  state_topic: 'home/BLETracker1/LWT'
+  payload_on: "online"
+  payload_off: "offline"
+  device_class: "connectivity"
+
+- platform: mqtt
+  name: BLETracker2_state
+  state_topic: 'home/BLETracker2/LWT'
+  payload_on: "online"
+  payload_off: "offline"
+  device_class: "connectivity"  
+
+automation:
+- id: notify_BLETracker1_state
+  alias: Notifica BLETracker1 offline
+  initial_state: true
+  trigger:
+  - platform: state
+    entity_id: binary_sensor.BLETracker1_state
+    to: 'off'
+    for:
+      minutes: 5 
+  action:
+  - service: notify.telegram_mario
+    data:
+      title: BLETracker
+      message: "Gateway 1 offline"
+
+- id: notify_BLETracker2_state
+  alias: Notifica BLETracker2 offline
+  initial_state: true
+  trigger:
+  - platform: state
+    entity_id: binary_sensor.BLETracker2_state
+    to: 'off'
+    for:
+      minutes: 5
+  action:
+  - service: notify.telegram_mario
+    data:
+      title: BLETracker
+      message: "Gateway 2 offline"
+
+- id: notify_beacon_battery
+  alias: Notifica Batteria Nut Mario
+  initial_state: true
+  trigger:
+  - platform: template
+    value_template: >
+      {{ ((states.sensor.bt_beacon_battery.state | int ) <= 20 ) and ( states.sensor.bt_beacon_battery.state != 'unknown') and ( states.sensor.bt_beacon_battery.state | int > 0) }}
+  action:
+  - service: notify.telegram
+    data_template:
+      title: BLETracker
+      message: "Nut Mario al {{states.sensor.bt_beacon_battery.state}}%"
+

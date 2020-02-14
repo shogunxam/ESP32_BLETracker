@@ -139,6 +139,22 @@ automation:
       message: "Nut battery at {{states.sensor.bt_nut_battery.state}}%"
 
 ```
+Alternatively you can use the single topic returning the state in the following way:
+``` 
+- platform: mqtt
+  name: "bt_nut_upstairs_stat"
+  state_topic: "home/BLETracker/XXXXXXXXXXXX/state"
+  availability_topic: "home/BLETracker/LWT"
+  expire_after: 300
+  value_template: >-
+     {% if value == 'on' %}
+        home
+     {% elif value == 'off' %}
+        away
+     {% else %}
+        away
+     {% endif %}
+```
 
 ## Licence
 
