@@ -1,6 +1,18 @@
-###################################################
+##############################
 #Sensors
+##############################
 sensor:
+  #####DOWNSTAIR
+- platform: mqtt
+  state_topic: 'home/BLETracker1/<MAC-ADDRESS>'
+  name: 'bt_beacon_downstairs_state' 
+  value_template: "{{ value_json.state }}"
+  expire_after: 120
+  force_update: true
+- platform: mqtt
+  state_topic: 'home/BLETracker1/<MAC-ADDRESS>'
+  name: 'bt_beacon_downstairs_battery' 
+  value_template: "{{ value_json.battery }}"  
   #####UPSTAIR
 - platform: mqtt
   state_topic: 'home/BLETracker2/<MAC-ADDRESS>'
@@ -13,18 +25,7 @@ sensor:
   name: 'bt_beacon_upstairs_battery' 
   value_template: "{{ value_json.battery }}"
   force_update: true  
-  #####DOWNSTAIR
-- platform: mqtt
-  state_topic: 'home/BLETracker1/<MAC-ADDRESS>'
-  name: 'bt_beacon_downstairs_state' 
-  value_template: "{{ value_json.state }}"
-  expire_after: 120
-  force_update: true
-- platform: mqtt
-  state_topic: 'home/BLETracker1/<MAC-ADDRESS>'
-  name: 'bt_beacon_downstairs_battery' 
-  value_template: "{{ value_json.battery }}"  
-#####Battery Sensors
+#####Cretae one Battery Sensor combining the two battery sensor
 - platform: template
   sensors:
     bt_beacon_battery:
@@ -52,10 +53,11 @@ sensor:
           mdi:battery-alert
         {% endif %}
 
-###################################################
+##############################
 #Binary Sensors
-
+##############################
 binary_sensor:
+######Presence Bynary sensor combining the previous sensors (upstairs_state and downstairs_state)
 - platform: template
   sensors:
     ble_tracker_beacon:
@@ -71,7 +73,7 @@ binary_sensor:
       delay_off: 
         minutes: 1
 
-########Check gateway status
+########Check the gateway status
 - platform: mqtt
   name: BLETracker1_state
   state_topic: 'home/BLETracker1/LWT'
@@ -86,9 +88,12 @@ binary_sensor:
   payload_off: "offline"
   device_class: "connectivity"  
 
+##############################
+#Automations
+##############################
 automation:
 - id: notify_BLETracker1_state
-  alias: Notifica BLETracker1 offline
+  alias: Notify BLETracker1 offline
   initial_state: true
   trigger:
   - platform: state
@@ -97,13 +102,13 @@ automation:
     for:
       minutes: 5 
   action:
-  - service: notify.telegram_mario
+  - service: notify.telegram
     data:
       title: BLETracker
-      message: "Gateway 1 offline"
+      message: "Gateway 1 is gone offline"
 
 - id: notify_BLETracker2_state
-  alias: Notifica BLETracker2 offline
+  alias: Notify BLETracker2 offline
   initial_state: true
   trigger:
   - platform: state
@@ -112,13 +117,13 @@ automation:
     for:
       minutes: 5
   action:
-  - service: notify.telegram_mario
+  - service: notify.telegram
     data:
       title: BLETracker
-      message: "Gateway 2 offline"
+      message: "Gateway 2 is gone offline"
 
 - id: notify_beacon_battery
-  alias: Notifica Batteria Nut Mario
+  alias: Notify Beacon battery
   initial_state: true
   trigger:
   - platform: template
@@ -128,5 +133,5 @@ automation:
   - service: notify.telegram
     data_template:
       title: BLETracker
-      message: "Nut Mario al {{states.sensor.bt_beacon_battery.state}}%"
+      message: "Warning!! Beacon's battery at {{states.sensor.bt_beacon_battery.state}}%"
 
