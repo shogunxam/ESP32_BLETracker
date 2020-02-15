@@ -2,7 +2,7 @@
 A simple example describing how to track a Bluetooth Low Energy device with an ESP32, the MQTT protocol and Home Assistant. Please note that the targeted device can't have a changing BLE address (normally called random instead of public address).  
 
 Use [PlatformIO](https://platformio.org/) to build and deploy this application, remember to install [git](https://git-scm.com/downloads) in order to allow PlatformIO to download automatically all the required dependencies.<br>
-You have to modify the user_config.h file inserting the correct informations to connect to the WiFi and to the MQTT broker.<br>
+You have to modify the **user_config.h** file inserting the correct informations to connect to the WiFi and to the MQTT broker.<br>
 The GATEWAY_NAME is used as Client ID to connect to the broker so be sure it's unique.<br>
 The battery level can be read from the devices providing the Battery Service (0x180F) and the Battery Level characteristic (0x2A19), check the avaiability using a nRF Sniffer i.e. [nRF Connect](https://play.google.com/store/apps/details?id=no.nordicsemi.android.mcp)<br>
 This feature was succesfully tested with a Nut Mini, using other devices you could have connection problems.<br>
@@ -38,6 +38,7 @@ Build using the *Minimal SPIFFS* partition schema
 
 # Home Assistant integration
 This is a simple example of a package to manage a Nut Traker device.<br>
+A more complex example combining more BLETrackes can be found inside the Doc folder.<br>
 ![Alt text](/image.png?raw=true "Screenshot")
 ```
 ###################################################
