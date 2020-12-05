@@ -1,9 +1,9 @@
 #include "main.h"
 
 #include <BLEDevice.h>
-#include <WiFi.h>
 #include <sstream>
 #include <iomanip>
+#include "WiFiManager.h"
 
 #include "config.h"
 
@@ -86,28 +86,7 @@ void publishToMQTT(const char *p_topic, const char *p_payload, bool p_retain)
 */
 void connectToMQTT()
 {
-  if (WiFi.status() != WL_CONNECTED)
-  {
-    DEBUG_PRINTF("INFO: WiFi connecting to: %s\n",WIFI_SSID);
-    delay(10);
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-    randomSeed(micros());
-
-    unsigned long timeout = millis() + WIFI_CONNECTION_TIME_OUT;
-    while (WiFi.status() != WL_CONNECTED)
-    {
-      DEBUG_PRINTF(".",nullptr);
-      delay(500);
-      if(millis() > timeout)
-      {
-        DEBUG_PRINTLN("Failed connecting to the network: timeout error!!!");
-        esp_restart();
-      }
-    }
-
-    DEBUG_PRINTF("Connected to WiFi. Current IP: %s\n",WiFi.localIP().toString().c_str());
-  }
+  WiFiConnect(WIFI_SSID, WIFI_PASSWORD);
 
   DEBUG_PRINTF("INFO: MQTT availability topic: %s\n",MQTT_AVAILABILITY_TOPIC);
   //DEBUG_PRINT(F("INFO: MQTT availability topic: "));
@@ -374,6 +353,8 @@ void setup()
 #endif
 
   Serial.println("INFO: Running setup");
+
+  WiFiConnect(WIFI_SSID, WIFI_PASSWORD);
 
 #if ENABLE_OTA_WEBSERVER
   webserver.setup(GATEWAY_NAME,WIFI_SSID,WIFI_PASSWORD);
