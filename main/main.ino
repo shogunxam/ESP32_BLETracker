@@ -406,7 +406,7 @@ void publishBLEState(String address, const char *state, const char *rssi, int ba
 #endif
 }
 
-std::string formatMillis(unsigned long milliseconds)
+String formatMillis(unsigned long milliseconds)
 {
   unsigned long seconds = milliseconds / 1000;
   unsigned long minutes = seconds / 60;
@@ -416,7 +416,7 @@ std::string formatMillis(unsigned long milliseconds)
   ostime << days << "." << std::setfill('0') << std::setw(2) << (hours % 24) << ":"
                         << std::setfill('0') << std::setw(2) << (minutes % 60) << ":" 
                         << std::setfill('0') << std::setw(2) << (seconds % 60);
-  return ostime.str();
+  return ostime.str().c_str();
 }
 
 void publishSySInfo()

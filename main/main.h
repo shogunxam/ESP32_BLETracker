@@ -21,6 +21,6 @@ typedef struct
   esp_ble_addr_type_t addressType;
 } BLETrackedDevice;
 
-std::string formatMillis(unsigned long milliseconds);
+String formatMillis(unsigned long milliseconds);
 
 #endif /*MAIN_H*/
