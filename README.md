@@ -30,11 +30,20 @@ user: admin<br>
 password: admin<br>
 
 # Arduino IDE Notes
-You can build this skatch using Arduino IDE, but be sure to install the required dependencies:<br>
+You can build this skatch using Arduino IDE (currently it's using arduino-esp32 v1.0.4), but be sure to install the required dependencies:<br>
 * You have to install the esp32 Board in Arduino IDE. You can find a tutorial following this [link]( https://randomnerdtutorials.com/installing-the-esp32-board-in-arduino-ide-windows-instructions/)
 * You have to install the library PubSubClient v2.7
-* You have to replace the BLE library provided by arduino-esp32 with this one https://github.com/shogunxam/ESP32-BLE-Arduino. The libray to replace should be located in the folder ~/.arduino15/packages/esp32/hardware/esp32/x.x.x/libraries/BLE for Unix users and in C:\Users\YourUserName\AppData\Local\Arduino15\packages\esp32\hardware\esp32\x.x.x\libraries\BLE for Windows users<br>
-Build using the *Minimal SPIFFS* partition schema
+* Because a bug in the BLE library provided by arduino-esp32 v1.0.4 you have to replace it with this one https://github.com/shogunxam/ESP32-BLE-Arduino. The libray to replace should be located in the folder ~/.arduino15/packages/esp32/hardware/esp32/x.x.x/libraries/BLE for Unix users and in C:\Users\YourUserName\AppData\Local\Arduino15\packages\esp32\hardware\esp32\x.x.x\libraries\BLE for Windows users.<br>
+Build using the *Minimal SPIFFS* partition schema.
+
+# Tested BLE Devices
+| BLE Device | Discover | Battery |
+|------------|----------|---------|
+|Nut mini   |  :heavy_check_mark:|  :heavy_check_mark:|
+|Nut        | :heavy_check_mark: |:heavy_exclamation_mark:|
+|Amazfit Bip|:heavy_check_mark:|:x:|
+|REDMOND RFT-08S|:heavy_check_mark:|:x:|
+|Xiomi Mi Smart Band 4|:heavy_check_mark:|:x:|
 
 # Home Assistant integration
 This is a simple example of a package to manage a Nut Traker device.<br>

@@ -141,9 +141,9 @@ bool InWhiteList(const String& value, const std::vector<String>& whiteList)
 ///////////////////////////////////////////////////////////////////////////
 class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
 {
-  void onResult(BLEAdvertisedDevice advertisedDevice)
+  void onResult(BLEAdvertisedDevice advertisedDevice) override
   {
-    bool findedAdvertisedDevice = false;
+    bool foundPreviouslyAdvertisedDevice = false;
     std::string std_address=advertisedDevice.getAddress().toString();
     String address(std_address.c_str());
     address.replace(":", "");
@@ -157,30 +157,33 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
     int RSSI = advertisedDevice.getRSSI();
     for (uint8_t i = 0; i < NB_OF_BLE_DISCOVERED_DEVICES; i++)
     {
-      if (address == BLETrackedDevices[i].address)
+      foundPreviouslyAdvertisedDevice = address == BLETrackedDevices[i].address;
+      if ( foundPreviouslyAdvertisedDevice )
       {
-        BLETrackedDevices[i].advertised = true;
-        if (!BLETrackedDevices[i].isDiscovered)
+        if(!BLETrackedDevices[i].advertised)
         {
-          BLETrackedDevices[i].isDiscovered = true;
-          BLETrackedDevices[i].lastDiscovery = millis();
-          BLETrackedDevices[i].connectionRetry = 0;
-          itoa(RSSI, BLETrackedDevices[i].rssi, 10);
-          DEBUG_PRINTF("INFO: Tracked device newly discovered, Address: %s , RSSI: %d\n",address.c_str(), RSSI);
+          BLETrackedDevices[i].advertised = true;
+          if (!BLETrackedDevices[i].isDiscovered)
+          {
+            BLETrackedDevices[i].isDiscovered = true;
+            BLETrackedDevices[i].lastDiscovery = millis();
+            BLETrackedDevices[i].connectionRetry = 0;
+            BLETrackedDevices[i].rssi = String(RSSI);
+            DEBUG_PRINTF("INFO: Tracked device newly discovered, Address: %s , RSSI: %d\n",address.c_str(), RSSI);
+          }
+          else
+          {
+            BLETrackedDevices[i].lastDiscovery = millis();
+            BLETrackedDevices[i].rssi = String(RSSI);
+            DEBUG_PRINTF("INFO: Tracked device discovered, Address: %s , RSSI: %d\n",address.c_str(), RSSI);
+          }
         }
-        else
-        {
-          BLETrackedDevices[i].lastDiscovery = millis();
-          itoa(RSSI, BLETrackedDevices[i].rssi, 10);
-          DEBUG_PRINTF("INFO: Tracked device discovered, Address: %s , RSSI: %d\n",address.c_str(), RSSI);
-        }
-        findedAdvertisedDevice = true;
         break;
       }
     }
 
     //This is a new edvice...
-    if (!findedAdvertisedDevice)
+    if (!foundPreviouslyAdvertisedDevice)
     {
       NB_OF_BLE_DISCOVERED_DEVICES = NB_OF_BLE_DISCOVERED_DEVICES + 1;
       BLETrackedDevices[NB_OF_BLE_DISCOVERED_DEVICES - 1].advertised = true;
@@ -192,7 +195,7 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
       BLETrackedDevices[NB_OF_BLE_DISCOVERED_DEVICES - 1].batteryLevel=-1;
       BLETrackedDevices[NB_OF_BLE_DISCOVERED_DEVICES - 1].hasBatteryService = true;
       BLETrackedDevices[NB_OF_BLE_DISCOVERED_DEVICES - 1].connectionRetry = 0;
-      itoa(RSSI, BLETrackedDevices[NB_OF_BLE_DISCOVERED_DEVICES - 1].rssi, 10);
+      BLETrackedDevices[NB_OF_BLE_DISCOVERED_DEVICES - 1].rssi = String(RSSI);
 
       DEBUG_PRINTF("INFO: Device discovered, Address: %s , RSSI: %d\n",address.c_str(), RSSI);
     }
@@ -365,7 +368,7 @@ void setup()
   timerAlarmWrite(timer, 120000000, false); //set time in us 120000000 = 120 sec
   timerAlarmEnable(timer);                  //enable interrupt
 
-  BLEDevice::init("");
+  BLEDevice::init(GATEWAY_NAME);
   pBLEScan = BLEDevice::getScan();
   pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
   pBLEScan->setActiveScan(false);
@@ -376,7 +379,7 @@ void setup()
   #endif
 }
 
-void publishBLEState(String address, const char *state, const char *rssi, int batteryLevel)
+void publishBLEState(const String& address, const String& state, const String& rssi, int batteryLevel)
 {
   String baseTopic = MQTT_BASE_SENSOR_TOPIC;
   baseTopic += "/" + address;
@@ -396,7 +399,7 @@ void publishBLEState(String address, const char *state, const char *rssi, int ba
 
 #if PUBLISH_SIMPLE_JSON
   std::ostringstream payload;
-  payload << "{ \"state\":\"" << state << "\",\"rssi\":" << rssi;
+  payload << "{ \"state\":\"" << state.c_str() << "\",\"rssi\":" << rssi.c_str();
   #if PUBLISH_BATTERY_LEVEL
   payload <<  ",\"battery\":" << batteryLevel;
   #endif
@@ -451,7 +454,10 @@ void loop()
   }
 
   for (uint8_t i = 0; i < NB_OF_BLE_DISCOVERED_DEVICES; i++)
-    BLETrackedDevices[i].advertised = false;
+  {
+      BLETrackedDevices[i].advertised = false;
+      BLETrackedDevices[i].rssi = String(F("-100"));
+  }
 
   //DEBUG_PRINTF("\n*** Memory Before scan: %u\n",xPortGetFreeHeapSize());
   pBLEScan->start(BLE_SCANNING_PERIOD);

@@ -10,7 +10,7 @@
 typedef struct
 {
   String address;
-  char rssi[4];
+  String rssi;
   bool isDiscovered;
   long lastDiscovery;
   long lastBattMeasure;

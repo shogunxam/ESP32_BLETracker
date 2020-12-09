@@ -161,7 +161,7 @@ void OTAWebServer::setup(const String& hN, const String& _ssid_, const String& _
       SEND_CONTENT(BLETrackedDevices[i].address);
       SEND_CONTENT(rowTagClose);
       SEND_CONTENT(rowTagOpen);
-      SEND_CONTENT_P(BLETrackedDevices[i].rssi);
+      SEND_CONTENT(BLETrackedDevices[i].rssi);
       SEND_CONTENT(rowTagClose);
       SEND_CONTENT(rowTagOpen); 
       SEND_CONTENT(String(BLETrackedDevices[i].batteryLevel));

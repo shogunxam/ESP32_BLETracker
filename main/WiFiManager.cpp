@@ -11,7 +11,7 @@ extern "C" {
 
 void WiFiConnect(const String &_ssid_, const String &_password_)
 {
-  esp_wifi_set_ps(WIFI_PS_NONE);
+  esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
   if (WiFi.status() != WL_CONNECTED)
   {
     // Connect to WiFi network
