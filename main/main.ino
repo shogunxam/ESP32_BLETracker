@@ -388,12 +388,10 @@ void publishBLEState(const String& address, const String& state, const String& r
   String stateTopic = baseTopic + "/state";
   String rssiTopic = baseTopic + "/rssi";
   String batteryTopic = baseTopic + "/battery";
-  publishToMQTT(stateTopic.c_str(), state, false);
-  publishToMQTT(rssiTopic.c_str(), rssi, false);
+  publishToMQTT(stateTopic.c_str(), state.c_str(), false);
+  publishToMQTT(rssiTopic.c_str(), rssi.c_str(), false);
   #if PUBLISH_BATTERY_LEVEL
-  char batteryStr [5];
-  itoa(batteryLevel,batteryStr,10);
-  publishToMQTT(batteryTopic.c_str(), batteryStr, false);
+  publishToMQTT(batteryTopic.c_str(), String(batteryLevel).c_str(), false);
   #endif
 #endif 
 
@@ -429,7 +427,7 @@ void publishSySInfo()
   std::ostringstream payload;
   std::string IP = WiFi.localIP().toString().c_str();
 
-  payload << "{ \"uptime\":\"" << formatMillis(millis()) << "\",\"version\":" << VERSION << ",\"SSID\":\"" << WIFI_SSID << "\", \"IP\":\"" << IP << "\"}";
+  payload << R"({ "uptime":")" << formatMillis(millis()).c_str() << R"(","version":)" << VERSION << R"(,"SSID":")" << WIFI_SSID << R"(", "IP":")" << IP << R"("})";
   publishToMQTT(sysTopic.c_str(), payload.str().c_str(), false);
 }
 
