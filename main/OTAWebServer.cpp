@@ -12,6 +12,7 @@
 #include "WiFiManager.h"
 #include "DebugPrint.h"
 #include "OTAWebServer.h"
+#include "build_defs.h"
 
 extern uint8_t NB_OF_BLE_DISCOVERED_DEVICES;
 extern BLETrackedDevice BLETrackedDevices[99];
@@ -71,8 +72,25 @@ String otaUpdate = style + F(
 "</script>");
 
 #define _CONTENT_DELAY_ 20
-#define SEND_CONTENT(x) server.sendContent(x); /*delay(_CONTENT_DELAY_);*/
-#define SEND_CONTENT_P(x) server.sendContent_P(x); /*delay(_CONTENT_DELAY_);*/
+#define SEND_CONTENT(x) server.sendContent(x) /*;delay(_CONTENT_DELAY_)*/
+#define SEND_CONTENT_P(x) server.sendContent_P(x) /*;delay(_CONTENT_DELAY_)*/
+
+#if DEVELOPER_MODE
+static const char BuildTime[] =
+    {
+        BUILD_YEAR_CH0, BUILD_YEAR_CH1, BUILD_YEAR_CH2, BUILD_YEAR_CH3,
+        '-',
+        BUILD_MONTH_CH0, BUILD_MONTH_CH1,
+        '-',
+        BUILD_DAY_CH0, BUILD_DAY_CH1,
+        'T',
+        BUILD_HOUR_CH0, BUILD_HOUR_CH1,
+        ':',
+        BUILD_MIN_CH0, BUILD_MIN_CH1,
+        ':',
+        BUILD_SEC_CH0, BUILD_SEC_CH1,
+        '\0'};
+#endif
 
 OTAWebServer::OTAWebServer()
   :server(80)
@@ -141,8 +159,18 @@ void OTAWebServer::setup(const String& hN, const String& _ssid_, const String& _
                    "<h1>"GATEWAY_NAME"<h1>"
                    "<h2>System Information</h2>"
                    "<table style='width:100%'>"
-                   "<tr><th>Firmware Version<th><td>"VERSION"</td></tr>"
-                  "<tr><th>Uptime<th><td>"));
+                   "<tr><th>Firmware Version<th><td>"VERSION"</td></tr>"));
+
+#if DEVELOPER_MODE
+    SEND_CONTENT(F("<tr><th>Build Time<th><td>"));
+    SEND_CONTENT(BuildTime);
+    SEND_CONTENT(F("</td></tr>"
+                   "<tr><th>Free Memory<th><td>"));
+    SEND_CONTENT(String(xPortGetFreeHeapSize()));
+    SEND_CONTENT(F(" bytes</td></tr>"));
+#endif
+
+    SEND_CONTENT(F("<tr><th>Uptime<th><td>"));
     SEND_CONTENT(uptime);
     SEND_CONTENT(F("</td></tr>"
                    "<tr><th>SSID<th><td>"WIFI_SSID"</td></tr>"

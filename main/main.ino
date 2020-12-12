@@ -63,7 +63,7 @@ volatile unsigned long lastMQTTConnection = 0;
 /*
   Function called to publish to a MQTT topic with the given payload
 */
-void publishToMQTT(const char *p_topic, const char *p_payload, bool p_retain)
+void publishToMQTT(const String& topic, const String& payload, bool retain)
 {
   while (!mqttClient.connected())
   {
@@ -72,13 +72,13 @@ void publishToMQTT(const char *p_topic, const char *p_payload, bool p_retain)
     delay(500);
   }
 
-  if (mqttClient.publish(p_topic, p_payload, p_retain))
+  if (mqttClient.publish(topic.c_str(), payload.c_str(), retain))
   {
-    DEBUG_PRINTF("INFO: MQTT message published successfully, topic: %s , payload: %s , retain: %s \n",p_topic,p_payload, p_retain ? "True":"False");
+    DEBUG_PRINTF("INFO: MQTT message published successfully, topic: %s , payload: %s , retain: %s \n",topic.c_str(),payload.c_str(), retain ? "True":"False");
   }
   else
   {
-    DEBUG_PRINTF("ERROR: MQTT message not published, either connection lost, or message too large. Topic: %s , payload: %s , retain: %s \n",p_topic,p_payload, p_retain ? "True":"False");
+    DEBUG_PRINTF("ERROR: MQTT message not published, either connection lost, or message too large. Topic: %s , payload: %s , retain: %s \n",topic.c_str(),payload.c_str(), retain ? "True":"False");
   }
 }
 /*
@@ -388,22 +388,21 @@ void publishBLEState(const String& address, const String& state, const String& r
   String stateTopic = baseTopic + "/state";
   String rssiTopic = baseTopic + "/rssi";
   String batteryTopic = baseTopic + "/battery";
-  publishToMQTT(stateTopic.c_str(), state.c_str(), false);
-  publishToMQTT(rssiTopic.c_str(), rssi.c_str(), false);
+  publishToMQTT(stateTopic, state, false);
+  publishToMQTT(rssiTopic, rssi, false);
   #if PUBLISH_BATTERY_LEVEL
-  publishToMQTT(batteryTopic.c_str(), String(batteryLevel).c_str(), false);
+  publishToMQTT(batteryTopic, String(batteryLevel), false);
   #endif
 #endif 
 
 #if PUBLISH_SIMPLE_JSON
-  std::ostringstream payload;
-  payload << "{ \"state\":\"" << state.c_str() << "\",\"rssi\":" << rssi.c_str();
+  String payload = R"({ "state":")" + state + R"(","rssi":)" + rssi;
   #if PUBLISH_BATTERY_LEVEL
-  payload <<  ",\"battery\":" << batteryLevel;
+  payload +=  R"(,"battery":)" + String(batteryLevel);
   #endif
-  payload << "}";
+  payload += "}";
 
-  publishToMQTT(baseTopic.c_str(), payload.str().c_str(), false);
+  publishToMQTT(baseTopic, payload, false);
 #endif
 }
 
@@ -422,13 +421,11 @@ String formatMillis(unsigned long milliseconds)
 
 void publishSySInfo()
 {
-  String baseTopic = MQTT_BASE_SENSOR_TOPIC;
-  String sysTopic = baseTopic + "/sysinfo";
-  std::ostringstream payload;
-  std::string IP = WiFi.localIP().toString().c_str();
+  String sysTopic = MQTT_BASE_SENSOR_TOPIC "/sysinfo";
+  String IP = WiFi.localIP().toString();
 
-  payload << R"({ "uptime":")" << formatMillis(millis()).c_str() << R"(","version":)" << VERSION << R"(,"SSID":")" << WIFI_SSID << R"(", "IP":")" << IP << R"("})";
-  publishToMQTT(sysTopic.c_str(), payload.str().c_str(), false);
+  String payload = R"({ "uptime":")" + formatMillis(millis()) + R"(","version":)" VERSION R"(,"SSID":")" WIFI_SSID R"(", "IP":")" + IP + R"("})";
+  publishToMQTT(sysTopic, payload, false);
 }
 
 

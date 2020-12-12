@@ -47,4 +47,7 @@
 
 #define WIFI_CONNECTION_TIME_OUT  30000 /*30 seconds*/
 
+#ifndef DEVELOPER_MODE
+#define DEVELOPER_MODE false
+#endif
 #endif /*CONFIG_ESP32_BLETRACKER*/
