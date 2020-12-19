@@ -13,9 +13,10 @@
 #include "DebugPrint.h"
 #include "OTAWebServer.h"
 #include "build_defs.h"
+#include "macro_utility.h"
+#include "settings.h"
 
-extern uint8_t NB_OF_BLE_DISCOVERED_DEVICES;
-extern BLETrackedDevice BLETrackedDevices[99];
+extern std::vector<BLETrackedDevice> BLETrackedDevices;
 
 /* Style */
 String style = F(
@@ -71,6 +72,138 @@ String otaUpdate = style + F(
 "});"
 "</script>");
 
+//document.getElementById('trk_list').innerHTML = settings.trk_list.toString().split(',').join('\n');
+const String configPage = F(R"~(<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+<script>
+$(document).ready(function(){
+  $('#mqttsrvr').val(settings.mqtt_address);
+  $('#mqttport').val(settings.mqtt_port);
+  $('#mqttusr').val(settings.mqtt_usr);
+  $('#mqttpwd').val(settings.mqtt_pwd);
+  $('#whiteList').prop("checked", settings.whiteList);
+  $('#trk_list').val(settings.trk_list.toString().split(',').join('\n'));
+  $('#btry_list').val(settings.btry_list.toString().split(',').join('\n'));
+});
+$(function () {
+  $('#configure').click(function(e) {
+    var d = $('#form').serialize();
+    $.ajax({
+      type: "POST",
+      url: "/updateconfig",
+      data: d,
+      success:function() {console.log('success!'); var ftimeout=setTimeout(null,5000);window.location='/reset';},
+      error:function() {console.log('error!');},
+    });
+    e.preventDefault();
+  });
+  $('#factory').click(function(e) {
+    window.location.href='/config?factory=true';
+    e.preventDefault();
+  });
+  $('#undo').click(function(e) {
+    window.location.href='/config';
+    e.preventDefault();
+  });
+});
+</script>
+<form id="form" name="config" action="">
+ <fieldset>
+  <legend>MQTT Broker:</legend>
+  <table>
+  <tr>
+  <td><label for="mqttsrvr">Address:</label></td>
+  <td><input type="text" id="mqttsrvr" name="mqttsrvr"></td>
+  </tr><tr>
+  <td><label for="mqttport">Port:</label></td>
+  <td><input type="number" id="mqttport" name="mqttport"></td>
+ </tr><tr>
+  <td><label for="mqttusr">User:</label></td>
+  <td><input type="text" id="mqttusr" name="mqttusr"></td>
+ </tr><tr>  
+  <td><label for="mqttpwd">Password:</label></td>
+  <td><input type="password" id="mqttpwd" name="mqttpwd"></td> 
+   </tr><tr>
+  </table>
+  </fieldset>
+ <fieldset>
+  <legend>Devices:</legend>
+  <input type="checkbox" id="whiteList" name="whiteList" style="width:auto;height:auto">
+  <label for="whiteList">Enable Track Whitelist</label><br>
+  <table style = "margin-left: auto; margin-right: auto;">
+  <tr><td>
+  <label for="trk_list">Track Whitelist:</label><br>
+  <textarea id="trk_list" name="trk_list" rows="10" cols="13" style="overflow-y: scroll;"></textarea>
+  </td>
+  <td>
+  <label for="btry_list">Battery Whitelist:</label><br>
+  <textarea id="btry_list" name="btry_list" rows="10" cols="13" style="overflow-y: scroll;"></textarea>
+  </td>
+  </tr></table>
+  </fieldset>
+  <input style="width:49%" type="submit" id="undo" value="Undo Changes">
+  <input style="width:49%" type="submit" id="factory" value="Factory Values">
+  <input type="submit" id="configure" value="Submit">
+  <br><input type=button onclick="window.open('/','_self')" class=btn value="Back">
+  <br><br><label>by Shogunxam<label></form>
+</form>)~");
+
+const String homePage = F("<form name=indexForm>"
+                   "<h1>"GATEWAY_NAME"</h1><h2>Index</h2>"
+                   R"~~(<input type=button onclick="window.open('/serverinfo','_self')" class=btn value="System Information"><br>
+                   <input type=button onclick="window.open('/otaupdate','_self')" class=btn value="OTA Update">
+                   <br><br><label>by Shogunxam<label></form>)~~");
+
+const String sysInfoPage = F(R"~(<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+<script>
+$(document).ready(function()
+{
+  $('#gateway').text(data.gateway);
+  $('#firmware').text(data.firmware);
+  $('#uptime').text(data.uptime);
+  $('#ssid').text(data.ssid);
+  if(data.build) $('#build').text(data.build);
+  else $('#r2').hide();
+  if(data.memory)	$('#memory').text(data.memory);
+  else $('#r3').hide();
+  if(!data.battery)
+  $('#c1').hide();
+  var table= $('#devices');
+  data.devices.forEach(function(item, index) {
+    tmac=$("<td/>").text(item.mac);
+      trssi=$("<td/>").text(item.rssi);
+      if(data.battery)
+      tbtr=$("<td/>").text(item.battery);
+      tstate=$("<td/>").text(item.state);
+    var row = $("<tr/>").append(tmac)
+      row.append(trssi); 
+      if(data.battery)
+        row.append(tbtr);
+      row.append(tstate);
+      table.append(row);
+      console.log(table);
+  });
+});
+</script>
+<form name=indexForm>
+<h1 id='gateway'></h1>
+<h2>System Information</h2>
+<table style='width:100%'>
+<tr id='r1'><th>Firmware Version</th><td id="firmware"></td></tr>
+<tr id='r2'><th>Build Time</th><td id="build"></td></tr>
+<tr id='r3'><th>Free Memory</th><td id="memory"></td></tr>
+<tr id='r4'><th>Uptime</th><td id="uptime"></td></tr>
+<tr id='r5'><th>SSID</th><td id="ssid"></td></tr>
+</table>
+<br><h2>Devices</h2>
+<table id="devices" style='width:100%'>
+<tr><th>Device</th><th>RSSI</th><th id="c1">Battery</th><th>State</th></tr>
+</table>
+<input type=button onclick="window.open('/reset','_self')" class='btn' value="Reset">
+<br><input type=button onclick="window.open('/','_self')" class=btn value="Back">
+<br><br><label>by Shogunxam<label></form>
+</form>
+)~");
+
 #define _CONTENT_DELAY_ 20
 #define SEND_CONTENT(x) server.sendContent(x) /*;delay(_CONTENT_DELAY_)*/
 #define SEND_CONTENT_P(x) server.sendContent_P(x) /*;delay(_CONTENT_DELAY_)*/
@@ -99,6 +232,23 @@ OTAWebServer::OTAWebServer()
 
 }
 
+void OTAWebServer::resetESP32Page()
+{
+  server.client().setNoDelay(true);
+  server.client().setTimeout(30);
+  server.sendHeader(F("Connection"), F("close"));
+  server.setContentLength(CONTENT_LENGTH_UNKNOWN);
+  server.send(200, F("text/html"), "");
+  SEND_CONTENT(F("<div align='center'>Resetting...<br><progress id='g' class='y' value='0' max='100' style='align-self:center; text-align:center;'/></div>"
+                  "<script>window.onload=function(){};var progval=0;var myVar=setInterval(Prog,80);"
+                  "function Prog(){progval++;document.getElementById('g').value=progval;"
+                  "if (progval==100){clearInterval(myVar);setTimeout(Check, 3000);}}"
+                  "function Check(){if (progval==100){clearInterval(myVar);var ftimeout=setTimeout(null,5000);"
+                  "window.location='/';}}</script>"));
+  server.client().flush();
+  server.client().stop();
+  ESP.restart();
+}
 /*
  * setup function
  */
@@ -127,11 +277,7 @@ void OTAWebServer::setup(const String& hN, const String& _ssid_, const String& _
     server.setContentLength(CONTENT_LENGTH_UNKNOWN);
     server.send(200, F("text/html"), "");
     SEND_CONTENT(style);
-    SEND_CONTENT(F("<form name=indexForm>"
-                   "<h1>"GATEWAY_NAME"</h1><h2>Index</h2>"
-                   R"~~(<input type=button onclick="window.open('/serverinfo','_self')" class=btn value="System Information"><br>
-                   <input type=button onclick="window.open('/otaupdate','_self')" class=btn value="OTA Update">
-                   <br><br><label>by Shogunxam<label></form>)~~"));
+    SEND_CONTENT(homePage);
     server.client().flush();
     server.client().stop();
   });
@@ -145,89 +291,104 @@ void OTAWebServer::setup(const String& hN, const String& _ssid_, const String& _
     server.send(200, F("text/html"), otaUpdate);
   });
 
+  server.on(F("/config"), HTTP_GET, [&]() {
+
+    if (!server.authenticate(WEBSERVER_USER, WEBSERVER_PASSWORD)) {
+      return server.requestAuthentication();
+    }
+
+    String data ="<script> let settings = ";
+    if(server.args() > 0 && server.hasArg("factory") && server.arg("factory")=="true")
+    {
+      Settings factory;
+      data += factory.toJavaScriptObj();
+    }
+    else
+        data += SettingsMngr.toJavaScriptObj();
+
+    data +="</script>";
+    server.sendHeader(F("Connection"), F("close"));
+    server.setContentLength(CONTENT_LENGTH_UNKNOWN);
+    server.send(200, F("text/html"), "");
+    SEND_CONTENT(style);
+
+    SEND_CONTENT(data);
+    SEND_CONTENT(configPage);
+  });
+
+  server.on(F("/updateconfig"), HTTP_POST, [&]() {
+    if (!server.authenticate(WEBSERVER_USER, WEBSERVER_PASSWORD)) {
+      return server.requestAuthentication();
+    }
+    Settings newSettings;
+    newSettings.mqttServer = server.arg("mqttsrvr");
+    newSettings.mqttPort = server.arg("mqttport").toInt();
+    newSettings.mqttUser =  server.arg("mqttusr");
+    newSettings.mqttPwd = server.arg("mqttpwd");
+    newSettings.trackWhiteList.clear();
+    Settings::StringListToArray(server.arg("trk_list"), newSettings.trackWhiteList);
+    newSettings.batteryWhiteList.clear();
+    Settings::StringListToArray(server.arg("btry_list"), newSettings.batteryWhiteList);
+    newSettings.enableWhiteList = server.arg("whiteList") == "on";
+    newSettings.SettingsFile(SettingsMngr.GetSettingsFile());
+
+    DEBUG_PRINTLN(newSettings.toJavaScriptObj().c_str());
+
+    server.sendHeader(F("Connection"), F("close"));
+    server.setContentLength(CONTENT_LENGTH_UNKNOWN);
+    if(newSettings.Save())
+      server.send(200, F("text/html"), "Ok");
+    else
+      server.send(500, F("text/html"), "Error saving settings");
+    server.client().flush();
+    server.client().stop();
+  });
+
   server.on(F("/serverinfo"), HTTP_GET, [&]() {
     if (!server.authenticate(WEBSERVER_USER, WEBSERVER_PASSWORD)) {
       return server.requestAuthentication();
     }
 
-    String uptime = formatMillis(millis());
     server.sendHeader(F("Connection"), F("close"));
     server.setContentLength(CONTENT_LENGTH_UNKNOWN);
     server.send(200, F("text/html"), "");
     SEND_CONTENT(style);
-    SEND_CONTENT(F("<form name=indexForm>"
-                   "<h1>"GATEWAY_NAME"<h1>"
-                   "<h2>System Information</h2>"
-                   "<table style='width:100%'>"
-                   "<tr><th>Firmware Version<th><td>"VERSION"</td></tr>"));
-
+    String data ="<script> let data = {";
+    data+= R"(gateway : ")" GATEWAY_NAME R"(",)";
+    data+= R"(firmware : ")" VERSION R"(",)";
 #if DEVELOPER_MODE
-    SEND_CONTENT(F("<tr><th>Build Time<th><td>"));
-    SEND_CONTENT(BuildTime);
-    SEND_CONTENT(F("</td></tr>"
-                   "<tr><th>Free Memory<th><td>"));
-    SEND_CONTENT(String(xPortGetFreeHeapSize()));
-    SEND_CONTENT(F(" bytes</td></tr>"));
+    data+= R"(build: ")" + String(BuildTime) + R"(",)";
+    data+= R"(memory: ")" + String(xPortGetFreeHeapSize()) +R"( bytes",)";
 #endif
-
-    SEND_CONTENT(F("<tr><th>Uptime<th><td>"));
-    SEND_CONTENT(uptime);
-    SEND_CONTENT(F("</td></tr>"
-                   "<tr><th>SSID<th><td>"WIFI_SSID"</td></tr>"
-                   "</table>"
-                   "<br><h2>Devices</h2>"
-                   "<table style='width:100%'>"
-                   "<tr><th>Device</th><th>RSSI</th><th>Battery</th><th>State</th></tr>"));
-
-    //Perhaps we need a mutex here to protect BLETrackedDevices but we are in readonly mode
-    std::ostringstream row;
-    const String rowTagOpen = F(R"(<td style="text-align:center">)");
-    const String rowTagClose = F("</td>");
-    for (int i=0;i<NB_OF_BLE_DISCOVERED_DEVICES; i++)
+    data+= R"(uptime: ")" + formatMillis(millis()) +R"(",)";
+    data+= R"(ssid: ")" WIFI_SSID R"(",)";
+    data+= R"(battery: )" xstr(PUBLISH_BATTERY_LEVEL) R"(,)";
+    data+= R"(devices: [)";
+    SEND_CONTENT(data);
+    bool first = true;
+    for (auto& trackedDevice : BLETrackedDevices)
     {
-      SEND_CONTENT(F("<tr><td>"));
-      SEND_CONTENT(BLETrackedDevices[i].address);
-      SEND_CONTENT(rowTagClose);
-      SEND_CONTENT(rowTagOpen);
-      SEND_CONTENT(BLETrackedDevices[i].rssi);
-      SEND_CONTENT(rowTagClose);
-      SEND_CONTENT(rowTagOpen); 
-      SEND_CONTENT(String(BLETrackedDevices[i].batteryLevel));
-      SEND_CONTENT(rowTagClose);
-      SEND_CONTENT(rowTagOpen);
-      SEND_CONTENT(BLETrackedDevices[i].isDiscovered ? F("On"): F("Off")) ;
-      SEND_CONTENT(F("</tr></td>"));
+      data = first ? "" : ","; first = false;
+      data += R"({mac : ")" + trackedDevice.address + R"(",)";
+      data += R"(rssi : )" + trackedDevice.rssi + R"(,)";
+      #if PUBLISH_BATTERY_LEVEL
+      data += R"(battery : )" + String(trackedDevice.batteryLevel) + R"(,)";
+      #endif
+      data += R"(state : ")" + String(trackedDevice.isDiscovered ? F("On"): F("Off")) + R"("})";
+      SEND_CONTENT(data);
+      
     }
-
-    SEND_CONTENT(F(R"~~(</table>
-    <input type=button onclick="window.open('/reset','_self')" class='btn' value="Reset">
-    <br><input type=button onclick="window.open('/','_self')" class=btn value="Back">
-    <br><br><label>by Shogunxam<label></form>
-    <script>function timedRefresh(timeoutPeriod){setTimeout("location.reload(true);",timeoutPeriod);}window.onload = timedRefresh(10000);</script>)~~"));
-
+    SEND_CONTENT(R"(]}</script>)");
+    SEND_CONTENT(sysInfoPage);
     server.client().flush();
     server.client().stop();
-
   });
 
   server.on(F("/reset"), HTTP_GET, [&]() {
     if (!server.authenticate(WEBSERVER_USER, WEBSERVER_PASSWORD)) {
       return server.requestAuthentication();
     }
-    server.client().setNoDelay(true);
-    server.client().setTimeout(30);
-    server.sendHeader(F("Connection"), F("close"));
-    server.setContentLength(CONTENT_LENGTH_UNKNOWN);
-    server.send(200, F("text/html"), "");
-    SEND_CONTENT(F("<div align='center'>Resetting...<br><progress id='g' class='y' value='0' max='100' style='align-self:center; text-align:center;'/></div>"
-                   "<script>window.onload=function(){};var progval=0;var myVar=setInterval(Prog,80);"
-                   "function Prog(){progval++;document.getElementById('g').value=progval;"
-                   "if (progval==100){clearInterval(myVar);setTimeout(Check, 3000);}}"
-                   "function Check(){if (progval==100){clearInterval(myVar);var ftimeout=setTimeout(null,5000);"
-                   "window.location='/';}}</script>"));
-    server.client().flush();
-    server.client().stop();
-    ESP.restart();
+    resetESP32Page();
   });
 
   /*handling uploading firmware file */
