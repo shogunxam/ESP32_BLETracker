@@ -34,7 +34,7 @@
 char _printbuffer_[256];
 std::mutex _printLock_;
 
-std::size_t NumMaxOfTrackedDevices = 0;
+
 std::vector<BLETrackedDevice> BLETrackedDevices;
 
 BLEScan *pBLEScan;
@@ -116,17 +116,6 @@ void IRAM_ATTR resetModule()
   esp_restart();
 }
 
-bool InWhiteList(const String& value, const std::vector<String>& whiteList)
-{
-    bool inWhiteList=false;
-    for(uint8_t j =0; j < whiteList.size();j++)
-        if(value == whiteList[j])
-        {
-          inWhiteList = true;
-          break;
-        }
-    return inWhiteList;
-}
 
 ///////////////////////////////////////////////////////////////////////////
 //   BLUETOOTH
@@ -141,7 +130,7 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
     address.replace(":", "");
     address.toUpperCase();
 
-    if(!SettingsMngr.enableWhiteList || !InWhiteList(address,SettingsMngr.trackWhiteList))
+    if(!SettingsMngr.IsTraceable(address))
       return;
 
     int RSSI = advertisedDevice.getRSSI();
@@ -222,7 +211,7 @@ void batteryTask()
   for (auto& trackedDevice : BLETrackedDevices)
   {
 
-    if(!SettingsMngr.batteryWhiteList.empty() && !InWhiteList(trackedDevice.address, SettingsMngr.batteryWhiteList))
+    if(!SettingsMngr.InBatteryList(trackedDevice.address))
       continue;
 
     //We need to connect to the device to read the battery value
@@ -367,8 +356,8 @@ void setup()
   if(SPIFFS.exists(F("/settings.bin")))
     SettingsMngr.Load();
 
-  NumMaxOfTrackedDevices = SettingsMngr.enableWhiteList ? SettingsMngr.trackWhiteList.size() : 90 ;
-  BLETrackedDevices.reserve(NumMaxOfTrackedDevices);
+
+  BLETrackedDevices.reserve(SettingsMngr.GetMaxNumOfTraceableDevices());
 
   timer = timerBegin(0, 80, true); //timer 0, div 80
   timerAttachInterrupt(timer, &resetModule, true);
@@ -449,7 +438,7 @@ void loop()
   DEBUG_PRINTF("Number device discovered: %d\n", BLETrackedDevices.size());
   //DEBUG_PRINTLN(NB_OF_BLE_DISCOVERED_DEVICES);
 
-  if (BLETrackedDevices.size() == NumMaxOfTrackedDevices)
+  if (BLETrackedDevices.size() == SettingsMngr.GetMaxNumOfTraceableDevices())
   {
     DEBUG_PRINTLN("INFO: Restart because the array is eneded\n");
     esp_restart();
@@ -462,7 +451,7 @@ void loop()
   }
 
   //DEBUG_PRINTF("\n*** Memory Before scan: %u\n",xPortGetFreeHeapSize());
-  pBLEScan->start(BLE_SCANNING_PERIOD);
+  pBLEScan->start(SettingsMngr.scanPeriod);
   pBLEScan->stop();
   pBLEScan->clearResults();
   //DEBUG_PRINTF("\n*** Memory After scan: %u\n",xPortGetFreeHeapSize());

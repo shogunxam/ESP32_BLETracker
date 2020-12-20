@@ -2,7 +2,7 @@
 #include "config.h"
 #include "DebugPrint.h"
 
-#define CURRENT_SETTING_VERSION 1
+#define CURRENT_SETTING_VERSION 2
 
 Settings SettingsMngr;
 
@@ -51,49 +51,114 @@ void Settings::StringListToArray(const String& whiteList, std::vector<String>&vS
 
 }
 
-Settings::Settings(const String& fileName):settingsFile(fileName), version(CURRENT_SETTING_VERSION)
+Settings::Settings(const String& fileName, bool emptyLists):settingsFile(fileName), version(CURRENT_SETTING_VERSION)
 {
-    FactoryReset();
+    FactoryReset(emptyLists);
 };
 
-void Settings::FactoryReset()
+void Settings::FactoryReset(bool emptyLists )
 {
-    #ifdef BLE_TRACKER_WHITELIST
-    trackWhiteList = {BLE_TRACKER_WHITELIST};
-    enableWhiteList = true;
-    #else
-    enableWhiteList = false;
-    #endif
+    if(emptyLists)
+    {
+        trackWhiteList.clear();
+        batteryWhiteList.clear();
+    }
+    else 
+    {
+        #ifdef BLE_TRACKER_WHITELIST
+        trackWhiteList = {BLE_TRACKER_WHITELIST};
+        #endif
 
-    #ifdef BLE_BATTERY_WHITELIST
+        #ifdef BLE_BATTERY_WHITELIST
         batteryWhiteList = {BLE_BATTERY_WHITELIST};
-    #endif
+        #endif
+    }
+
+    enableWhiteList = ENABLE_BLE_TRACKER_WHITELIST;
 
     mqttUser=MQTT_USERNAME;
     mqttPwd=MQTT_PASSWORD;
     mqttServer = MQTT_SERVER;
     mqttPort = MQTT_SERVER_PORT;
+    scanPeriod = BLE_SCANNING_PERIOD;
 }
 
-String Settings::toJavaScriptObj()
+std::size_t Settings::GetMaxNumOfTraceableDevices()
+{
+    return enableWhiteList ? trackWhiteList.size() : 90 ;
+}
+
+
+void Settings::AddDeviceToWhiteList(const String& mac, bool checkBattery)
+{
+    if(!InWhiteList(mac,trackWhiteList))
+        trackWhiteList.push_back(mac);
+    
+    if(checkBattery)
+    {
+        if(!InWhiteList(mac,batteryWhiteList))
+            batteryWhiteList.push_back(mac);
+    }
+}
+
+void Settings::EnableWhiteList(bool enable)
+{
+    enableWhiteList = enable;
+}
+
+String Settings::toJSON()
 {
     String data ="{";
-    data+= R"(version:)" + String(version) + R"(,)";
-    data+= R"(mqtt_address:")" + mqttServer + R"(",)";
-    data+= R"(mqtt_port:)" + String(mqttPort)+ ",";
-    data+= R"(mqtt_usr:")" + mqttUser  + R"(",)";
-    data+= R"(mqtt_pwd:")" +mqttPwd+ R"(",)";
-    data+= R"(whiteList:)" + String(enableWhiteList ? "true" : "false") + R"(,)";
-    #if PUBLISH_BATTERY_LEVEL
-    data+= R"(btry_list: [)"+ ArrayToStringList(batteryWhiteList) + R"(],)";
-    #endif
-
-    data+= R"(trk_list: [)" + ArrayToStringList(trackWhiteList) + R"(])";
+    data+= R"("version":)" + String(version) + R"(,)";
+    data+= R"("mqtt_address":")" + mqttServer + R"(",)";
+    data+= R"("mqtt_port":)" + String(mqttPort)+ ",";
+    data+= R"("mqtt_usr":")" + mqttUser  + R"(",)";
+    data+= R"("mqtt_pwd":")" +mqttPwd+ R"(",)";
+    data+= R"("scanPeriod":)"+String(scanPeriod)+ ",";
+    data+= R"("whiteList":)"; data+= (enableWhiteList ? "true" : "false");data+= R"(,)";
+    data+= R"("trk_list":{)";
+    bool first = true;
+    for(auto& mac : trackWhiteList)
+    {
+        if(!first)
+            data+=",";
+        else 
+            first = false;
+        data+=R"(")"+mac+R"(":)"+ (InBatteryList(mac) ? "true" : "false");
+    }
     data+="}";
-
+    data+="}";
     return data;
 }
 
+bool Settings::IsTraceable(const String& value)
+{
+    if(enableWhiteList)
+        return InWhiteList(value, trackWhiteList);
+    else
+        return true;
+}
+
+bool Settings::InBatteryList(const String& value)
+{
+#if PUBLISH_BATTERY_LEVEL
+    return InWhiteList(value, batteryWhiteList);
+#else
+    return false;
+#endif
+}
+
+bool Settings::InWhiteList(const String& value, const std::vector<String>& whiteList)
+{
+    bool inWhiteList=false;
+    for(uint8_t j =0; j < whiteList.size();j++)
+        if(value == whiteList[j])
+        {
+          inWhiteList = true;
+          break;
+        }
+    return inWhiteList;
+}
    
 void Settings::SaveString(File file, const String& str)
 {
@@ -140,6 +205,7 @@ bool Settings::Save()
         file.write((uint8_t *)&enableWhiteList, sizeof(enableWhiteList));
         SaveStringArray(file,batteryWhiteList);
         SaveStringArray(file,trackWhiteList);
+        file.write((uint8_t *)&scanPeriod, sizeof(scanPeriod));
         file.flush();
         file.close();
         return true;
@@ -153,7 +219,8 @@ void Settings::Load()
     File file = SPIFFS.open(settingsFile, "r");
     if(file)
     {
-        file.read((uint8_t *)&version, sizeof(version));
+        uint16_t currVer;
+        file.read((uint8_t *)&currVer, sizeof(currVer));
         LoadString(file,mqttServer);
         file.read((uint8_t *)&mqttPort, sizeof(mqttPort));
         LoadString(file,mqttUser);
@@ -161,5 +228,7 @@ void Settings::Load()
         file.read((uint8_t *)&enableWhiteList, sizeof(enableWhiteList));
         LoadStringArray(file,batteryWhiteList);
         LoadStringArray(file,trackWhiteList);
+        if(currVer == 2)
+            file.read((uint8_t *)&scanPeriod, sizeof(scanPeriod));
     }
 }
