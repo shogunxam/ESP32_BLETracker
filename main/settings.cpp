@@ -6,24 +6,24 @@
 
 Settings SettingsMngr;
 
-String Settings::ArrayToStringList(const std::vector<String>& whiteList)
+String Settings::ArrayToStringList(const std::vector<String> &whiteList)
 {
     String result;
-    for(uint8_t j =0; j < whiteList.size();j++)
+    for (uint8_t j = 0; j < whiteList.size(); j++)
     {
-      if( j!=0)
-        result+=",";
-      result += R"(")"+whiteList[j]+R"(")";
+        if (j != 0)
+            result += ",";
+        result += R"(")" + whiteList[j] + R"(")";
     }
     return result;
 }
 
-void Settings::StringListToArray(const String& whiteList, std::vector<String>&vStr)
+void Settings::StringListToArray(const String &whiteList, std::vector<String> &vStr)
 {
-    if(whiteList.isEmpty())
+    if (whiteList.isEmpty())
         return;
 
-    const char* strwlkr = whiteList.c_str();
+    const char *strwlkr = whiteList.c_str();
     const unsigned int curBuffSize = 13;
     char str[curBuffSize];
     unsigned int cPos = 0;
@@ -31,15 +31,15 @@ void Settings::StringListToArray(const String& whiteList, std::vector<String>&vS
     bool continueProcess;
     do
     {
-        if(*strwlkr == ',' || *strwlkr == '\0' || *strwlkr == '\n')
+        if (*strwlkr == ',' || *strwlkr == '\0' || *strwlkr == '\n')
         {
             str[cPos] = '\0';
-            if(cPos > 0)
+            if (cPos > 0)
                 vStr.emplace_back(str);
             cPos = 0;
             continueProcess = *strwlkr != '\0';
         }
-        else if(cPos < (curBuffSize-1))
+        else if (cPos < (curBuffSize - 1))
         {
             str[cPos] = *strwlkr;
             cPos++;
@@ -48,36 +48,35 @@ void Settings::StringListToArray(const String& whiteList, std::vector<String>&vS
         strwlkr++;
 
     } while (continueProcess);
-
 }
 
-Settings::Settings(const String& fileName, bool emptyLists):settingsFile(fileName), version(CURRENT_SETTING_VERSION)
+Settings::Settings(const String &fileName, bool emptyLists) : settingsFile(fileName), version(CURRENT_SETTING_VERSION)
 {
     FactoryReset(emptyLists);
 };
 
-void Settings::FactoryReset(bool emptyLists )
+void Settings::FactoryReset(bool emptyLists)
 {
-    if(emptyLists)
+    if (emptyLists)
     {
         trackWhiteList.clear();
         batteryWhiteList.clear();
     }
-    else 
+    else
     {
-        #ifdef BLE_TRACKER_WHITELIST
+#ifdef BLE_TRACKER_WHITELIST
         trackWhiteList = {BLE_TRACKER_WHITELIST};
-        #endif
+#endif
 
-        #ifdef BLE_BATTERY_WHITELIST
+#ifdef BLE_BATTERY_WHITELIST
         batteryWhiteList = {BLE_BATTERY_WHITELIST};
-        #endif
+#endif
     }
 
     enableWhiteList = ENABLE_BLE_TRACKER_WHITELIST;
 
-    mqttUser=MQTT_USERNAME;
-    mqttPwd=MQTT_PASSWORD;
+    mqttUser = MQTT_USERNAME;
+    mqttPwd = MQTT_PASSWORD;
     mqttServer = MQTT_SERVER;
     mqttPort = MQTT_SERVER_PORT;
     scanPeriod = BLE_SCANNING_PERIOD;
@@ -85,18 +84,18 @@ void Settings::FactoryReset(bool emptyLists )
 
 std::size_t Settings::GetMaxNumOfTraceableDevices()
 {
-    return enableWhiteList ? trackWhiteList.size() : 90 ;
+    const std::size_t absoluteMaxNumOfTraceableDevices = 90;
+    return enableWhiteList ? trackWhiteList.size() : absoluteMaxNumOfTraceableDevices;
 }
 
-
-void Settings::AddDeviceToWhiteList(const String& mac, bool checkBattery)
+void Settings::AddDeviceToWhiteList(const String &mac, bool checkBattery)
 {
-    if(!InWhiteList(mac,trackWhiteList))
+    if (!InWhiteList(mac, trackWhiteList))
         trackWhiteList.push_back(mac);
-    
-    if(checkBattery)
+
+    if (checkBattery)
     {
-        if(!InWhiteList(mac,batteryWhiteList))
+        if (!InWhiteList(mac, batteryWhiteList))
             batteryWhiteList.push_back(mac);
     }
 }
@@ -108,38 +107,40 @@ void Settings::EnableWhiteList(bool enable)
 
 String Settings::toJSON()
 {
-    String data ="{";
-    data+= R"("version":)" + String(version) + R"(,)";
-    data+= R"("mqtt_address":")" + mqttServer + R"(",)";
-    data+= R"("mqtt_port":)" + String(mqttPort)+ ",";
-    data+= R"("mqtt_usr":")" + mqttUser  + R"(",)";
-    data+= R"("mqtt_pwd":")" +mqttPwd+ R"(",)";
-    data+= R"("scanPeriod":)"+String(scanPeriod)+ ",";
-    data+= R"("whiteList":)"; data+= (enableWhiteList ? "true" : "false");data+= R"(,)";
-    data+= R"("trk_list":{)";
+    String data = "{";
+    data += R"("version":)" + String(version) + R"(,)";
+    data += R"("mqtt_address":")" + mqttServer + R"(",)";
+    data += R"("mqtt_port":)" + String(mqttPort) + ",";
+    data += R"("mqtt_usr":")" + mqttUser + R"(",)";
+    data += R"("mqtt_pwd":")" + mqttPwd + R"(",)";
+    data += R"("scanPeriod":)" + String(scanPeriod) + ",";
+    data += R"("whiteList":)";
+    data += (enableWhiteList ? "true" : "false");
+    data += R"(,)";
+    data += R"("trk_list":{)";
     bool first = true;
-    for(auto& mac : trackWhiteList)
+    for (auto &mac : trackWhiteList)
     {
-        if(!first)
-            data+=",";
-        else 
+        if (!first)
+            data += ",";
+        else
             first = false;
-        data+=R"(")"+mac+R"(":)"+ (InBatteryList(mac) ? "true" : "false");
+        data += R"(")" + mac + R"(":)" + (InBatteryList(mac) ? "true" : "false");
     }
-    data+="}";
-    data+="}";
+    data += "}";
+    data += "}";
     return data;
 }
 
-bool Settings::IsTraceable(const String& value)
+bool Settings::IsTraceable(const String &value)
 {
-    if(enableWhiteList)
+    if (enableWhiteList)
         return InWhiteList(value, trackWhiteList);
     else
         return true;
 }
 
-bool Settings::InBatteryList(const String& value)
+bool Settings::InBatteryList(const String &value)
 {
 #if PUBLISH_BATTERY_LEVEL
     return InWhiteList(value, batteryWhiteList);
@@ -148,63 +149,63 @@ bool Settings::InBatteryList(const String& value)
 #endif
 }
 
-bool Settings::InWhiteList(const String& value, const std::vector<String>& whiteList)
+bool Settings::InWhiteList(const String &value, const std::vector<String> &whiteList)
 {
-    bool inWhiteList=false;
-    for(uint8_t j =0; j < whiteList.size();j++)
-        if(value == whiteList[j])
+    bool inWhiteList = false;
+    for (uint8_t j = 0; j < whiteList.size(); j++)
+        if (value == whiteList[j])
         {
-          inWhiteList = true;
-          break;
+            inWhiteList = true;
+            break;
         }
     return inWhiteList;
 }
-   
-void Settings::SaveString(File file, const String& str)
+
+void Settings::SaveString(File file, const String &str)
 {
     size_t strLen;
     strLen = str.length();
-    file.write((uint8_t *)str.c_str(), strLen+1);
+    file.write((uint8_t *)str.c_str(), strLen + 1);
 }
 
-void Settings::SaveStringArray(File file, const std::vector<String>& vstr)
+void Settings::SaveStringArray(File file, const std::vector<String> &vstr)
 {
     size_t vstrLen;
     vstrLen = vstr.size();
     file.write((uint8_t *)&vstrLen, sizeof(vstrLen));
-    for(auto& str : vstr)
+    for (auto &str : vstr)
         SaveString(file, str);
 }
 
-void Settings::LoadString(File file, String& str)
+void Settings::LoadString(File file, String &str)
 {
     str = file.readStringUntil('\0');
 }
 
-void Settings::LoadStringArray(File file, std::vector<String>& vstr)
+void Settings::LoadStringArray(File file, std::vector<String> &vstr)
 {
     size_t vstrLen;
     file.read((uint8_t *)&vstrLen, sizeof(vstrLen));
     vstr.clear();
-    for(size_t i = 0;i < vstrLen; i++)
+    for (size_t i = 0; i < vstrLen; i++)
     {
-       vstr.emplace_back(file.readStringUntil('\0'));
-    } 
+        vstr.emplace_back(file.readStringUntil('\0'));
+    }
 }
 
 bool Settings::Save()
 {
     File file = SPIFFS.open(settingsFile, "w");
-    if(file)
+    if (file)
     {
         file.write((uint8_t *)&version, sizeof(Settings::version));
-        SaveString(file,mqttServer);
+        SaveString(file, mqttServer);
         file.write((uint8_t *)&mqttPort, sizeof(mqttPort));
-        SaveString(file,mqttUser);
-        SaveString(file,mqttPwd);
+        SaveString(file, mqttUser);
+        SaveString(file, mqttPwd);
         file.write((uint8_t *)&enableWhiteList, sizeof(enableWhiteList));
-        SaveStringArray(file,batteryWhiteList);
-        SaveStringArray(file,trackWhiteList);
+        SaveStringArray(file, batteryWhiteList);
+        SaveStringArray(file, trackWhiteList);
         file.write((uint8_t *)&scanPeriod, sizeof(scanPeriod));
         file.flush();
         file.close();
@@ -217,18 +218,19 @@ bool Settings::Save()
 void Settings::Load()
 {
     File file = SPIFFS.open(settingsFile, "r");
-    if(file)
+    if (file)
     {
         uint16_t currVer;
         file.read((uint8_t *)&currVer, sizeof(currVer));
-        LoadString(file,mqttServer);
+        LoadString(file, mqttServer);
         file.read((uint8_t *)&mqttPort, sizeof(mqttPort));
-        LoadString(file,mqttUser);
-        LoadString(file,mqttPwd);
+        LoadString(file, mqttUser);
+        LoadString(file, mqttPwd);
         file.read((uint8_t *)&enableWhiteList, sizeof(enableWhiteList));
-        LoadStringArray(file,batteryWhiteList);
-        LoadStringArray(file,trackWhiteList);
-        if(currVer == 2)
+        LoadStringArray(file, batteryWhiteList);
+        LoadStringArray(file, trackWhiteList);
+        if (currVer == 2)
             file.read((uint8_t *)&scanPeriod, sizeof(scanPeriod));
     }
+
 }
