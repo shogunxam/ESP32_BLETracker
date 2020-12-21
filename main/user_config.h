@@ -17,6 +17,9 @@
 #define WEBSERVER_USER        "admin"
 #define WEBSERVER_PASSWORD    "admin"
 
+//Set to true if you want track only the devices in the white list
+#define ENABLE_BLE_TRACKER_WHITELIST true
+
 //List of devices you want track
 //Replace using correct MAC Address values or undef/comment to track all the advertised devices
 //Mac Addresses are in the form "A6B5C4D3E2F1" (uppercase and no separator) and coma separated
