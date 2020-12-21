@@ -11,6 +11,7 @@ class OTAWebServer
     private:
         void resetESP32Page();
         void getConfigData();
+        void getServerInfoData();
         void getIndex();
         void getOTAUpdate();
         void getConfig();

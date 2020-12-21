@@ -66,6 +66,13 @@ R"=====(
       window.location.href = '/config';
       e.preventDefault();
     });
+    $('#addMac').click(function() {
+      mac = $('#newmac').val();
+      addMac(mac, false);
+      $('#addMac').prop("disabled", true);
+      $('#newmac').val("");
+      $('#devListContainer').scrollTop($('#devListContainer')[0].scrollHeight);
+    });
   });
   
   function addMac(mac, whitelist) {
@@ -79,16 +86,6 @@ R"=====(
     $('#' + mac).prop("checked", whitelist);
   }
   
-  $('#addMac').click(function() {
-    mac = $('#newmac').val();
-    addMac(mac, false);
-    $('#addMac').prop("disabled", true);
-  });
-  
-  function removeElement(elem)
-  {
-      elem
-  }
   function validateMacDigit(elem) {
     if (event.key.length > 1)
       return elem.value;

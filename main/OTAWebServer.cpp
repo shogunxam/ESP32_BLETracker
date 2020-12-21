@@ -60,12 +60,12 @@ const char sysInfoJs[] PROGMEM = "<script>"
 #define _CONTENT_DELAY_ 20
 #define SEND_CONTENT(x) server.sendContent(x)     /*;delay(_CONTENT_DELAY_)*/
 #define SEND_CONTENT_P(x) server.sendContent_P(x) /*;delay(_CONTENT_DELAY_)*/
-#define START_HTML_TRANSFER()                                                \
+#define START_CONTENT_TRANSFER(_content_type_)                               \
   server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate"); \
   server.sendHeader("Pragma", "no-cache");                                   \
   server.sendHeader("Expires", "-1");                                        \
   server.setContentLength(CONTENT_LENGTH_UNKNOWN);                           \
-  server.send(200, F("text/html"), "");
+  server.send(200, _content_type_, "");
 
 #if DEVELOPER_MODE
 static const char BuildTime[] =
@@ -98,7 +98,7 @@ void OTAWebServer::resetESP32Page()
 
   server.client().setNoDelay(true);
   server.client().setTimeout(30);
-  START_HTML_TRANSFER();
+  START_CONTENT_TRANSFER(F("text/html"));
   SEND_CONTENT(F("<div align='center'>Resetting...<br><progress id='g' class='y' value='0' max='100' style='align-self:center; text-align:center;'/></div>"
                  "<script>window.onload=function(){};var progval=0;var myVar=setInterval(Prog,80);"
                  "function Prog(){progval++;document.getElementById('g').value=progval;"
@@ -132,7 +132,7 @@ void OTAWebServer::getIndex()
   {
     return server.requestAuthentication();
   }
-  START_HTML_TRANSFER();
+  START_CONTENT_TRANSFER(F("text/html"));
   SEND_CONTENT_P(style);
   SEND_CONTENT_P(indexHtml);
 }
@@ -143,7 +143,7 @@ void OTAWebServer::getOTAUpdate()
   {
     return server.requestAuthentication();
   }
-  START_HTML_TRANSFER();
+  START_CONTENT_TRANSFER(F("text/html"));
   SEND_CONTENT_P(jquery);
   SEND_CONTENT_P(otaUpdateJs);
   SEND_CONTENT_P(style);
@@ -157,7 +157,7 @@ void OTAWebServer::getConfig()
     return server.requestAuthentication();
   }
 
-  START_HTML_TRANSFER();
+  START_CONTENT_TRANSFER(F("text/html"));
   SEND_CONTENT_P(jquery);
   SEND_CONTENT_P(configJs);
   SEND_CONTENT_P(style);
@@ -211,6 +211,40 @@ void OTAWebServer::postUpdateConfig()
   server.client().stop();
 }
 
+
+void OTAWebServer::getServerInfoData()
+{
+  START_CONTENT_TRANSFER(F("text/json"));
+  String data = "{";
+  data += R"("gateway":")" GATEWAY_NAME R"(",)";
+  data += R"("firmware":")" VERSION R"(",)";
+#if DEVELOPER_MODE
+  data += R"("build":")" + String(BuildTime) + R"(",)";
+  data += R"("memory":")" + String(xPortGetFreeHeapSize()) + R"( bytes",)";
+#endif
+  data += R"("uptime":")" + formatMillis(millis()) + R"(",)";
+  data += R"("ssid":")" WIFI_SSID R"(",)";
+  data += R"("battery":)" xstr(PUBLISH_BATTERY_LEVEL) R"(,)";
+  data += R"("devices":[)";
+  SEND_CONTENT(data);
+  bool first = true;
+  for (auto &trackedDevice : BLETrackedDevices)
+  {
+    data = first ? "" : ",";
+    first = false;
+    data += R"({"mac":")" + trackedDevice.address + R"(",)";
+    data += R"("rssi":)" + trackedDevice.rssi + R"(,)";
+#if PUBLISH_BATTERY_LEVEL
+    data += R"("battery":)" + String(trackedDevice.batteryLevel) + R"(,)";
+#endif
+    data += R"("state":")" + String(trackedDevice.isDiscovered ? F("On") : F("Off")) + R"("})";
+    SEND_CONTENT(data);
+  }
+
+  data = "]}";
+  SEND_CONTENT(data);
+}
+
 void OTAWebServer::getServerInfo()
 {
   if (!server.authenticate(WEBSERVER_USER, WEBSERVER_PASSWORD))
@@ -218,33 +252,7 @@ void OTAWebServer::getServerInfo()
     return server.requestAuthentication();
   }
 
-  START_HTML_TRANSFER();
-  String data = "<script> let data = {";
-  data += R"(gateway : ")" GATEWAY_NAME R"(",)";
-  data += R"(firmware : ")" VERSION R"(",)";
-#if DEVELOPER_MODE
-  data += R"(build: ")" + String(BuildTime) + R"(",)";
-  data += R"(memory: ")" + String(xPortGetFreeHeapSize()) + R"( bytes",)";
-#endif
-  data += R"(uptime: ")" + formatMillis(millis()) + R"(",)";
-  data += R"(ssid: ")" WIFI_SSID R"(",)";
-  data += R"(battery: )" xstr(PUBLISH_BATTERY_LEVEL) R"(,)";
-  data += R"(devices: [)";
-  SEND_CONTENT(data);
-  bool first = true;
-  for (auto &trackedDevice : BLETrackedDevices)
-  {
-    data = first ? "" : ",";
-    first = false;
-    data += R"({mac : ")" + trackedDevice.address + R"(",)";
-    data += R"(rssi : )" + trackedDevice.rssi + R"(,)";
-#if PUBLISH_BATTERY_LEVEL
-    data += R"(battery : )" + String(trackedDevice.batteryLevel) + R"(,)";
-#endif
-    data += R"(state : ")" + String(trackedDevice.isDiscovered ? F("On") : F("Off")) + R"("})";
-    SEND_CONTENT(data);
-  }
-  SEND_CONTENT(R"(]}</script>)");
+  START_CONTENT_TRANSFER(F("text/html"));
   SEND_CONTENT_P(jquery);
   SEND_CONTENT_P(sysInfoJs);
   SEND_CONTENT_P(style);
@@ -283,6 +291,8 @@ void OTAWebServer::setup(const String &hN, const String &_ssid_, const String &_
   server.on(F("/updateconfig"), HTTP_POST, [&]() { postUpdateConfig(); });
 
   server.on(F("/serverinfo"), HTTP_GET, [&]() { getServerInfo(); });
+
+  server.on(F("/getserverinfodata"), HTTP_GET, [&]() { getServerInfoData(); });
 
   server.on(F("/reset"), HTTP_GET, [&]() { resetESP32Page(); });
 
