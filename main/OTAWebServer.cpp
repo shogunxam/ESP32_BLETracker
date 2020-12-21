@@ -22,39 +22,39 @@ const char jquery[] PROGMEM = R"=====(<script src="https://ajax.googleapis.com/a
 
 //Import the style.css from file
 const char style[] = "<style>"
-#include "html/style.css.h"
+#include "html/style-min.css"
                      "</style>";
 
 /* Server Index Page */
 const char otaUpdateHtml[] PROGMEM =
-#include "html/otaupdate.html.h"
+#include "html/otaupdate-min.html"
     ;
 
 //Import the config.js script from file
 const char otaUpdateJs[] PROGMEM = "<script>"
-#include "html/otaupdate.js.h"
+#include "html/otaupdate-min.js"
                                    "</script>";
 
 //Import the config.html page from file
 const char configHtml[] PROGMEM =
-#include "html/config.html.h"
+#include "html/config-min.html"
     ;
 
 //Import the config.js script from file
 const char configJs[] PROGMEM = "<script>"
-#include "html/config.js.h"
+#include "html/config-min.js"
                                 "</script>";
 
 const char indexHtml[] PROGMEM =
-#include "html/index.html.h"
+#include "html/index-min.html"
     ;
 
 const char sysInfoHtml[] PROGMEM =
-#include "html/sysinfo.html.h"
+#include "html/sysinfo-min.html"
     ;
 
 const char sysInfoJs[] PROGMEM = "<script>"
-#include "html/sysinfo.js.h"
+#include "html/sysinfo-min.js"
                                  "</script>";
 
 #define _CONTENT_DELAY_ 20
