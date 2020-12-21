@@ -438,7 +438,7 @@ void loop()
   DEBUG_PRINTF("Number device discovered: %d\n", BLETrackedDevices.size());
   //DEBUG_PRINTLN(NB_OF_BLE_DISCOVERED_DEVICES);
 
-  if (BLETrackedDevices.size() == SettingsMngr.GetMaxNumOfTraceableDevices())
+  if (BLETrackedDevices.size() == SettingsMngr.GetMaxNumOfTraceableDevices() && SettingsMngr.GetMaxNumOfTraceableDevices() > 0 )
   {
     DEBUG_PRINTLN("INFO: Restart because the array is eneded\n");
     esp_restart();
