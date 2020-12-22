@@ -1,7 +1,13 @@
 $(document).ready(function() {
+  loadData();
+  setInterval(loadData, 5000);
+});
+
+function loadData(){
   now = new Date();
   var url = "/getserverinfodata?time="+now.getTime();
-  $.get(url,function(data) {
+  $.get(url,function(data)
+  {
     $('#gateway').text(data.gateway);
     $('#firmware').text(data.firmware);
     $('#uptime').text(data.uptime);
@@ -12,7 +18,10 @@ $(document).ready(function() {
     else $('#r3').hide();
     if (!data.battery)
       $('#c1').hide();
+    $("#devices > tbody").remove();
     var table = $('#devices');
+    table.append($("<tbody/>"));
+    
     data.devices.forEach(function(item, index) {
       tmac = $("<td/>").text(item.mac);
       trssi = $("<td/>").text(item.rssi);
@@ -28,4 +37,5 @@ $(document).ready(function() {
       console.log(table);
     });
   });
-});
+}
+

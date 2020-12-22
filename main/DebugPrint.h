@@ -17,6 +17,7 @@ Serial.print(_printbuffer_);\
 #define DEBUG_PRINTF(x,...) 
 #endif
 #define SERIAL_PRINTF(x,...) {\
+std::lock_guard<std::mutex> lock(_printLock_); \
 snprintf(_printbuffer_,255,x,__VA_ARGS__);\
 Serial.print(_printbuffer_);\
 }
