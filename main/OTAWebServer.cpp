@@ -22,50 +22,40 @@ const char jquery[] PROGMEM = R"=====(<script src="https://ajax.googleapis.com/a
 
 //Import the style.css from file
 const char style[] = "<style>"
-#include "html/style-min.css"
+#include "html/style-min.css.h"
                      "</style>";
 
 /* Server Index Page */
 const char otaUpdateHtml[] PROGMEM =
-#include "html/otaupdate-min.html"
+#include "html/otaupdate-min.html.h"
     ;
 
 //Import the config.js script from file
 const char otaUpdateJs[] PROGMEM = "<script>"
-#include "html/otaupdate-min.js"
+#include "html/otaupdate-min.js.h"
                                    "</script>";
 
 //Import the config.html page from file
 const char configHtml[] PROGMEM =
-#include "html/config-min.html"
+#include "html/config-min.html.h"
     ;
 
 //Import the config.js script from file
 const char configJs[] PROGMEM = "<script>"
-#include "html/config-min.js"
+#include "html/config-min.js.h"
                                 "</script>";
 
 const char indexHtml[] PROGMEM =
-#include "html/index-min.html"
+#include "html/index-min.html.h"
     ;
 
 const char sysInfoHtml[] PROGMEM =
-#include "html/sysinfo-min.html"
+#include "html/sysinfo-min.html.h"
     ;
 
 const char sysInfoJs[] PROGMEM = "<script>"
-#include "html/sysinfo-min.js"
+#include "html/sysinfo-min.js.h"
                                  "</script>";
-
-#define _CONTENT_DELAY_ 20
-#define SEND_CONTENT(x) server.sendContent(x)     /*;delay(_CONTENT_DELAY_)*/
-#define SEND_CONTENT_P(x) server.sendContent_P(x) /*;delay(_CONTENT_DELAY_)*/
-#define START_CONTENT_TRANSFER(_content_type_)                               \
-  server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate"); \
-  server.sendHeader("Pragma", "no-cache");                                   \
-  server.sendHeader("Expires", "-1");                                        \
-  server.setContentLength(CONTENT_LENGTH_UNKNOWN);                           \
-  server.send(200, _content_type_, "");
 
 #if DEVELOPER_MODE
 static const char BuildTime[] =
@@ -89,6 +79,25 @@ OTAWebServer::OTAWebServer()
 {
 }
 
+void OTAWebServer::StartContentTransfer(const String& contentType)
+{
+  server.sendHeader(F("Cache-Control"), F("no-cache, no-store, must-revalidate"));
+  server.sendHeader(F("Pragma"), F("no-cache"));
+  server.sendHeader(F("Expires"), F("-1"));
+  server.setContentLength(CONTENT_LENGTH_UNKNOWN);
+  server.send(200, contentType, "");
+}
+
+void OTAWebServer::SendContent(const String& content)
+{
+  server.sendContent(content);
+}
+
+void OTAWebServer::SendContent_P(PGM_P content)
+{
+  server.sendContent_P(content);
+}
+
 void OTAWebServer::resetESP32Page()
 {
   if (!server.authenticate(WEBSERVER_USER, WEBSERVER_PASSWORD))
@@ -98,8 +107,8 @@ void OTAWebServer::resetESP32Page()
 
   server.client().setNoDelay(true);
   server.client().setTimeout(30);
-  START_CONTENT_TRANSFER(F("text/html"));
-  SEND_CONTENT(F("<div align='center'>Resetting...<br><progress id='g' class='y' value='0' max='100' style='align-self:center; text-align:center;'/></div>"
+  StartContentTransfer(F("text/html"));
+  SendContent(F("<div align='center'>Resetting...<br><progress id='g' class='y' value='0' max='100' style='align-self:center; text-align:center;'/></div>"
                  "<script>window.onload=function(){};var progval=0;var myVar=setInterval(Prog,80);"
                  "function Prog(){progval++;document.getElementById('g').value=progval;"
                  "if (progval==100){clearInterval(myVar);setTimeout(Check, 3000);}}"
@@ -132,9 +141,9 @@ void OTAWebServer::getIndex()
   {
     return server.requestAuthentication();
   }
-  START_CONTENT_TRANSFER(F("text/html"));
-  SEND_CONTENT_P(style);
-  SEND_CONTENT_P(indexHtml);
+  StartContentTransfer(F("text/html"));
+  SendContent_P(style);
+  SendContent_P(indexHtml);
 }
 
 void OTAWebServer::getOTAUpdate()
@@ -143,11 +152,11 @@ void OTAWebServer::getOTAUpdate()
   {
     return server.requestAuthentication();
   }
-  START_CONTENT_TRANSFER(F("text/html"));
-  SEND_CONTENT_P(jquery);
-  SEND_CONTENT_P(otaUpdateJs);
-  SEND_CONTENT_P(style);
-  SEND_CONTENT_P(otaUpdateHtml);
+  StartContentTransfer(F("text/html"));
+  SendContent_P(jquery);
+  SendContent_P(otaUpdateJs);
+  SendContent_P(style);
+  SendContent_P(otaUpdateHtml);
 }
 
 void OTAWebServer::getConfig()
@@ -157,11 +166,11 @@ void OTAWebServer::getConfig()
     return server.requestAuthentication();
   }
 
-  START_CONTENT_TRANSFER(F("text/html"));
-  SEND_CONTENT_P(jquery);
-  SEND_CONTENT_P(configJs);
-  SEND_CONTENT_P(style);
-  SEND_CONTENT_P(configHtml);
+  StartContentTransfer(F("text/html"));
+  SendContent_P(jquery);
+  SendContent_P(configJs);
+  SendContent_P(style);
+  SendContent_P(configHtml);
 }
 
 void OTAWebServer::postUpdateConfig()
@@ -214,7 +223,7 @@ void OTAWebServer::postUpdateConfig()
 
 void OTAWebServer::getServerInfoData()
 {
-  START_CONTENT_TRANSFER(F("text/json"));
+  StartContentTransfer(F("text/json"));
   String data = "{";
   data += R"("gateway":")" GATEWAY_NAME R"(",)";
   data += R"("firmware":")" VERSION R"(",)";
@@ -226,7 +235,7 @@ void OTAWebServer::getServerInfoData()
   data += R"("ssid":")" WIFI_SSID R"(",)";
   data += R"("battery":)" xstr(PUBLISH_BATTERY_LEVEL) R"(,)";
   data += R"("devices":[)";
-  SEND_CONTENT(data);
+  SendContent(data);
   bool first = true;
   for (auto &trackedDevice : BLETrackedDevices)
   {
@@ -238,11 +247,11 @@ void OTAWebServer::getServerInfoData()
     data += R"("battery":)" + String(trackedDevice.batteryLevel) + R"(,)";
 #endif
     data += R"("state":")" + String(trackedDevice.isDiscovered ? F("On") : F("Off")) + R"("})";
-    SEND_CONTENT(data);
+    SendContent(data);
   }
 
   data = "]}";
-  SEND_CONTENT(data);
+  SendContent(data);
 }
 
 void OTAWebServer::getServerInfo()
@@ -252,11 +261,11 @@ void OTAWebServer::getServerInfo()
     return server.requestAuthentication();
   }
 
-  START_CONTENT_TRANSFER(F("text/html"));
-  SEND_CONTENT_P(jquery);
-  SEND_CONTENT_P(sysInfoJs);
-  SEND_CONTENT_P(style);
-  SEND_CONTENT_P(sysInfoHtml);
+  StartContentTransfer(F("text/html"));
+  SendContent_P(jquery);
+  SendContent_P(sysInfoJs);
+  SendContent_P(style);
+  SendContent_P(sysInfoHtml);
 }
 /*
  * setup function

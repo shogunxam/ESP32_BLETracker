@@ -1,4 +1,3 @@
-R"=====(
   $(document).ready(function() {
     now = new Date();
     factory = getUrlParameter('factory');
@@ -158,4 +157,3 @@ R"=====(
         }).get();
     };
   })(jQuery);
-  )====="

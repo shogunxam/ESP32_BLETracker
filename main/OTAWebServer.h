@@ -17,6 +17,9 @@ class OTAWebServer
         void getConfig();
         void postUpdateConfig();
         void getServerInfo();
+        void StartContentTransfer(const String& contentType);
+        void SendContent(const String& content);
+        void SendContent_P(PGM_P content);
         WebServer server;
         String hostName;
         String ssid;

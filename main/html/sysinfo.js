@@ -1,4 +1,3 @@
-R"=====(
 $(document).ready(function() {
   now = new Date();
   var url = "/getserverinfodata?time="+now.getTime();
@@ -30,4 +29,3 @@ $(document).ready(function() {
     });
   });
 });
-)====="
