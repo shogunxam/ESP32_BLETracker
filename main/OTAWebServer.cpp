@@ -16,6 +16,10 @@
 #include "macro_utility.h"
 #include "settings.h"
 
+#if ENABLE_FILE_LOG
+#include "SPIFFSLogger.h"
+#endif
+
 extern std::vector<BLETrackedDevice> BLETrackedDevices;
 
 const char jquery[] PROGMEM = R"=====(<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>)=====";
@@ -57,6 +61,16 @@ const char sysInfoJs[] PROGMEM = "<script>"
 #include "html/sysinfo-min.js.h"
                                  "</script>";
 
+#if ENABLE_FILE_LOG
+const char logsHtml[] PROGMEM =
+#include "html/logs-min.html.h"
+    ;
+
+const char logsJs[] PROGMEM = "<script>"
+#include "html/logs-min.js.h"
+                              "</script>";
+#endif
+
 #if DEVELOPER_MODE
 static const char BuildTime[] =
     {
@@ -79,7 +93,7 @@ OTAWebServer::OTAWebServer()
 {
 }
 
-void OTAWebServer::StartContentTransfer(const String& contentType)
+void OTAWebServer::StartContentTransfer(const String &contentType)
 {
   server.sendHeader(F("Cache-Control"), F("no-cache, no-store, must-revalidate"));
   server.sendHeader(F("Pragma"), F("no-cache"));
@@ -88,7 +102,7 @@ void OTAWebServer::StartContentTransfer(const String& contentType)
   server.send(200, contentType, "");
 }
 
-void OTAWebServer::SendContent(const String& content)
+void OTAWebServer::SendContent(const String &content)
 {
   server.sendContent(content);
 }
@@ -109,13 +123,78 @@ void OTAWebServer::resetESP32Page()
   server.client().setTimeout(30);
   StartContentTransfer(F("text/html"));
   SendContent(F("<div align='center'>Resetting...<br><progress id='g' class='y' value='0' max='100' style='align-self:center; text-align:center;'/></div>"
-                 "<script>window.onload=function(){};var progval=0;var myVar=setInterval(Prog,80);"
-                 "function Prog(){progval++;document.getElementById('g').value=progval;"
-                 "if (progval==100){clearInterval(myVar);setTimeout(Check, 3000);}}"
-                 "function Check(){if (progval==100){clearInterval(myVar);var ftimeout=setTimeout(null,5000);"
-                 "window.location='/';}}</script>"));
+                "<script>window.onload=function(){};var progval=0;var myVar=setInterval(Prog,80);"
+                "function Prog(){progval++;document.getElementById('g').value=progval;"
+                "if (progval==100){clearInterval(myVar);setTimeout(Check, 3000);}}"
+                "function Check(){if (progval==100){clearInterval(myVar);var ftimeout=setTimeout(null,5000);"
+                "window.location='/';}}</script>"));
   ESP.restart();
 }
+
+#if ENABLE_FILE_LOG
+void OTAWebServer::eraseLogs()
+{
+  SPIFFSLogger.clearLog();
+  server.sendHeader("Connection", "close");
+  server.send(200, "text/html", "Ok");
+}
+
+void OTAWebServer::getLogsData()
+{
+  if (!server.authenticate(WEBSERVER_USER, WEBSERVER_PASSWORD))
+  {
+    return server.requestAuthentication();
+  }
+
+  CRITICALSECTION_START(SPIFFSLogger)
+  StartContentTransfer(F("text/json"));
+  SPIFFSLoggerClass::logEntry entry;
+  SPIFFSLogger.read_logs_start(true);
+  bool first = true;
+  int count = 0;
+  String data = "[";
+
+  while (SPIFFSLogger.read_next_entry(entry))
+  {
+    if (first)
+      first = false;
+    else
+      data += ",";
+    data += "{";
+    data += R"("timestamp":")";
+    data.concat(entry.timeStamp);
+    data += R"(",)";
+    data += R"("message":")";
+    data.concat(entry.msg);
+    data += R"("})";
+    count++;
+    if (count == 10)
+    {
+      SendContent(data);
+      data.clear();
+      count = 0;
+    }
+  }
+  data += "]";
+  SendContent(data);
+
+  CRITICALSECTION_END //SPIFFSLogger
+}
+
+void OTAWebServer::getLogs()
+{
+  if (!server.authenticate(WEBSERVER_USER, WEBSERVER_PASSWORD))
+  {
+    return server.requestAuthentication();
+  }
+  StartContentTransfer(F("text/html"));
+  SendContent_P(jquery);
+  SendContent_P(logsJs);
+  SendContent_P(style);
+  SendContent_P(logsHtml);
+}
+
+#endif /*ENABLE_FILE_LOG*/
 
 void OTAWebServer::getConfigData()
 {
@@ -125,13 +204,13 @@ void OTAWebServer::getConfigData()
   }
   server.sendHeader(F("Connection"), F("close"));
   DEBUG_PRINTLN(SettingsMngr.toJSON());
-  if(server.args() > 0 && server.hasArg("factory") && server.arg("factory")=="true")
+  if (server.args() > 0 && server.hasArg("factory") && server.arg("factory") == "true")
   {
     Settings factoryValues;
     server.send(200, F("text/json"), factoryValues.toJSON());
     return;
   }
-  
+
   server.send(200, F("text/json"), SettingsMngr.toJSON());
 }
 
@@ -220,7 +299,6 @@ void OTAWebServer::postUpdateConfig()
   server.client().stop();
 }
 
-
 void OTAWebServer::getServerInfoData()
 {
   StartContentTransfer(F("text/json"));
@@ -305,8 +383,16 @@ void OTAWebServer::setup(const String &hN, const String &_ssid_, const String &_
 
   server.on(F("/reset"), HTTP_GET, [&]() { resetESP32Page(); });
 
+#if ENABLE_FILE_LOG
+  server.on(F("/eraselogs"), HTTP_GET, [&] { eraseLogs(); });
+
+  server.on(F("/logs"), HTTP_GET, [&] { getLogs(); });
+  server.on(F("/getlogsdata"), HTTP_GET, [&] { getLogsData(); });
+#endif
+
   /*handling uploading firmware file */
-  server.on(F("/update"), HTTP_POST, [&]() {
+  server.on(
+      F("/update"), HTTP_POST, [&]() {
     server.sendHeader(F("Connection"), F("close"));
     server.send(200, F("text/plain"), (Update.hasError()) ? F("FAIL") : F("OK"));
     ESP.restart(); }, [&]() {
@@ -327,8 +413,7 @@ void OTAWebServer::setup(const String &hN, const String &_ssid_, const String &_
       } else {
         Update.printError(Serial);
       }
-    } 
-  });
+    } });
 
   server.begin();
 }

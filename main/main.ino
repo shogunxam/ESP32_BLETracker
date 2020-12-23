@@ -31,6 +31,10 @@
 
 #include "settings.h"
 
+#if ENABLE_FILE_LOG
+#include "SPIFFSLogger.h"
+#endif
+
 char _printbuffer_[256];
 std::mutex _printLock_;
 
@@ -149,6 +153,7 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
             trackedDevice.connectionRetry = 0;
             trackedDevice.rssi = String(RSSI);
             DEBUG_PRINTF("INFO: Tracked device newly discovered, Address: %s , RSSI: %d\n",address.c_str(), RSSI);
+            FILE_LOG_WRITE("Device %s (%d) in range",address.c_str(), RSSI);
           }
           else
           {
@@ -178,6 +183,7 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
       BLETrackedDevices.push_back(std::move(trackedDevice));
 
       DEBUG_PRINTF("INFO: Device discovered, Address: %s , RSSI: %d\n",address.c_str(), RSSI);
+      FILE_LOG_WRITE("Discovered NEW device %s (%d)",address.c_str(), RSSI);
     }
   }
 };
@@ -344,6 +350,11 @@ void setup()
   }
 #endif
 
+#if ENABLE_FILE_LOG
+  SPIFFSLogger.Initialize("/logs.bin", 200);
+#endif
+
+  FILE_LOG_WRITE("--BLETracker started--");
   WiFiConnect(WIFI_SSID, WIFI_PASSWORD);
 
 #if ENABLE_OTA_WEBSERVER
@@ -355,7 +366,6 @@ void setup()
   //SPIFFS.remove("/settings.bin");
   if(SPIFFS.exists(F("/settings.bin")))
     SettingsMngr.Load();
-
 
   BLETrackedDevices.reserve(SettingsMngr.GetMaxNumOfTraceableDevices());
 
@@ -441,6 +451,7 @@ void loop()
   if (BLETrackedDevices.size() == SettingsMngr.GetMaxNumOfTraceableDevices() && SettingsMngr.GetMaxNumOfTraceableDevices() > 0 )
   {
     DEBUG_PRINTLN("INFO: Restart because the array is eneded\n");
+    FILE_LOG_WRITE("Restart reached max number of traceable devices");
     esp_restart();
   }
 
@@ -477,6 +488,7 @@ void loop()
     else
     {
       publishBLEState(trackedDevice.address, MQTT_PAYLOAD_OFF, "-100", trackedDevice.batteryLevel);
+      FILE_LOG_WRITE("Device %s out of range", trackedDevice.address.c_str());
     }
   }
 

@@ -17,6 +17,11 @@ class OTAWebServer
         void getConfig();
         void postUpdateConfig();
         void getServerInfo();
+        #if ENABLE_FILE_LOG
+        void eraseLogs();
+        void getLogs();
+        void getLogsData();
+        #endif
         void StartContentTransfer(const String& contentType);
         void SendContent(const String& content);
         void SendContent_P(PGM_P content);

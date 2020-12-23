@@ -4,7 +4,7 @@
 //  CONFIGURATION - SOFTWARE
 ///////////////////////////////////////////////////////////////////////////
 
-#include "user_config.h"
+#include "user_config_custom.h"
 
 //Scanninf to discover devices is performed every BLE_SCANNING_PERIOD seconds
 #define BLE_SCANNING_PERIOD   10    /*10 s*/
@@ -50,4 +50,6 @@
 #ifndef DEVELOPER_MODE
 #define DEVELOPER_MODE false
 #endif
+
+#define ENABLE_FILE_LOG true
 #endif /*CONFIG_ESP32_BLETRACKER*/

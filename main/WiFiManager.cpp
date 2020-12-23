@@ -9,6 +9,8 @@ extern "C" {
   #include <esp_wifi.h>
 }
 
+#include "SPIFFSLogger.h"
+
 void WiFiConnect(const String &_ssid_, const String &_password_)
 {
   esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
@@ -30,12 +32,17 @@ void WiFiConnect(const String &_ssid_, const String &_password_)
       if (millis() > timeout)
       {
         DEBUG_PRINTLN("Failed connecting to the network: timeout error!!!");
+        FILE_LOG_WRITE("Restart because failing to connect to %s.",_ssid_.c_str());
         esp_restart();
       }
     }
 
+    //Initialize the time getting it from the WEB We do it after we have WifFi connection
+    NTPTime::initialize();
+
     DEBUG_PRINTLN("--------------------");
     DEBUG_PRINTF("Connected to %s\n",_ssid_.c_str());
     DEBUG_PRINTF("IP address: %s\n",WiFi.localIP().toString().c_str());
+    FILE_LOG_WRITE("Connected to %s",_ssid_.c_str());
   }
 }
