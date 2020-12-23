@@ -152,7 +152,9 @@ void OTAWebServer::getLogsData()
   SPIFFSLogger.read_logs_start(true);
   bool first = true;
   int count = 0;
-  String data = "[";
+  String data;
+  data.reserve(10240);
+  data = "[";
 
   while (SPIFFSLogger.read_next_entry(entry))
   {
@@ -168,7 +170,7 @@ void OTAWebServer::getLogsData()
     data.concat(entry.msg);
     data += R"("})";
     count++;
-    if (count == 10)
+    if (count == 100)
     {
       SendContent(data);
       data.clear();

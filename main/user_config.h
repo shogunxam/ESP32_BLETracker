@@ -30,4 +30,11 @@
 //Mac Addresses are in the form "A6B5C4D3E2F1" (uppercase and no separator) and coma separated
 #define BLE_BATTERY_WHITELIST  "A6B5C4D3E2F1","F6E5D4C3B2A1"
 
+//NTP Server configurations
+#define NTP_SERVER          "pool.ntp.org"
+//Time Offset in seconds from GMT i.e. TZ+1 = 3600, TZ-1 = -3600
+#define GMT_OFFSET_IN_SEC   3600 
+//Daylight saving time offset in seconds 
+#define DST_OFFSET_INSEC    3600
+
 #endif

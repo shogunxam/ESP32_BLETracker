@@ -43,6 +43,14 @@ form {
   border-radius: 5px;
   text-align: center;
 }
+#logform{
+  background:#fff;
+  max-width:600px;
+  margin:75px auto;
+  padding:30px;
+  border-radius:5px;
+  text-align:center
+}
 .btn {
   background: #3498db;
   color: #fff;
