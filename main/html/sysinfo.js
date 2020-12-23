@@ -13,9 +13,9 @@ function loadData(){
     $('#uptime').text(data.uptime);
     $('#ssid').text(data.ssid);
     if (data.build) $('#build').text(data.build);
-    else $('#r2').hide();
+    else { $('#buildlbl').hide();$('#build').hide();}
     if (data.memory) $('#memory').text(data.memory);
-    else $('#r3').hide();
+    else { $('#memorylbl').hide(); $('#memory').hide();}
     if (!data.battery)
       $('#c1').hide();
     $("#devices > tbody").remove();
