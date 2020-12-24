@@ -172,8 +172,8 @@ void OTAWebServer::concatAndFlush(char* dest, size_t buffsize, const char* src)
     }
 }
 
-const size_t maxdatasize = 10240;
-static char data[maxdatasize];
+const size_t maxdatasize = 5*1024;
+static char databuffer[maxdatasize];
 
 void OTAWebServer::getLogsData()
 {
@@ -188,27 +188,27 @@ void OTAWebServer::getLogsData()
   SPIFFSLogger.read_logs_start(true);
   bool first = true;
   int count = 0;
-  
-  data[0]='\0';
-  concatAndFlush(data, maxdatasize, "[");
+  CRITICALSECTION_START(dataBuffMutex)
+  InitChunkedContent();
+  SendChunkedContent("[");
 
   while (SPIFFSLogger.read_next_entry(entry))
   {
     if (first)
       first = false;
     else
-      concatAndFlush(data, maxdatasize, ",");
-    concatAndFlush(data, maxdatasize, R"({"t":")");
-    concatAndFlush(data, maxdatasize, entry.timeStamp);
-    concatAndFlush(data, maxdatasize, R"(","m":")");
-    concatAndFlush(data, maxdatasize, entry.msg);
-    concatAndFlush(data, maxdatasize, R"("})");
+      SendChunkedContent(",");
+    SendChunkedContent( R"({"t":")");
+    SendChunkedContent( entry.timeStamp);
+    SendChunkedContent( R"(","m":")");
+    SendChunkedContent( entry.msg);
+    SendChunkedContent( R"("})");
   }
 
-  concatAndFlush(data, maxdatasize, "]");
-  
-  server.sendContent_P(data);
+  SendChunkedContent( "]");
+  FlushChunkedContent();
 
+  CRITICALSECTION_END //dataBuffMutex
   CRITICALSECTION_END //SPIFFSLogger
 
 }
@@ -252,11 +252,16 @@ void OTAWebServer::getIndex()
   {
     return server.requestAuthentication();
   }
+   CRITICALSECTION_START(dataBuffMutex)
   StartContentTransfer(F("text/html"));
-  SendContent_P(jquery);
-  SendContent_P(indexJs);  
-  SendContent_P(style);
-  SendContent_P(indexHtml);
+  InitChunkedContent();
+  SendChunkedContent(jquery);
+  SendChunkedContent(jquery);
+  SendChunkedContent(indexJs);
+  SendChunkedContent(style);
+  SendChunkedContent(indexHtml);
+  FlushChunkedContent();
+   CRITICALSECTION_END
 }
 
 void OTAWebServer::getIndexData()
@@ -265,15 +270,18 @@ void OTAWebServer::getIndexData()
   {
     return server.requestAuthentication();
   }
-  String data = R"({"gateway":")" GATEWAY_NAME R"(","logs":)";
+  CRITICALSECTION_START(dataBuffMutex)
+  StartContentTransfer("text/json");
+  InitChunkedContent();
+  SendChunkedContent(R"({"gateway":")" GATEWAY_NAME R"(","logs":)");
   #if ENABLE_FILE_LOG
-    data += "true";
+     SendChunkedContent("true");
   #else
-    data += "false";
+     SendChunkedContent( "false");
   #endif
-  data+="}";
-  server.sendHeader(F("Connection"), F("close"));
-  server.send(200, F("text/json"), data);
+  SendChunkedContent("}");
+  FlushChunkedContent();
+  CRITICALSECTION_END
 }
 
 void OTAWebServer::getOTAUpdate()
@@ -282,7 +290,7 @@ void OTAWebServer::getOTAUpdate()
   {
     return server.requestAuthentication();
   }
-  StartContentTransfer(F("text/html"));
+  StartContentTransfer("text/html");
   SendContent_P(jquery);
   SendContent_P(otaUpdateJs);
   SendContent_P(style);
@@ -350,37 +358,68 @@ void OTAWebServer::postUpdateConfig()
   server.client().stop();
 }
 
+void OTAWebServer::InitChunkedContent()
+{
+  databuffer[0]='\0';
+}
+
+void OTAWebServer::SendChunkedContent(const char* content)
+{
+  concatAndFlush(databuffer,maxdatasize,content);
+}
+
+void OTAWebServer::FlushChunkedContent()
+{
+  server.sendContent_P(databuffer);
+}
+
 void OTAWebServer::getServerInfoData()
 {
   StartContentTransfer(F("text/json"));
-  String data = "{";
-  data += R"("gateway":")" GATEWAY_NAME R"(",)";
-  data += R"("firmware":")" VERSION R"(",)";
+  CRITICALSECTION_START(dataBuffMutex)
+  InitChunkedContent();
+  SendChunkedContent("{");
+  SendChunkedContent(R"("gateway":")" GATEWAY_NAME R"(",)");
+  SendChunkedContent(R"("firmware":")" VERSION R"(",)");
+
 #if DEVELOPER_MODE
-  data += R"("build":")" + String(BuildTime) + R"(",)";
-  data += R"("memory":")" + String(xPortGetFreeHeapSize()) + R"( bytes",)";
+  SendChunkedContent(R"("build":")");
+  SendChunkedContent(BuildTime);
+  SendChunkedContent(R"(",)");
+  SendChunkedContent(R"("memory":")");
+  SendChunkedContent(String(xPortGetFreeHeapSize()).c_str());
+  SendChunkedContent( R"( bytes",)");
 #endif
-  data += R"("uptime":")" + formatMillis(millis()) + R"(",)";
-  data += R"("ssid":")" WIFI_SSID R"(",)";
-  data += R"("battery":)" xstr(PUBLISH_BATTERY_LEVEL) R"(,)";
-  data += R"("devices":[)";
-  SendContent(data);
+  SendChunkedContent( R"("uptime":")");
+  SendChunkedContent( formatMillis(millis()).c_str());
+  SendChunkedContent( R"(",)");
+  SendChunkedContent( R"("ssid":")" WIFI_SSID R"(",)");
+  SendChunkedContent( R"("battery":)" xstr(PUBLISH_BATTERY_LEVEL) R"(,)");
+  SendChunkedContent( R"("devices":[)");
   bool first = true;
   for (auto &trackedDevice : BLETrackedDevices)
   {
-    data = first ? "" : ",";
-    first = false;
-    data += R"({"mac":")" + trackedDevice.address + R"(",)";
-    data += R"("rssi":)" + trackedDevice.rssi + R"(,)";
+    if(first) first = false;
+    else SendChunkedContent(",");
+    SendChunkedContent( R"({"mac":")");
+    SendChunkedContent( trackedDevice.address.c_str());
+    SendChunkedContent(R"(",)");
+    SendChunkedContent( R"("rssi":)");
+    SendChunkedContent( trackedDevice.rssi.c_str());
+    SendChunkedContent(R"(,)");
 #if PUBLISH_BATTERY_LEVEL
-    data += R"("battery":)" + String(trackedDevice.batteryLevel) + R"(,)";
+    SendChunkedContent( R"("battery":)");
+    SendChunkedContent( String(trackedDevice.batteryLevel).c_str());
+    SendChunkedContent(R"(,)");
 #endif
-    data += R"("state":")" + String(trackedDevice.isDiscovered ? F("On") : F("Off")) + R"("})";
-    SendContent(data);
+    SendChunkedContent( R"("state":")");
+    SendChunkedContent( trackedDevice.isDiscovered ? "On" : "Off");
+    SendChunkedContent(R"("})");
   }
-
-  data = "]}";
-  SendContent(data);
+  SendChunkedContent("]}");
+  FlushChunkedContent();
+  
+  CRITICALSECTION_END
 }
 
 void OTAWebServer::getServerInfo()

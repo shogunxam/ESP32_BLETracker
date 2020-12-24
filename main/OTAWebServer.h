@@ -1,6 +1,7 @@
 #ifndef OTA_WEB_SERVER
 #define OTA_WEB_SERVER
 #include <WebServer.h>
+#include "myMutex.h"
 
 class OTAWebServer
 {
@@ -24,6 +25,9 @@ class OTAWebServer
         void getLogsData();
         #endif
         void StartContentTransfer(const String& contentType);
+        void InitChunkedContent();
+        void SendChunkedContent(const char* content);
+        void FlushChunkedContent();
         void SendContent(const String& content);
         void SendContent_P(PGM_P content);
 
@@ -34,5 +38,6 @@ class OTAWebServer
         String ssid;
         String password;
         bool serverRunning;
+        MyMutex dataBuffMutex;
 };
 #endif /*OTA_WEB_SERVER*/

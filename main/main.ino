@@ -158,7 +158,12 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
             trackedDevice.rssi = String(RSSI);
             DEBUG_PRINTF("INFO: Tracked device newly discovered, Address: %s , RSSI: %d\n",address.c_str(), RSSI);
             if(advertisedDevice.haveName())
-              FILE_LOG_WRITE("Device %s - %s within range, RSSI: %d ",address.c_str(), advertisedDevice.getName().c_str(), RSSI);
+            {
+              char shortName[31];
+              memset(shortName,0,31);
+              strncpy(shortName,advertisedDevice.getName().c_str(),30);
+              FILE_LOG_WRITE("Device %s - %s within range, RSSI: %d ",address.c_str(), shortName, RSSI);
+            }
             else
               FILE_LOG_WRITE("Device %s within range, RSSI: %d ",address.c_str(), RSSI);
           }
