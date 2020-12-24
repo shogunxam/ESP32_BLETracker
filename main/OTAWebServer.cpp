@@ -143,6 +143,38 @@ void OTAWebServer::eraseLogs()
   server.send(200, "text/html", "Ok");
 }
 
+//Return the number of characters written
+size_t OTAWebServer::concat(char* dest, size_t buffsize, const char* src, size_t startpos)
+{
+  size_t destLen = strlen(dest);
+  size_t available = buffsize - destLen - 1;
+  size_t wrote=0;
+  char* dstWlkr = dest+destLen;
+  const char* srcWlkr = src + startpos;
+  while( srcWlkr[wrote] != '\0' && wrote < available)
+  {
+    *dstWlkr=srcWlkr[wrote];
+    wrote++;
+    dstWlkr++;
+  }
+  *dstWlkr='\0';
+  return wrote;
+}
+
+void OTAWebServer::concatAndFlush(char* dest, size_t buffsize, const char* src)
+{
+    size_t wrote = concat(dest, buffsize, src);
+    while(wrote < strlen(src))
+    {
+      server.sendContent_P(dest);
+      dest[0]='\0';
+      wrote+=concat(dest, buffsize, src, wrote);
+    }
+}
+
+const size_t maxdatasize = 10240;
+static char data[maxdatasize];
+
 void OTAWebServer::getLogsData()
 {
   if (!server.authenticate(WEBSERVER_USER, WEBSERVER_PASSWORD))
@@ -156,35 +188,29 @@ void OTAWebServer::getLogsData()
   SPIFFSLogger.read_logs_start(true);
   bool first = true;
   int count = 0;
-  String data;
-  data.reserve(10240);//10Kb ~100 messages
-  data = "[";
+  
+  data[0]='\0';
+  concatAndFlush(data, maxdatasize, "[");
 
   while (SPIFFSLogger.read_next_entry(entry))
   {
     if (first)
       first = false;
     else
-      data += ",";
-    data += "{";
-    data += R"("t":")";
-    data.concat(entry.timeStamp);
-    data += R"(",)";
-    data += R"("m":")";
-    data.concat(entry.msg);
-    data += R"("})";
-    count++;
-    if (count == 100)
-    {
-      SendContent(data);
-      data.clear();
-      count = 0;
-    }
+      concatAndFlush(data, maxdatasize, ",");
+    concatAndFlush(data, maxdatasize, R"({"t":")");
+    concatAndFlush(data, maxdatasize, entry.timeStamp);
+    concatAndFlush(data, maxdatasize, R"(","m":")");
+    concatAndFlush(data, maxdatasize, entry.msg);
+    concatAndFlush(data, maxdatasize, R"("})");
   }
-  data += "]";
-  SendContent(data);
+
+  concatAndFlush(data, maxdatasize, "]");
+  
+  server.sendContent_P(data);
 
   CRITICALSECTION_END //SPIFFSLogger
+
 }
 
 void OTAWebServer::getLogs()

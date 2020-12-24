@@ -52,4 +52,5 @@
 #endif
 
 #define ENABLE_FILE_LOG true
+#define MAX_NUM_OF_SAVED_LOGS 200
 #endif /*CONFIG_ESP32_BLETRACKER*/

@@ -26,6 +26,9 @@ class OTAWebServer
         void StartContentTransfer(const String& contentType);
         void SendContent(const String& content);
         void SendContent_P(PGM_P content);
+
+        size_t concat(char* dest, size_t buffsize, const char* src, size_t startpos=0);
+        void concatAndFlush(char* dest, size_t buffsize, const char* src);
         WebServer server;
         String hostName;
         String ssid;
