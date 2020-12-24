@@ -1,7 +1,8 @@
 function sub(obj) {
-  var fileName = obj.value.split('\\\\');
+  var fileName = obj.value.split('\\');
   document.getElementById('file-input').innerHTML = '   ' + fileName[fileName.length - 1];
-}
+};
+$(function() {
 $('form').submit(function(e) {
   e.preventDefault();
   var form = $('#upload_form')[0];
@@ -28,4 +29,5 @@ $('form').submit(function(e) {
     },
     error: function(a, b, c) {}
   });
+});
 });
