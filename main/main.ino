@@ -91,11 +91,11 @@ void connectToMQTT()
 
   if (!mqttClient.connected())
   {
-    FILE_LOG_WRITE("Error: MQTT MQTT broker disconnected, connecting...");
+    FILE_LOG_WRITE("Error: MQTT broker disconnected, connecting...");
     if (mqttClient.connect(GATEWAY_NAME, SettingsMngr.mqttUser.c_str(), SettingsMngr.mqttPwd.c_str(), MQTT_AVAILABILITY_TOPIC, 1, true, MQTT_PAYLOAD_UNAVAILABLE))
     {
       DEBUG_PRINTLN(F("INFO: The client is successfully connected to the MQTT broker"));
-      FILE_LOG_WRITE("MQTT MQTT broker connected!");
+      FILE_LOG_WRITE("MQTT broker connected!");
       publishToMQTT(MQTT_AVAILABILITY_TOPIC, MQTT_PAYLOAD_AVAILABLE, true);
     }
     else
