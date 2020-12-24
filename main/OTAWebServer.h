@@ -24,7 +24,7 @@ class OTAWebServer
         void getLogs();
         void getLogsData();
         #endif
-        void StartContentTransfer(const String& contentType);
+        void StartChunkedContentTransfer(const String& contentType);
         void InitChunkedContent();
         void SendChunkedContent(const char* content);
         void FlushChunkedContent();

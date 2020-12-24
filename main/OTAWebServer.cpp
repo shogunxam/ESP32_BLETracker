@@ -97,11 +97,12 @@ OTAWebServer::OTAWebServer()
 {
 }
 
-void OTAWebServer::StartContentTransfer(const String &contentType)
+void OTAWebServer::StartChunkedContentTransfer(const String &contentType)
 {
   server.sendHeader(F("Cache-Control"), F("no-cache, no-store, must-revalidate"));
   server.sendHeader(F("Pragma"), F("no-cache"));
   server.sendHeader(F("Expires"), F("-1"));
+  server.sendHeader(F("Transfer-Encoding"),F("chunked"));
   server.setContentLength(CONTENT_LENGTH_UNKNOWN);
   server.send(200, contentType, "");
 }
@@ -123,10 +124,8 @@ void OTAWebServer::resetESP32Page()
     return server.requestAuthentication();
   }
 
-  server.client().setNoDelay(true);
-  server.client().setTimeout(30);
-  StartContentTransfer(F("text/html"));
-  SendContent(F("<div align='center'>Resetting...<br><progress id='g' class='y' value='0' max='100' style='align-self:center; text-align:center;'/></div>"
+  server.sendHeader("Connection", "close");
+  server.send(200, "text/html", F("<div align='center'>Resetting...<br><progress id='g' class='y' value='0' max='100' style='align-self:center; text-align:center;'/></div>"
                 "<script>window.onload=function(){};var progval=0;var myVar=setInterval(Prog,80);"
                 "function Prog(){progval++;document.getElementById('g').value=progval;"
                 "if (progval==100){clearInterval(myVar);setTimeout(Check, 3000);}}"
@@ -183,7 +182,7 @@ void OTAWebServer::getLogsData()
   }
 
   CRITICALSECTION_START(SPIFFSLogger)
-  StartContentTransfer(F("text/json"));
+  StartChunkedContentTransfer(F("text/json"));
   SPIFFSLoggerClass::logEntry entry;
   SPIFFSLogger.read_logs_start(true);
   bool first = true;
@@ -219,11 +218,15 @@ void OTAWebServer::getLogs()
   {
     return server.requestAuthentication();
   }
-  StartContentTransfer(F("text/html"));
-  SendContent_P(jquery);
-  SendContent_P(logsJs);
-  SendContent_P(style);
-  SendContent_P(logsHtml);
+  CRITICALSECTION_START(dataBuffMutex)
+  StartChunkedContentTransfer(F("text/html"));
+  InitChunkedContent();
+  SendChunkedContent(jquery);
+  SendChunkedContent(logsJs);
+  SendChunkedContent(style);
+  SendChunkedContent(logsHtml);
+  FlushChunkedContent();
+  CRITICALSECTION_END
 }
 
 #endif /*ENABLE_FILE_LOG*/
@@ -253,7 +256,7 @@ void OTAWebServer::getIndex()
     return server.requestAuthentication();
   }
    CRITICALSECTION_START(dataBuffMutex)
-  StartContentTransfer(F("text/html"));
+  StartChunkedContentTransfer(F("text/html"));
   InitChunkedContent();
   SendChunkedContent(jquery);
   SendChunkedContent(jquery);
@@ -271,7 +274,7 @@ void OTAWebServer::getIndexData()
     return server.requestAuthentication();
   }
   CRITICALSECTION_START(dataBuffMutex)
-  StartContentTransfer("text/json");
+  StartChunkedContentTransfer("text/json");
   InitChunkedContent();
   SendChunkedContent(R"({"gateway":")" GATEWAY_NAME R"(","logs":)");
   #if ENABLE_FILE_LOG
@@ -290,11 +293,15 @@ void OTAWebServer::getOTAUpdate()
   {
     return server.requestAuthentication();
   }
-  StartContentTransfer("text/html");
-  SendContent_P(jquery);
-  SendContent_P(otaUpdateJs);
-  SendContent_P(style);
-  SendContent_P(otaUpdateHtml);
+  CRITICALSECTION_START(dataBuffMutex)
+  StartChunkedContentTransfer("text/html");
+  InitChunkedContent();
+  SendChunkedContent(jquery);
+  SendChunkedContent(otaUpdateJs);
+  SendChunkedContent(style);
+  SendChunkedContent(otaUpdateHtml);
+  FlushChunkedContent();
+  CRITICALSECTION_END
 }
 
 void OTAWebServer::getConfig()
@@ -303,12 +310,15 @@ void OTAWebServer::getConfig()
   {
     return server.requestAuthentication();
   }
-
-  StartContentTransfer(F("text/html"));
-  SendContent_P(jquery);
-  SendContent_P(configJs);
-  SendContent_P(style);
-  SendContent_P(configHtml);
+  CRITICALSECTION_START(dataBuffMutex)
+  StartChunkedContentTransfer(F("text/html"));
+  InitChunkedContent();
+  SendChunkedContent(jquery);
+  SendChunkedContent(configJs);
+  SendChunkedContent(style);
+  SendChunkedContent(configHtml);
+  FlushChunkedContent();
+  CRITICALSECTION_END;
 }
 
 void OTAWebServer::postUpdateConfig()
@@ -371,11 +381,12 @@ void OTAWebServer::SendChunkedContent(const char* content)
 void OTAWebServer::FlushChunkedContent()
 {
   server.sendContent_P(databuffer);
+  server.sendContent_P("",0);
 }
 
 void OTAWebServer::getServerInfoData()
 {
-  StartContentTransfer(F("text/json"));
+  StartChunkedContentTransfer(F("text/json"));
   CRITICALSECTION_START(dataBuffMutex)
   InitChunkedContent();
   SendChunkedContent("{");
@@ -429,11 +440,15 @@ void OTAWebServer::getServerInfo()
     return server.requestAuthentication();
   }
 
-  StartContentTransfer(F("text/html"));
-  SendContent_P(jquery);
-  SendContent_P(sysInfoJs);
-  SendContent_P(style);
-  SendContent_P(sysInfoHtml);
+  CRITICALSECTION_START(dataBuffMutex)
+  StartChunkedContentTransfer(F("text/html"));
+  InitChunkedContent();
+  SendChunkedContent(jquery);
+  SendChunkedContent(sysInfoJs);
+  SendChunkedContent(style);
+  SendChunkedContent(sysInfoHtml);
+  FlushChunkedContent();
+  CRITICALSECTION_END
 }
 /*
  * setup function
@@ -519,8 +534,15 @@ void WebServerLoop(void *param)
   WebServer *server = (WebServer *)param;
   while (true)
   {
-    server->handleClient();
-    delay(100);
+    try
+    {
+      server->handleClient();
+      delay(100);
+    } 
+    catch(...)
+    {
+
+    }
   }
 }
 
