@@ -53,6 +53,10 @@ const char indexHtml[] PROGMEM =
 #include "html/index-min.html.h"
     ;
 
+const char indexJs[] PROGMEM = "<script>"
+#include "html/index-min.js.h"
+                                "</script>";
+
 const char sysInfoHtml[] PROGMEM =
 #include "html/sysinfo-min.html.h"
     ;
@@ -153,7 +157,7 @@ void OTAWebServer::getLogsData()
   bool first = true;
   int count = 0;
   String data;
-  data.reserve(10240);
+  data.reserve(10240);//10Kb ~100 messages
   data = "[";
 
   while (SPIFFSLogger.read_next_entry(entry))
@@ -163,10 +167,10 @@ void OTAWebServer::getLogsData()
     else
       data += ",";
     data += "{";
-    data += R"("timestamp":")";
+    data += R"("t":")";
     data.concat(entry.timeStamp);
     data += R"(",)";
-    data += R"("message":")";
+    data += R"("m":")";
     data.concat(entry.msg);
     data += R"("})";
     count++;
@@ -223,8 +227,27 @@ void OTAWebServer::getIndex()
     return server.requestAuthentication();
   }
   StartContentTransfer(F("text/html"));
+  SendContent_P(jquery);
+  SendContent_P(indexJs);  
   SendContent_P(style);
   SendContent_P(indexHtml);
+}
+
+void OTAWebServer::getIndexData()
+{
+  if (!server.authenticate(WEBSERVER_USER, WEBSERVER_PASSWORD))
+  {
+    return server.requestAuthentication();
+  }
+  String data = R"({"gateway":")" GATEWAY_NAME R"(","logs":)";
+  #if ENABLE_FILE_LOG
+    data += "true";
+  #else
+    data += "false";
+  #endif
+  data+="}";
+  server.sendHeader(F("Connection"), F("close"));
+  server.send(200, F("text/json"), data);
 }
 
 void OTAWebServer::getOTAUpdate()
@@ -370,8 +393,8 @@ void OTAWebServer::setup(const String &hN, const String &_ssid_, const String &_
 
   /*return index page which is stored in serverIndex */
   server.on(F("/"), HTTP_GET, [&]() { getIndex(); });
-
-  server.on(F("/otaupdate"), HTTP_GET, [&]() { getOTAUpdate(); });
+  
+  server.on(F("/getindexdata"), HTTP_GET, [&]() { getIndexData(); });
 
   server.on(F("/config"), HTTP_GET, [&]() { getConfig(); });
 
@@ -386,11 +409,14 @@ void OTAWebServer::setup(const String &hN, const String &_ssid_, const String &_
   server.on(F("/reset"), HTTP_GET, [&]() { resetESP32Page(); });
 
 #if ENABLE_FILE_LOG
+  server.on(F("/logs"), HTTP_GET, [&] { getLogs(); });
+
   server.on(F("/eraselogs"), HTTP_GET, [&] { eraseLogs(); });
 
-  server.on(F("/logs"), HTTP_GET, [&] { getLogs(); });
   server.on(F("/getlogsdata"), HTTP_GET, [&] { getLogsData(); });
 #endif
+
+  server.on(F("/otaupdate"), HTTP_GET, [&]() { getOTAUpdate(); });
 
   /*handling uploading firmware file */
   server.on(

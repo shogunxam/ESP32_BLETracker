@@ -13,6 +13,7 @@ class OTAWebServer
         void getConfigData();
         void getServerInfoData();
         void getIndex();
+        void getIndexData();
         void getOTAUpdate();
         void getConfig();
         void postUpdateConfig();

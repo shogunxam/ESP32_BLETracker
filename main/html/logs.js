@@ -12,11 +12,11 @@ function loadData() {
     var table = $('#logs');
     table.append($("<tbody/>").css("font-size","13px"));
     data.forEach(function(item, index) {
-        ttimestamp = $("<td/>").text(item.timestamp).css("text-align","left").css("width","22%").css("white-space","nowrap");
-        tmessage = $("<td/>").text(item.message).css("text-align","left").css("width","78%").css("white-space","nowrap");
-        if(item.message.startsWith("Error"))
+        ttimestamp = $("<td/>").text(item.t).css("text-align","left").css("width","22%").css("white-space","nowrap");
+        tmessage = $("<td/>").text(item.m).css("text-align","left").css("width","78%").css("white-space","nowrap");
+        if(item.m.startsWith("Error"))
       	  tmessage.css("color","#d21f1b");
-        else if(item.message.startsWith("--"))
+        else if(item.m.startsWith("BLETracker"))
       	  tmessage.css("color","#3498db");
       var row = $("<tr/>").append(ttimestamp);
       row.append(tmessage);
