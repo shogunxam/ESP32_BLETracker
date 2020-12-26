@@ -136,6 +136,11 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
     if(!SettingsMngr.IsTraceable(address))
       return;
 
+    char shortName[31];
+    memset(shortName,0,31);
+    if(advertisedDevice.haveName())
+      strncpy(shortName,advertisedDevice.getName().c_str(),30);
+
     int RSSI = advertisedDevice.getRSSI();
     for ( auto& trackedDevice : BLETrackedDevices)
     {
@@ -154,9 +159,6 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
             DEBUG_PRINTF("INFO: Tracked device newly discovered, Address: %s , RSSI: %d\n",address.c_str(), RSSI);
             if(advertisedDevice.haveName())
             {
-              char shortName[31];
-              memset(shortName,0,31);
-              strncpy(shortName,advertisedDevice.getName().c_str(),30);
               FILE_LOG_WRITE("Device %s - %s within range, RSSI: %d ",address.c_str(), shortName, RSSI);
             }
             else
@@ -166,15 +168,14 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
           {
             trackedDevice.lastDiscovery = millis();
             trackedDevice.rssi = String(RSSI);
-            if(advertisedDevice.haveName())
-              DEBUG_PRINTF("INFO: Tracked device discovered, Address: %s , RSSI: %d\n",address.c_str(), RSSI);
+            DEBUG_PRINTF("INFO: Tracked device discovered, Address: %s , RSSI: %d\n",address.c_str(), RSSI);
           }
         }
         break;
       }
     }
 
-    //This is a new edvice...
+    //This is a new device...
     if (!foundPreviouslyAdvertisedDevice)
     {
       BLETrackedDevice trackedDevice;
@@ -192,7 +193,7 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
 
       DEBUG_PRINTF("INFO: Device discovered, Address: %s , RSSI: %d\n",address.c_str(), RSSI);
       if(advertisedDevice.haveName())
-        FILE_LOG_WRITE("Discovered new device %s - %s within range, RSSI: %d ",address.c_str(), advertisedDevice.getName().c_str(), RSSI);
+        FILE_LOG_WRITE("Discovered new device %s - %s within range, RSSI: %d ",address.c_str(), shortName, RSSI);
       else
         FILE_LOG_WRITE("Discovered new device %s within range, RSSI: %d ",address.c_str(), RSSI);
     }
