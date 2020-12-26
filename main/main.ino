@@ -32,9 +32,8 @@
 #include "settings.h"
 #include "watchdog.h"
 
-#if ENABLE_FILE_LOG
 #include "SPIFFSLogger.h"
-#endif
+
 
 char _printbuffer_[256];
 std::mutex _printLock_;

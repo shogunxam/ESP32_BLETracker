@@ -1,5 +1,5 @@
 #include "SPIFFSLogger.h"
-#ifdef ENABLE_FILE_LOG
+#if ENABLE_FILE_LOG
 #include <FS.h>
 #include "DebugPrint.h"
 

@@ -89,6 +89,39 @@ void OTAWebServer::StartChunkedContentTransfer(const String &contentType)
   server.send(200, contentType, "");
 }
 
+
+//Return the number of characters written
+size_t OTAWebServer::concat(char* dest, size_t buffsize, const char* src, size_t startpos)
+{
+  size_t destLen = strlen(dest);
+  size_t available = buffsize - destLen - 1;
+  size_t wrote=0;
+  char* dstWlkr = dest+destLen;
+  const char* srcWlkr = src + startpos;
+  while( srcWlkr[wrote] != '\0' && wrote < available)
+  {
+    *dstWlkr=srcWlkr[wrote];
+    wrote++;
+    dstWlkr++;
+  }
+  *dstWlkr='\0';
+  return wrote;
+}
+
+void OTAWebServer::concatAndFlush(char* dest, size_t buffsize, const char* src)
+{
+    size_t wrote = concat(dest, buffsize, src);
+    while(wrote < strlen(src))
+    {
+      server.sendContent_P(dest);
+      dest[0]='\0';
+      wrote+=concat(dest, buffsize, src, wrote);
+    }
+}
+
+const size_t maxdatasize = 5*1024;
+static char databuffer[maxdatasize];
+
 void OTAWebServer::SendContent(const String &content)
 {
   server.sendContent(content);
@@ -123,38 +156,6 @@ void OTAWebServer::eraseLogs()
   server.sendHeader("Connection", "close");
   server.send(200, "text/html", "Ok");
 }
-
-//Return the number of characters written
-size_t OTAWebServer::concat(char* dest, size_t buffsize, const char* src, size_t startpos)
-{
-  size_t destLen = strlen(dest);
-  size_t available = buffsize - destLen - 1;
-  size_t wrote=0;
-  char* dstWlkr = dest+destLen;
-  const char* srcWlkr = src + startpos;
-  while( srcWlkr[wrote] != '\0' && wrote < available)
-  {
-    *dstWlkr=srcWlkr[wrote];
-    wrote++;
-    dstWlkr++;
-  }
-  *dstWlkr='\0';
-  return wrote;
-}
-
-void OTAWebServer::concatAndFlush(char* dest, size_t buffsize, const char* src)
-{
-    size_t wrote = concat(dest, buffsize, src);
-    while(wrote < strlen(src))
-    {
-      server.sendContent_P(dest);
-      dest[0]='\0';
-      wrote+=concat(dest, buffsize, src, wrote);
-    }
-}
-
-const size_t maxdatasize = 5*1024;
-static char databuffer[maxdatasize];
 
 void OTAWebServer::getLogsData()
 {

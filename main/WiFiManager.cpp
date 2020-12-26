@@ -8,7 +8,7 @@
 extern "C" {
   #include <esp_wifi.h>
 }
-
+#include "NTPTime.h"
 #include "SPIFFSLogger.h"
 
 void WiFiConnect(const String &_ssid_, const String &_password_)
