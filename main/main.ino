@@ -79,8 +79,10 @@ void publishToMQTT(const String &topic, const String &payload, bool retain)
 /*
   Function called to connect/reconnect to the MQTT broker
 */
+static bool firstTimeMQTTConnection = true;
 void connectToMQTT()
 {
+
   WiFiConnect(WIFI_SSID, WIFI_PASSWORD);
 
   DEBUG_PRINTF("INFO: MQTT availability topic: %s\n", MQTT_AVAILABILITY_TOPIC);
@@ -89,7 +91,9 @@ void connectToMQTT()
 
   if (!mqttClient.connected())
   {
-    FILE_LOG_WRITE("Error: MQTT broker disconnected, connecting...");
+    if(!firstTimeMQTTConnection)
+      FILE_LOG_WRITE("Error: MQTT broker disconnected, connecting...");
+
     if (mqttClient.connect(GATEWAY_NAME, SettingsMngr.mqttUser.c_str(), SettingsMngr.mqttPwd.c_str(), MQTT_AVAILABILITY_TOPIC, 1, true, MQTT_PAYLOAD_UNAVAILABLE))
     {
       DEBUG_PRINTLN(F("INFO: The client is successfully connected to the MQTT broker"));
@@ -113,6 +117,7 @@ void connectToMQTT()
       publishToMQTT(MQTT_AVAILABILITY_TOPIC, MQTT_PAYLOAD_AVAILABLE, true);
     }
   }
+  firstTimeMQTTConnection = false;
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -336,6 +341,7 @@ bool batteryLevel(const String &address, esp_ble_addr_type_t addressType, int &b
   else
   {
     log_i("-------------------Not connected!!!--------------------");
+    FILE_LOG_WRITE("Connection to device %s failed", address.c_str());
   }
   delete pClient;
   pClient = nullptr;
@@ -379,7 +385,7 @@ void setup()
 #endif
 
   WiFiConnect(WIFI_SSID, WIFI_PASSWORD);
-
+ 
 #if ERASE_DATA_AFTER_FLASH
   if (dataErased == 1)
     FILE_LOG_WRITE("Error Erasing all persitent data!");
@@ -391,11 +397,10 @@ void setup()
   webserver.setup(GATEWAY_NAME, WIFI_SSID, WIFI_PASSWORD);
 #endif
 
-  FILE_LOG_WRITE("BLETracker started...");
-
   SettingsMngr.SettingsFile(F("/settings.bin"));
   if (SPIFFS.exists(F("/settings.bin")))
     SettingsMngr.Load();
+
 
   BLETrackedDevices.reserve(SettingsMngr.GetMaxNumOfTraceableDevices());
 
@@ -407,9 +412,13 @@ void setup()
   pBLEScan->setActiveScan(false);
 
   mqttClient.setServer(SettingsMngr.mqttServer.c_str(), SettingsMngr.mqttPort);
+  connectToMQTT();
+
 #if PUBLISH_BATTERY_LEVEL
   connection_event_group = xEventGroupCreate();
 #endif
+
+  FILE_LOG_WRITE("BLETracker initialized");
 }
 
 void publishBLEState(const String &address, const String &state, const String &rssi, int batteryLevel)

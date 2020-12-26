@@ -146,6 +146,7 @@ void OTAWebServer::resetESP32Page()
                 "if (progval==100){clearInterval(myVar);setTimeout(Check, 3000);}}"
                 "function Check(){if (progval==100){clearInterval(myVar);var ftimeout=setTimeout(null,5000);"
                 "window.location='/';}}</script>"));
+  FILE_LOG_WRITE("Restart request from the user...");
   ESP.restart();
 }
 

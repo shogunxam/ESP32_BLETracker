@@ -22,18 +22,21 @@ $('form').submit(function(e) {
           $('#bar').css('width', Math.round(per * 100) + '%');
           if(per==1)
           {
-              var ftimeout=setTimeout(function(){window.location='/';},5000);      			        }
+            var ftimeout=setTimeout(function(){window.location='/';},10000);
+          }
         }
       }, false);
       return xhr;
     },
     success: function(d, s) {
       console.log('success!')
+      $("#errormsg").text("Restarting...");
+      $("#errormsg").css("visibility","visible");
       var ftimeout=setTimeout(null,5000);
       window.location='/';
     },
     error: function(a, b, c) {
-    	$("#errormsg").css("visibility","visible");      
+    	$("#errormsg").css("visibility","visible");
     }
   });
 });
