@@ -34,10 +34,8 @@
 
 #include "SPIFFSLogger.h"
 
-
 char _printbuffer_[256];
 std::mutex _printLock_;
-
 
 std::vector<BLETrackedDevice> BLETrackedDevices;
 
@@ -59,22 +57,22 @@ volatile unsigned long lastMQTTConnection = 0;
 /*
   Function called to publish to a MQTT topic with the given payload
 */
-void publishToMQTT(const String& topic, const String& payload, bool retain)
+void publishToMQTT(const String &topic, const String &payload, bool retain)
 {
   while (!mqttClient.connected())
   {
-    DEBUG_PRINTF("INFO: Connecting to MQTT broker: %s\n",SettingsMngr.mqttServer.c_str());
+    DEBUG_PRINTF("INFO: Connecting to MQTT broker: %s\n", SettingsMngr.mqttServer.c_str());
     connectToMQTT();
     delay(500);
   }
 
   if (mqttClient.publish(topic.c_str(), payload.c_str(), retain))
   {
-    DEBUG_PRINTF("INFO: MQTT message published successfully, topic: %s , payload: %s , retain: %s \n",topic.c_str(),payload.c_str(), retain ? "True":"False");
+    DEBUG_PRINTF("INFO: MQTT message published successfully, topic: %s , payload: %s , retain: %s \n", topic.c_str(), payload.c_str(), retain ? "True" : "False");
   }
   else
   {
-    DEBUG_PRINTF("ERROR: MQTT message not published, either connection lost, or message too large. Topic: %s , payload: %s , retain: %s \n",topic.c_str(),payload.c_str(), retain ? "True":"False");
+    DEBUG_PRINTF("ERROR: MQTT message not published, either connection lost, or message too large. Topic: %s , payload: %s , retain: %s \n", topic.c_str(), payload.c_str(), retain ? "True" : "False");
     FILE_LOG_WRITE("Error: MQTT message not published");
   }
 }
@@ -85,7 +83,7 @@ void connectToMQTT()
 {
   WiFiConnect(WIFI_SSID, WIFI_PASSWORD);
 
-  DEBUG_PRINTF("INFO: MQTT availability topic: %s\n",MQTT_AVAILABILITY_TOPIC);
+  DEBUG_PRINTF("INFO: MQTT availability topic: %s\n", MQTT_AVAILABILITY_TOPIC);
   //DEBUG_PRINT(F("INFO: MQTT availability topic: "));
   //DEBUG_PRINTLN(MQTT_AVAILABILITY_TOPIC);
 
@@ -101,9 +99,9 @@ void connectToMQTT()
     else
     {
       DEBUG_PRINTLN(F("ERROR: The connection to the MQTT broker failed"));
-      DEBUG_PRINTF("INFO: MQTT username: %s\n",SettingsMngr.mqttUser.c_str())
-      DEBUG_PRINTF("INFO: MQTT password: %s\n",SettingsMngr.mqttPwd.c_str());
-      DEBUG_PRINTF("INFO: MQTT broker: %s\n",SettingsMngr.mqttServer.c_str());
+      DEBUG_PRINTF("INFO: MQTT username: %s\n", SettingsMngr.mqttUser.c_str())
+      DEBUG_PRINTF("INFO: MQTT password: %s\n", SettingsMngr.mqttPwd.c_str());
+      DEBUG_PRINTF("INFO: MQTT broker: %s\n", SettingsMngr.mqttServer.c_str());
       FILE_LOG_WRITE("Error: Connection to the MQTT broker failed!");
     }
   }
@@ -117,7 +115,6 @@ void connectToMQTT()
   }
 }
 
-
 ///////////////////////////////////////////////////////////////////////////
 //   BLUETOOTH
 ///////////////////////////////////////////////////////////////////////////
@@ -127,26 +124,26 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
   {
     Watchdog::Feed();
     bool foundPreviouslyAdvertisedDevice = false;
-    std::string std_address=advertisedDevice.getAddress().toString();
+    std::string std_address = advertisedDevice.getAddress().toString();
     String address(std_address.c_str());
     address.replace(":", "");
     address.toUpperCase();
 
-    if(!SettingsMngr.IsTraceable(address))
+    if (!SettingsMngr.IsTraceable(address))
       return;
 
     char shortName[31];
-    memset(shortName,0,31);
-    if(advertisedDevice.haveName())
-      strncpy(shortName,advertisedDevice.getName().c_str(),30);
+    memset(shortName, 0, 31);
+    if (advertisedDevice.haveName())
+      strncpy(shortName, advertisedDevice.getName().c_str(), 30);
 
     int RSSI = advertisedDevice.getRSSI();
-    for ( auto& trackedDevice : BLETrackedDevices)
+    for (auto &trackedDevice : BLETrackedDevices)
     {
       foundPreviouslyAdvertisedDevice = address == trackedDevice.address;
-      if ( foundPreviouslyAdvertisedDevice )
+      if (foundPreviouslyAdvertisedDevice)
       {
-        if(!trackedDevice.advertised)
+        if (!trackedDevice.advertised)
         {
           trackedDevice.advertised = true;
           if (!trackedDevice.isDiscovered)
@@ -155,19 +152,19 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
             trackedDevice.lastDiscovery = millis();
             trackedDevice.connectionRetry = 0;
             trackedDevice.rssi = String(RSSI);
-            DEBUG_PRINTF("INFO: Tracked device newly discovered, Address: %s , RSSI: %d\n",address.c_str(), RSSI);
-            if(advertisedDevice.haveName())
+            DEBUG_PRINTF("INFO: Tracked device newly discovered, Address: %s , RSSI: %d\n", address.c_str(), RSSI);
+            if (advertisedDevice.haveName())
             {
-              FILE_LOG_WRITE("Device %s - %s within range, RSSI: %d ",address.c_str(), shortName, RSSI);
+              FILE_LOG_WRITE("Device %s ( %s ) within range, RSSI: %d ", address.c_str(), shortName, RSSI);
             }
             else
-              FILE_LOG_WRITE("Device %s within range, RSSI: %d ",address.c_str(), RSSI);
+              FILE_LOG_WRITE("Device %s within range, RSSI: %d ", address.c_str(), RSSI);
           }
           else
           {
             trackedDevice.lastDiscovery = millis();
             trackedDevice.rssi = String(RSSI);
-            DEBUG_PRINTF("INFO: Tracked device discovered, Address: %s , RSSI: %d\n",address.c_str(), RSSI);
+            DEBUG_PRINTF("INFO: Tracked device discovered, Address: %s , RSSI: %d\n", address.c_str(), RSSI);
           }
         }
         break;
@@ -180,21 +177,21 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
       BLETrackedDevice trackedDevice;
       trackedDevice.advertised = true;
       trackedDevice.address = address;
-      trackedDevice.addressType =  advertisedDevice.getAddressType();
+      trackedDevice.addressType = advertisedDevice.getAddressType();
       trackedDevice.isDiscovered = true;
       trackedDevice.lastDiscovery = millis();
       trackedDevice.lastBattMeasure = 0;
-      trackedDevice.batteryLevel=-1;
+      trackedDevice.batteryLevel = -1;
       trackedDevice.hasBatteryService = true;
       trackedDevice.connectionRetry = 0;
       trackedDevice.rssi = String(RSSI);
       BLETrackedDevices.push_back(std::move(trackedDevice));
 
-      DEBUG_PRINTF("INFO: Device discovered, Address: %s , RSSI: %d\n",address.c_str(), RSSI);
-      if(advertisedDevice.haveName())
-        FILE_LOG_WRITE("Discovered new device %s - %s within range, RSSI: %d ",address.c_str(), shortName, RSSI);
+      DEBUG_PRINTF("INFO: Device discovered, Address: %s , RSSI: %d\n", address.c_str(), RSSI);
+      if (advertisedDevice.haveName())
+        FILE_LOG_WRITE("Discovered new device %s ( %s ) within range, RSSI: %d ", address.c_str(), shortName, RSSI);
       else
-        FILE_LOG_WRITE("Discovered new device %s within range, RSSI: %d ",address.c_str(), RSSI);
+        FILE_LOG_WRITE("Discovered new device %s within range, RSSI: %d ", address.c_str(), RSSI);
     }
   }
 };
@@ -224,53 +221,51 @@ class MyBLEClientCallBack : public BLEClientCallbacks
 void batteryTask()
 {
   //DEBUG_PRINTF("\n*** Memory before battery scan: %u\n",xPortGetFreeHeapSize());
-  
-  for (auto& trackedDevice : BLETrackedDevices)
+
+  for (auto &trackedDevice : BLETrackedDevices)
   {
 
     Watchdog::Feed();
-    
-    if(!SettingsMngr.InBatteryList(trackedDevice.address))
+
+    if (!SettingsMngr.InBatteryList(trackedDevice.address))
       continue;
 
     //We need to connect to the device to read the battery value
     //So that we check only the device really advertised by the scan
-    unsigned long BatteryReadTimeout  = trackedDevice.lastBattMeasure + BATTERY_READ_PERIOD;
+    unsigned long BatteryReadTimeout = trackedDevice.lastBattMeasure + BATTERY_READ_PERIOD;
     unsigned long BatteryRetryTimeout = trackedDevice.lastBattMeasure + BATTERY_RETRY_PERIOD;
     unsigned long now = millis();
     if (trackedDevice.advertised && trackedDevice.hasBatteryService &&
-        (
-          (trackedDevice.batteryLevel >  0 && (BatteryReadTimeout  < now))  ||
-          (trackedDevice.batteryLevel <= 0 && (BatteryRetryTimeout < now)) ||
-          (trackedDevice.lastBattMeasure == 0 )
-        ))
+        ((trackedDevice.batteryLevel > 0 && (BatteryReadTimeout < now)) ||
+         (trackedDevice.batteryLevel <= 0 && (BatteryRetryTimeout < now)) ||
+         (trackedDevice.lastBattMeasure == 0)))
     {
-      DEBUG_PRINTF("\nReading Battery level for %s: Retries: %d\n",trackedDevice.address.c_str(), trackedDevice.connectionRetry);
-      bool connectionExtabilished = batteryLevel(trackedDevice.address,trackedDevice.addressType, trackedDevice.batteryLevel, trackedDevice.hasBatteryService);
-      if(connectionExtabilished || !trackedDevice.hasBatteryService)
+      DEBUG_PRINTF("\nReading Battery level for %s: Retries: %d\n", trackedDevice.address.c_str(), trackedDevice.connectionRetry);
+      bool connectionExtabilished = batteryLevel(trackedDevice.address, trackedDevice.addressType, trackedDevice.batteryLevel, trackedDevice.hasBatteryService);
+      if (connectionExtabilished || !trackedDevice.hasBatteryService)
       {
-          log_i("Device %s has battery service: %s", trackedDevice.address.c_str(), trackedDevice.hasBatteryService?"YES":"NO");
-          trackedDevice.connectionRetry=0;
-          trackedDevice.lastBattMeasure = now;
+        log_i("Device %s has battery service: %s", trackedDevice.address.c_str(), trackedDevice.hasBatteryService ? "YES" : "NO");
+        trackedDevice.connectionRetry = 0;
+        trackedDevice.lastBattMeasure = now;
       }
       else
       {
         trackedDevice.connectionRetry++;
-        if(trackedDevice.connectionRetry >= MAX_BLE_CONNECTION_RETRIES)
+        if (trackedDevice.connectionRetry >= MAX_BLE_CONNECTION_RETRIES)
         {
-          trackedDevice.connectionRetry=0;
+          trackedDevice.connectionRetry = 0;
           trackedDevice.lastBattMeasure = now;
         }
       }
     }
-    else  if(BatteryReadTimeout < now )
+    else if (BatteryReadTimeout < now)
     {
       //Here we preserve the lastBattMeasure time to trigger a new read
       //when the device will be advertised again
       trackedDevice.batteryLevel = -1;
     }
   }
- //DEBUG_PRINTF("\n*** Memory after battery scan: %u\n",xPortGetFreeHeapSize());
+  //DEBUG_PRINTF("\n*** Memory after battery scan: %u\n",xPortGetFreeHeapSize());
 }
 
 bool batteryLevel(const String &address, esp_ble_addr_type_t addressType, int &battLevel, bool &hasBatteryService)
@@ -299,7 +294,7 @@ bool batteryLevel(const String &address, esp_ble_addr_type_t addressType, int &b
 
   // Connect to the remote BLE Server.
   bool result = false;
-  
+
   bleconnected = pClient->connect(bleAddress, addressType);
   if (bleconnected)
   {
@@ -367,13 +362,17 @@ void setup()
   }
 #endif
 
-  #if ERASE_DATA_AFTER_FLASH
+#if ERASE_DATA_AFTER_FLASH
+  int dataErased = 0; //0 -> Data erased not performed
   String ver = Firmware::FullVersion();
-  if(ver != Firmware::readVersion())
-    SPIFFS.format();
-  #endif //ERASE_DATA_AFTER_FLASH
-
-  Firmware::writeVersion();
+  if (ver != Firmware::readVersion())
+  {
+    dataErased++; //1 -> Data should be erased
+    if (SPIFFS.format())
+      dataErased++; //2 -> Data erased
+    Firmware::writeVersion();
+  }
+#endif //ERASE_DATA_AFTER_FLASH
 
 #if ENABLE_FILE_LOG
   SPIFFSLogger.Initialize("/logs.bin", 200);
@@ -381,16 +380,21 @@ void setup()
 
   WiFiConnect(WIFI_SSID, WIFI_PASSWORD);
 
-#if ENABLE_OTA_WEBSERVER
-  webserver.setup(GATEWAY_NAME,WIFI_SSID,WIFI_PASSWORD);
+#if ERASE_DATA_AFTER_FLASH
+  if (dataErased == 1)
+    FILE_LOG_WRITE("Error Erasing all persitent data!");
+  else if (dataErased == 2)
+    FILE_LOG_WRITE("Erased all persitent data!");
 #endif
-  
+
+#if ENABLE_OTA_WEBSERVER
+  webserver.setup(GATEWAY_NAME, WIFI_SSID, WIFI_PASSWORD);
+#endif
+
   FILE_LOG_WRITE("BLETracker started...");
 
   SettingsMngr.SettingsFile(F("/settings.bin"));
-  //Uncomment if settigns are compromised
-  //SPIFFS.remove("/settings.bin");
-  if(SPIFFS.exists(F("/settings.bin")))
+  if (SPIFFS.exists(F("/settings.bin")))
     SettingsMngr.Load();
 
   BLETrackedDevices.reserve(SettingsMngr.GetMaxNumOfTraceableDevices());
@@ -403,12 +407,12 @@ void setup()
   pBLEScan->setActiveScan(false);
 
   mqttClient.setServer(SettingsMngr.mqttServer.c_str(), SettingsMngr.mqttPort);
-  #if PUBLISH_BATTERY_LEVEL
+#if PUBLISH_BATTERY_LEVEL
   connection_event_group = xEventGroupCreate();
-  #endif
+#endif
 }
 
-void publishBLEState(const String& address, const String& state, const String& rssi, int batteryLevel)
+void publishBLEState(const String &address, const String &state, const String &rssi, int batteryLevel)
 {
   String baseTopic = MQTT_BASE_SENSOR_TOPIC;
   baseTopic += "/" + address;
@@ -419,16 +423,16 @@ void publishBLEState(const String& address, const String& state, const String& r
   String batteryTopic = baseTopic + "/battery";
   publishToMQTT(stateTopic, state, false);
   publishToMQTT(rssiTopic, rssi, false);
-  #if PUBLISH_BATTERY_LEVEL
+#if PUBLISH_BATTERY_LEVEL
   publishToMQTT(batteryTopic, String(batteryLevel), false);
-  #endif
-#endif 
+#endif
+#endif
 
 #if PUBLISH_SIMPLE_JSON
   String payload = R"({ "state":")" + state + R"(","rssi":)" + rssi;
-  #if PUBLISH_BATTERY_LEVEL
-  payload +=  R"(,"battery":)" + String(batteryLevel);
-  #endif
+#if PUBLISH_BATTERY_LEVEL
+  payload += R"(,"battery":)" + String(batteryLevel);
+#endif
   payload += "}";
 
   publishToMQTT(baseTopic, payload, false);
@@ -443,8 +447,8 @@ String formatMillis(unsigned long milliseconds)
   unsigned long days = hours / 24;
   std::ostringstream ostime;
   ostime << days << "." << std::setfill('0') << std::setw(2) << (hours % 24) << ":"
-                        << std::setfill('0') << std::setw(2) << (minutes % 60) << ":" 
-                        << std::setfill('0') << std::setw(2) << (seconds % 60);
+         << std::setfill('0') << std::setw(2) << (minutes % 60) << ":"
+         << std::setfill('0') << std::setw(2) << (seconds % 60);
   return ostime.str().c_str();
 }
 
@@ -457,19 +461,17 @@ void publishSySInfo()
   publishToMQTT(sysTopic, payload, false);
 }
 
-
 void loop()
 {
-  #if ENABLE_OTA_WEBSERVER
+#if ENABLE_OTA_WEBSERVER
   webserver.loop();
-  #endif
+#endif
 
   mqttClient.loop();
   Watchdog::Feed();
   long tme = millis();
   Serial.println("INFO: Running mainloop");
   DEBUG_PRINTF("Number device discovered: %d\n", BLETrackedDevices.size());
-  //DEBUG_PRINTLN(NB_OF_BLE_DISCOVERED_DEVICES);
 
   if (BLETrackedDevices.size() == SettingsMngr.GetMaxNumOfTraceableDevices())
   {
@@ -478,10 +480,10 @@ void loop()
     esp_restart();
   }
 
-  for ( auto& trackedDevice : BLETrackedDevices)
+  for (auto &trackedDevice : BLETrackedDevices)
   {
-      trackedDevice.advertised = false;
-      trackedDevice.rssi = String(F("-100"));
+    trackedDevice.advertised = false;
+    trackedDevice.rssi = String(F("-100"));
   }
 
   //DEBUG_PRINTF("\n*** Memory Before scan: %u\n",xPortGetFreeHeapSize());
@@ -490,7 +492,7 @@ void loop()
   pBLEScan->clearResults();
   //DEBUG_PRINTF("\n*** Memory After scan: %u\n",xPortGetFreeHeapSize());
 
-  for ( auto& trackedDevice : BLETrackedDevices)
+  for (auto &trackedDevice : BLETrackedDevices)
   {
     if (trackedDevice.isDiscovered == true && (trackedDevice.lastDiscovery + MAX_NON_ADV_PERIOD) < millis())
     {
@@ -500,10 +502,10 @@ void loop()
   }
 
 #if PUBLISH_BATTERY_LEVEL
-    batteryTask();
+  batteryTask();
 #endif
 
-  for ( auto& trackedDevice : BLETrackedDevices)
+  for (auto &trackedDevice : BLETrackedDevices)
   {
     if (trackedDevice.isDiscovered)
     {
@@ -516,7 +518,7 @@ void loop()
   }
 
   //System Information
-  if (((lastSySInfoTime + SYS_INFORMATION_DELAY) < millis()) || (lastSySInfoTime == 0) )
+  if (((lastSySInfoTime + SYS_INFORMATION_DELAY) < millis()) || (lastSySInfoTime == 0))
   {
     publishSySInfo();
     lastSySInfoTime = millis();

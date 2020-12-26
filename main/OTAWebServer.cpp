@@ -487,6 +487,14 @@ void OTAWebServer::setup(const String &hN, const String &_ssid_, const String &_
     server.sendHeader(F("Connection"), F("close"));
     server.send(200, F("text/plain"), (Update.hasError()) ? F("FAIL") : F("OK"));
     ESP.restart(); }, [&]() {
+      #if ENABLE_FILE_LOG
+      if(SPIFFSLogger.isEnabled())
+        {
+          FILE_LOG_WRITE("OTA Update started...");
+          SPIFFSLogger.enabled(false);
+          SPIFFS.end();
+        }
+      #endif
     HTTPUpload& upload = server.upload();
     if (upload.status == UPLOAD_FILE_START) {
       DEBUG_PRINTF("Update: %s\n", upload.filename.c_str());

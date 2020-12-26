@@ -102,6 +102,7 @@ bool SPIFFSLoggerClass::writeHeader()
 void SPIFFSLoggerClass::write_next_entry(const char *msg, ...)
 {
     locker guard(*this);
+    
     if (!mEnabled)
         return;
 
@@ -116,6 +117,7 @@ void SPIFFSLoggerClass::write_next_entry(const char *msg, ...)
     // format message into entry
     va_list ap;
     va_start(ap, msg);
+    //The generated string has a length of at sizeof(ent.msg)-1, leaving space for the additional terminating null character.
     vsnprintf(ent.msg, sizeof(ent.msg), msg, ap);
     va_end(ap);
 

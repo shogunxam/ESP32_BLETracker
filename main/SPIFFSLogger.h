@@ -26,7 +26,7 @@ public:
     bool read_next_entry(SPIFFSLoggerClass::logEntry& ent);
     void read_logs_end();
     void clearLog();
-    void enabled(bool enabled){ mEnabled = enabled;};
+    void enabled(bool enabled){ locker guard(*this); mEnabled = enabled;};
     bool isEnabled(){ return mEnabled;};
     int numOfLogs() { return mHeader.mNumWrittenLogs; }
     size_t logSize(){ return mHeader.mRealLogsSize; }
