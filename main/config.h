@@ -6,7 +6,7 @@
 
 #include "user_config.h"
 
-//Scanninf to discover devices is performed every BLE_SCANNING_PERIOD seconds
+//Scanning to discover devices is performed every BLE_SCANNING_PERIOD seconds
 #define BLE_SCANNING_PERIOD   10    /*10 s*/
 
 //If the device is not advertides for MAX_NON_ADV_PERIOD milliseconds it's considered away
