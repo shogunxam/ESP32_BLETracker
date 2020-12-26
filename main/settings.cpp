@@ -85,7 +85,8 @@ void Settings::FactoryReset(bool emptyLists)
 std::size_t Settings::GetMaxNumOfTraceableDevices()
 {
     const std::size_t absoluteMaxNumOfTraceableDevices = 90;
-    return enableWhiteList ? trackWhiteList.size() : absoluteMaxNumOfTraceableDevices;
+    const std::size_t minNumOfTraceableDevices = std::min(trackWhiteList.size() + 1,absoluteMaxNumOfTraceableDevices);
+    return enableWhiteList ? minNumOfTraceableDevices : absoluteMaxNumOfTraceableDevices;
 }
 
 void Settings::AddDeviceToWhiteList(const String &mac, bool checkBattery)
