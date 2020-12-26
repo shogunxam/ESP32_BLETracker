@@ -30,6 +30,7 @@
 #endif
 
 #include "settings.h"
+#include "watchdog.h"
 
 #if ENABLE_FILE_LOG
 #include "SPIFFSLogger.h"
@@ -117,13 +118,6 @@ void connectToMQTT()
   }
 }
 
-hw_timer_t *timer = NULL;
-void IRAM_ATTR resetModule()
-{
-  ets_printf("INFO: Reboot\n");
-  esp_restart();
-}
-
 
 ///////////////////////////////////////////////////////////////////////////
 //   BLUETOOTH
@@ -132,6 +126,7 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
 {
   void onResult(BLEAdvertisedDevice advertisedDevice) override
   {
+    Watchdog::Feed();
     bool foundPreviouslyAdvertisedDevice = false;
     std::string std_address=advertisedDevice.getAddress().toString();
     String address(std_address.c_str());
@@ -233,6 +228,8 @@ void batteryTask()
   for (auto& trackedDevice : BLETrackedDevices)
   {
 
+    Watchdog::Feed();
+    
     if(!SettingsMngr.InBatteryList(trackedDevice.address))
       continue;
 
@@ -370,6 +367,14 @@ void setup()
   }
 #endif
 
+  #if ERASE_DATA_AFTER_FLASH
+  String ver = Firmware::FullVersion();
+  if(ver != Firmware::readVersion())
+    SPIFFS.format();
+  #endif //ERASE_DATA_AFTER_FLASH
+
+  Firmware::writeVersion();
+
 #if ENABLE_FILE_LOG
   SPIFFSLogger.Initialize("/logs.bin", 200);
 #endif
@@ -390,10 +395,7 @@ void setup()
 
   BLETrackedDevices.reserve(SettingsMngr.GetMaxNumOfTraceableDevices());
 
-  timer = timerBegin(0, 80, true); //timer 0, div 80
-  timerAttachInterrupt(timer, &resetModule, true);
-  timerAlarmWrite(timer, 120000000, false); //set time in us 120000000 = 120 sec
-  timerAlarmEnable(timer);                  //enable interrupt
+  Watchdog::Initialize();
 
   BLEDevice::init(GATEWAY_NAME);
   pBLEScan = BLEDevice::getScan();
@@ -463,13 +465,13 @@ void loop()
   #endif
 
   mqttClient.loop();
-  timerWrite(timer, 0); //reset timer (feed watchdog)
+  Watchdog::Feed();
   long tme = millis();
   Serial.println("INFO: Running mainloop");
   DEBUG_PRINTF("Number device discovered: %d\n", BLETrackedDevices.size());
   //DEBUG_PRINTLN(NB_OF_BLE_DISCOVERED_DEVICES);
 
-  if (BLETrackedDevices.size() == SettingsMngr.GetMaxNumOfTraceableDevices() && SettingsMngr.GetMaxNumOfTraceableDevices() > 0 )
+  if (BLETrackedDevices.size() == SettingsMngr.GetMaxNumOfTraceableDevices())
   {
     DEBUG_PRINTLN("INFO: Restart because the array is eneded\n");
     FILE_LOG_WRITE("Restart reached max number of traceable devices");

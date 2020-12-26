@@ -12,7 +12,6 @@
 #include "WiFiManager.h"
 #include "DebugPrint.h"
 #include "OTAWebServer.h"
-#include "build_defs.h"
 #include "macro_utility.h"
 #include "settings.h"
 
@@ -73,23 +72,6 @@ const char logsHtml[] PROGMEM =
 const char logsJs[] PROGMEM = "<script>"
 #include "html/logs-min.js.h"
                               "</script>";
-#endif
-
-#if DEVELOPER_MODE
-static const char BuildTime[] =
-    {
-        BUILD_YEAR_CH0, BUILD_YEAR_CH1, BUILD_YEAR_CH2, BUILD_YEAR_CH3,
-        '-',
-        BUILD_MONTH_CH0, BUILD_MONTH_CH1,
-        '-',
-        BUILD_DAY_CH0, BUILD_DAY_CH1,
-        'T',
-        BUILD_HOUR_CH0, BUILD_HOUR_CH1,
-        ':',
-        BUILD_MIN_CH0, BUILD_MIN_CH1,
-        ':',
-        BUILD_SEC_CH0, BUILD_SEC_CH1,
-        '\0'};
 #endif
 
 OTAWebServer::OTAWebServer()
@@ -395,7 +377,7 @@ void OTAWebServer::getServerInfoData()
 
 #if DEVELOPER_MODE
   SendChunkedContent(R"("build":")");
-  SendChunkedContent(BuildTime);
+  SendChunkedContent(Firmware::BuildTime);
   SendChunkedContent(R"(",)");
   SendChunkedContent(R"("memory":")");
   SendChunkedContent(String(xPortGetFreeHeapSize()).c_str());

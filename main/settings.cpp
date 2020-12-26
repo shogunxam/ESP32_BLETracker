@@ -85,7 +85,8 @@ void Settings::FactoryReset(bool emptyLists)
 std::size_t Settings::GetMaxNumOfTraceableDevices()
 {
     const std::size_t absoluteMaxNumOfTraceableDevices = 90;
-    return enableWhiteList ? trackWhiteList.size() : absoluteMaxNumOfTraceableDevices;
+    const std::size_t minNumOfTraceableDevices = std::min(trackWhiteList.size() + 1,absoluteMaxNumOfTraceableDevices);
+    return enableWhiteList ? minNumOfTraceableDevices : absoluteMaxNumOfTraceableDevices;
 }
 
 void Settings::AddDeviceToWhiteList(const String &mac, bool checkBattery)
@@ -229,7 +230,7 @@ void Settings::Load()
         file.read((uint8_t *)&enableWhiteList, sizeof(enableWhiteList));
         LoadStringArray(file, batteryWhiteList);
         LoadStringArray(file, trackWhiteList);
-        if (currVer == 2)
+        if (currVer > 1)
             file.read((uint8_t *)&scanPeriod, sizeof(scanPeriod));
     }
 

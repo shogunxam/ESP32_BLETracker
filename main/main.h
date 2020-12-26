@@ -4,8 +4,7 @@
 #include <WString.h>
 #include <sstream>
 #include <iomanip>
-
-#define VERSION "1.8B"
+#include "firmwarever.h"
 
 typedef struct
 {
