@@ -474,7 +474,7 @@ void loop()
 
   if (BLETrackedDevices.size() == SettingsMngr.GetMaxNumOfTraceableDevices())
   {
-    DEBUG_PRINTLN("INFO: Restart because the array is eneded\n");
+    DEBUG_PRINTLN("INFO: Restart because the array is full\n");
     FILE_LOG_WRITE("Restart reached max number of traceable devices");
     esp_restart();
   }
