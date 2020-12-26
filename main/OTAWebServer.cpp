@@ -12,7 +12,6 @@
 #include "WiFiManager.h"
 #include "DebugPrint.h"
 #include "OTAWebServer.h"
-#include "build_defs.h"
 #include "macro_utility.h"
 #include "settings.h"
 
@@ -56,23 +55,6 @@ const char sysInfoHtml[] PROGMEM =
 const char sysInfoJs[] PROGMEM = "<script>"
 #include "html/sysinfo-min.js.h"
                                  "</script>";
-
-#if DEVELOPER_MODE
-static const char BuildTime[] =
-    {
-        BUILD_YEAR_CH0, BUILD_YEAR_CH1, BUILD_YEAR_CH2, BUILD_YEAR_CH3,
-        '-',
-        BUILD_MONTH_CH0, BUILD_MONTH_CH1,
-        '-',
-        BUILD_DAY_CH0, BUILD_DAY_CH1,
-        'T',
-        BUILD_HOUR_CH0, BUILD_HOUR_CH1,
-        ':',
-        BUILD_MIN_CH0, BUILD_MIN_CH1,
-        ':',
-        BUILD_SEC_CH0, BUILD_SEC_CH1,
-        '\0'};
-#endif
 
 OTAWebServer::OTAWebServer()
     : server(80), serverRunning(false)
@@ -228,7 +210,7 @@ void OTAWebServer::getServerInfoData()
   data += R"("gateway":")" GATEWAY_NAME R"(",)";
   data += R"("firmware":")" VERSION R"(",)";
 #if DEVELOPER_MODE
-  data += R"("build":")" + String(BuildTime) + R"(",)";
+  data += R"("build":")" + String(Firmware::BuildTime) + R"(",)";
   data += R"("memory":")" + String(xPortGetFreeHeapSize()) + R"( bytes",)";
 #endif
   data += R"("uptime":")" + formatMillis(millis()) + R"(",)";

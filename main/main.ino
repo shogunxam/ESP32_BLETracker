@@ -341,6 +341,14 @@ void setup()
   }
 #endif
 
+  #if ERASE_DATA_AFTER_FLASH
+  String ver = Firmware::FullVersion();
+  if(ver != Firmware::readVersion())
+    SPIFFS.format();
+  #endif //ERASE_DATA_AFTER_FLASH
+
+  Firmware::writeVersion();
+
   WiFiConnect(WIFI_SSID, WIFI_PASSWORD);
 
 #if ENABLE_OTA_WEBSERVER

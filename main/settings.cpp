@@ -230,7 +230,7 @@ void Settings::Load()
         file.read((uint8_t *)&enableWhiteList, sizeof(enableWhiteList));
         LoadStringArray(file, batteryWhiteList);
         LoadStringArray(file, trackWhiteList);
-        if (currVer == 2)
+        if (currVer > 1)
             file.read((uint8_t *)&scanPeriod, sizeof(scanPeriod));
     }
 

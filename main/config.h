@@ -21,10 +21,9 @@
 
 //Retries to read the battery level if connections fails before to give up until BATTERY_RETRY_PERIOD expires
 #define MAX_BLE_CONNECTION_RETRIES 3
-// Location of the BLE scanner
 
 // Debug output
-#define DEBUG_SERIAL
+//#define DEBUG_SERIAL
 
 // MQTT
 #define MQTT_CONNECTION_TIMEOUT 5000 // [ms]
@@ -47,7 +46,12 @@
 
 #define WIFI_CONNECTION_TIME_OUT  30000 /*30 seconds*/
 
+//Print more data in the System Info page
 #ifndef DEVELOPER_MODE
 #define DEVELOPER_MODE false
 #endif
+
+//Erase all the persistent data at the first execution just after the new firmware is uploaded
+#define ERASE_DATA_AFTER_FLASH false
+
 #endif /*CONFIG_ESP32_BLETRACKER*/
