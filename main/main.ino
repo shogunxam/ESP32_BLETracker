@@ -91,7 +91,7 @@ void connectToMQTT()
 
   if (!mqttClient.connected())
   {
-    if(!firstTimeMQTTConnection)
+    if (!firstTimeMQTTConnection)
       FILE_LOG_WRITE("Error: MQTT broker disconnected, connecting...");
 
     if (mqttClient.connect(GATEWAY_NAME, SettingsMngr.mqttUser.c_str(), SettingsMngr.mqttPwd.c_str(), MQTT_AVAILABILITY_TOPIC, 1, true, MQTT_PAYLOAD_UNAVAILABLE))
@@ -307,8 +307,8 @@ bool batteryLevel(const String &address, esp_ble_addr_type_t addressType, int &b
     BLERemoteService *pRemote_BATT_Service = pClient->getService(service_BATT_UUID);
     if (pRemote_BATT_Service == nullptr)
     {
-      log_i("Failed to find BATTERY service.");
-      FILE_LOG_WRITE("Failed to find BATTERY service for device %s", address.c_str());
+      log_i("Cannot find the BATTERY service.");
+      FILE_LOG_WRITE("Cannot find the BATTERY service for the device %s", address.c_str());
       hasBatteryService = false;
     }
     else
@@ -316,8 +316,8 @@ bool batteryLevel(const String &address, esp_ble_addr_type_t addressType, int &b
       BLERemoteCharacteristic *pRemote_BATT_Characteristic = pRemote_BATT_Service->getCharacteristic(char_BATT_UUID);
       if (pRemote_BATT_Characteristic == nullptr)
       {
-        log_i("Failed to find BATTERY characteristic.");
-        FILE_LOG_WRITE("Failed to find BATTERY characteristic for device %s", address.c_str());
+        log_i("Cannot find the BATTERY characteristic.");
+        FILE_LOG_WRITE("Cannot find the BATTERY characteristic for device %s", address.c_str());
         hasBatteryService = false;
       }
       else
@@ -385,7 +385,7 @@ void setup()
 #endif
 
   WiFiConnect(WIFI_SSID, WIFI_PASSWORD);
- 
+
 #if ERASE_DATA_AFTER_FLASH
   if (dataErased == 1)
     FILE_LOG_WRITE("Error Erasing all persitent data!");
@@ -400,7 +400,6 @@ void setup()
   SettingsMngr.SettingsFile(F("/settings.bin"));
   if (SPIFFS.exists(F("/settings.bin")))
     SettingsMngr.Load();
-
 
   BLETrackedDevices.reserve(SettingsMngr.GetMaxNumOfTraceableDevices());
 
@@ -472,66 +471,79 @@ void publishSySInfo()
 
 void loop()
 {
+  try
+  {
 #if ENABLE_OTA_WEBSERVER
-  webserver.loop();
+    webserver.loop();
 #endif
 
-  mqttClient.loop();
-  Watchdog::Feed();
-  long tme = millis();
-  Serial.println("INFO: Running mainloop");
-  DEBUG_PRINTF("Number device discovered: %d\n", BLETrackedDevices.size());
+    mqttClient.loop();
+    Watchdog::Feed();
+    long tme = millis();
+    Serial.println("INFO: Running mainloop");
+    DEBUG_PRINTF("Number device discovered: %d\n", BLETrackedDevices.size());
 
-  if (BLETrackedDevices.size() == SettingsMngr.GetMaxNumOfTraceableDevices())
-  {
-    DEBUG_PRINTLN("INFO: Restart because the array is full\n");
-    FILE_LOG_WRITE("Restart reached max number of traceable devices");
-    esp_restart();
-  }
-
-  for (auto &trackedDevice : BLETrackedDevices)
-  {
-    trackedDevice.advertised = false;
-    trackedDevice.rssi = String(F("-100"));
-  }
-
-  //DEBUG_PRINTF("\n*** Memory Before scan: %u\n",xPortGetFreeHeapSize());
-  pBLEScan->start(SettingsMngr.scanPeriod);
-  pBLEScan->stop();
-  pBLEScan->clearResults();
-  //DEBUG_PRINTF("\n*** Memory After scan: %u\n",xPortGetFreeHeapSize());
-
-  for (auto &trackedDevice : BLETrackedDevices)
-  {
-    if (trackedDevice.isDiscovered == true && (trackedDevice.lastDiscovery + MAX_NON_ADV_PERIOD) < millis())
+    if (BLETrackedDevices.size() == SettingsMngr.GetMaxNumOfTraceableDevices())
     {
-      trackedDevice.isDiscovered = false;
-      FILE_LOG_WRITE("Devices %s is gone out of range", trackedDevice.address.c_str());
+      DEBUG_PRINTLN("INFO: Restart because the array is full\n");
+      FILE_LOG_WRITE("Restart reached max number of traceable devices");
+      esp_restart();
     }
-  }
+
+    for (auto &trackedDevice : BLETrackedDevices)
+    {
+      trackedDevice.advertised = false;
+      trackedDevice.rssi = String(F("-100"));
+    }
+
+    //DEBUG_PRINTF("\n*** Memory Before scan: %u\n",xPortGetFreeHeapSize());
+    pBLEScan->start(SettingsMngr.scanPeriod);
+    pBLEScan->stop();
+    pBLEScan->clearResults();
+    //DEBUG_PRINTF("\n*** Memory After scan: %u\n",xPortGetFreeHeapSize());
+
+    for (auto &trackedDevice : BLETrackedDevices)
+    {
+      if (trackedDevice.isDiscovered == true && (trackedDevice.lastDiscovery + MAX_NON_ADV_PERIOD) < millis())
+      {
+        trackedDevice.isDiscovered = false;
+        FILE_LOG_WRITE("Devices %s is gone out of range", trackedDevice.address.c_str());
+      }
+    }
 
 #if PUBLISH_BATTERY_LEVEL
-  batteryTask();
+    batteryTask();
 #endif
 
-  for (auto &trackedDevice : BLETrackedDevices)
-  {
-    if (trackedDevice.isDiscovered)
+    for (auto &trackedDevice : BLETrackedDevices)
     {
-      publishBLEState(trackedDevice.address, MQTT_PAYLOAD_ON, trackedDevice.rssi, trackedDevice.batteryLevel);
+      if (trackedDevice.isDiscovered)
+      {
+        publishBLEState(trackedDevice.address, MQTT_PAYLOAD_ON, trackedDevice.rssi, trackedDevice.batteryLevel);
+      }
+      else
+      {
+        publishBLEState(trackedDevice.address, MQTT_PAYLOAD_OFF, "-100", trackedDevice.batteryLevel);
+      }
     }
-    else
+
+    //System Information
+    if (((lastSySInfoTime + SYS_INFORMATION_DELAY) < millis()) || (lastSySInfoTime == 0))
     {
-      publishBLEState(trackedDevice.address, MQTT_PAYLOAD_OFF, "-100", trackedDevice.batteryLevel);
+      publishSySInfo();
+      lastSySInfoTime = millis();
     }
-  }
 
-  //System Information
-  if (((lastSySInfoTime + SYS_INFORMATION_DELAY) < millis()) || (lastSySInfoTime == 0))
+    connectToMQTT();
+  }
+  catch (std::exception &e)
   {
-    publishSySInfo();
-    lastSySInfoTime = millis();
+    DEBUG_PRINTF("Error Caught Exception %s", e.what());
+    FILE_LOG_WRITE("Error Caught Exception %s", e.what());
   }
-
-  connectToMQTT();
+  catch (...)
+  {
+    DEBUG_PRINTLN("Error Unhandled exception trapped in main loop");
+    FILE_LOG_WRITE("Error Unhandled exception trapped in main loop");
+  }
 }

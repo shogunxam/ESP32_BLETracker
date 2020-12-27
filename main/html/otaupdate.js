@@ -32,8 +32,7 @@ $('form').submit(function(e) {
       console.log('success!')
       $("#errormsg").text("Restarting...");
       $("#errormsg").css("visibility","visible");
-      var ftimeout=setTimeout(null,5000);
-      window.location='/';
+      var ftimeout=setTimeout(function(){window.location='/';},10000);
     },
     error: function(a, b, c) {
     	$("#errormsg").css("visibility","visible");
