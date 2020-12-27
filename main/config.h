@@ -6,7 +6,7 @@
 
 #include "user_config.h"
 
-//Scanninf to discover devices is performed every BLE_SCANNING_PERIOD seconds
+//Scanning to discover devices is performed every BLE_SCANNING_PERIOD seconds
 #define BLE_SCANNING_PERIOD   10    /*10 s*/
 
 //If the device is not advertides for MAX_NON_ADV_PERIOD milliseconds it's considered away
@@ -54,4 +54,7 @@
 //Erase all the persistent data at the first execution just after the new firmware is uploaded
 #define ERASE_DATA_AFTER_FLASH false
 
+//Enable persistent logs on File System
+#define ENABLE_FILE_LOG true
+#define MAX_NUM_OF_SAVED_LOGS 200
 #endif /*CONFIG_ESP32_BLETRACKER*/

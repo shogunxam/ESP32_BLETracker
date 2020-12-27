@@ -47,7 +47,6 @@
         data: d,
         success: function() {
           console.log('success!');
-          var ftimeout = setTimeout(null, 5000);
           window.location = '/reset';
         },
         error: function() {

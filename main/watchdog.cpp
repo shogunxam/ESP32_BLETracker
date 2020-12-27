@@ -1,4 +1,6 @@
 #include <esp32-hal-timer.h>
+#include "SPIFFSLogger.h"
+
 namespace Watchdog
 {
     hw_timer_t *timer = NULL;
@@ -6,6 +8,7 @@ namespace Watchdog
     void IRAM_ATTR resetModule()
     {
         ets_printf("INFO: Watchdog Reboot\n");
+        FILE_LOG_WRITE("Error: Watchdog Reboot");
         esp_restart();
     }
 
