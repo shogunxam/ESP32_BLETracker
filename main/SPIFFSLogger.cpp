@@ -11,6 +11,7 @@ SPIFFSLoggerClass::SPIFFSLoggerClass() : MyMutex("SPIFFSLogger") {}
 
 void SPIFFSLoggerClass::Initialize(const String &fileName, int max_records)
 {
+    mPerSessionLogs = 0;
     mEnabled = true;
     mReadLogReverseMode = false;
     mFileName = fileName;
@@ -173,6 +174,8 @@ void SPIFFSLoggerClass::write_next_entry(const char *msg, ...)
         ADVANCE_CIRCULAR_INDEX(mHeader.mLogStartIndex);
 
     ADVANCE_CIRCULAR_INDEX(mNextWriteLogIndex);
+
+    ++mPerSessionLogs;
 }
 
 bool SPIFFSLoggerClass::read_entry(int recnum, SPIFFSLoggerClass::logEntry &ent)

@@ -30,6 +30,7 @@ public:
     bool isEnabled(){ return mEnabled;};
     int numOfLogs() { return mHeader.mNumWrittenLogs; }
     size_t logSize(){ return mHeader.mRealLogsSize; }
+    uint32_t numOfLogsPerSession() { return mPerSessionLogs; }
 
 private:
     struct Header {
@@ -49,6 +50,7 @@ private:
     int mNumOfreadLogs;
     File mLogFile;
     String mFileName;
+    uint32_t mPerSessionLogs;
 
     bool mEnabled;
     bool mReadLogReverseMode;
@@ -60,6 +62,6 @@ extern SPIFFSLoggerClass SPIFFSLogger;
 #define _RF_(x) String(F(x)).c_str()
 #define FILE_LOG_WRITE(x,...) SPIFFSLogger.write_next_entry(_RF_(x),##__VA_ARGS__)
 #else
-#define FILE_LOG_WRITE(x,...)
+#define FILE_LOG_WRITE(x,...) 0
 #endif /*ENABLE_FILE_LOG*/
 #endif /*SPIFFSLOGGER_H*/

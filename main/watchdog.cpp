@@ -7,8 +7,8 @@ namespace Watchdog
 
     void IRAM_ATTR resetModule()
     {
+        //Here you can call only FreeRTOS function or otehr IRAM functions
         ets_printf("INFO: Watchdog Reboot\n");
-        FILE_LOG_WRITE("Error: Watchdog Reboot");
         esp_restart();
     }
 
@@ -24,4 +24,4 @@ namespace Watchdog
     {
         timerWrite(timer, 0); //reset timer (feed watchdog)
     }
-} // namespace WatchDog
+} // namespace Watchdog
