@@ -28,6 +28,11 @@ The WEB server can be used to see some system informations and to update the fir
 Default credential to access the WEB Server are:<br>
 user: admin<br>
 password: admin<br>
+<br>
+The new WEB server interface allow to customize the list of devices to be tracked, the scan period, and the MQTT broker paramters.<br>
+The new interface allows also to monitor some logs. The number of logs is limited and when the maxium capacity is reached the oldest are removed.<br>
+<br>
+
 
 # Arduino IDE Notes
 You can build this skatch using Arduino IDE (currently it's using arduino-esp32 v1.0.4), but be sure to install the required dependencies:<br>
@@ -37,13 +42,15 @@ You can build this skatch using Arduino IDE (currently it's using arduino-esp32 
 Build using the *Minimal SPIFFS* partition schema.
 
 # Tested BLE Devices
-| BLE Device | Discover | Battery |
+| BLE Device | Discovery | Battery |
 |------------|----------|---------|
 |Nut mini   |  :heavy_check_mark:|  :heavy_check_mark:|
 |Nut        | :heavy_check_mark: |:heavy_exclamation_mark:|
-|Amazfit Bip|:heavy_check_mark:|:x:|
+|Xiomi Amazfit Bip|:heavy_check_mark:|:x:|
 |REDMOND RFT-08S|:heavy_check_mark:|:x:|
 |Xiomi Mi Smart Band 4|:heavy_check_mark:|:x:|
+|Fitness Band GT101|:heavy_check_mark:|:x:|
+
 
 # Home Assistant integration
 This is a simple example of a package to manage a Nut Traker device.<br>
