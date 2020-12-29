@@ -559,7 +559,7 @@ void OTAWebServer::loop(void)
   xTaskCreatePinnedToCore(
       WebServerLoop,   /* Function to implement the task */
       "WebServerLoop", /* Name of the task */
-      10000,           /* Stack size in words */
+      4096,           /* Stack size in words */
       (void *)&server, /* Task input parameter */
       20,              /* Priority of the task */
       NULL,            /* Task handle. */
