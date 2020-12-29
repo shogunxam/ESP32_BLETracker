@@ -1,27 +1,39 @@
 #include <esp32-hal-timer.h>
 #include "SPIFFSLogger.h"
-
+#include <atomic>
 namespace Watchdog
 {
-    hw_timer_t *timer = NULL;
-
-    void IRAM_ATTR resetModule()
+    static std::atomic_ulong WatchDogStartTime(0);
+    void WatchDogloop(void *)
     {
-        //Here you can call only FreeRTOS function or otehr IRAM functions
-        ets_printf("INFO: Watchdog Reboot\n");
-        esp_restart();
-    }
-
-    void Initialize()
-    {
-        timer = timerBegin(0, 80, true); //timer 0, div 80
-        timerAttachInterrupt(timer, &resetModule, true);
-        timerAlarmWrite(timer, 120000000, false); //set time in us 120000000 = 120 sec
-        timerAlarmEnable(timer);                  //enable interrupt
+        WatchDogStartTime.store(millis());
+        while (true)
+        {
+            if (millis() > (WatchDogStartTime.load() + 120000))
+            {
+                DEBUG_PRINTLN("INFO: Watchdog Reboot");
+                FILE_LOG_WRITE("Error: Watchdog Reboot");
+                delay(100);
+                esp_restart();
+            }
+            delay(1000);
+        };
     }
 
     void Feed()
     {
-        timerWrite(timer, 0); //reset timer (feed watchdog)
+        WatchDogStartTime.store(millis());
+    }
+
+    void Initialize()
+    {
+        xTaskCreatePinnedToCore(
+            WatchDogloop,   /* Function to implement the task */
+            "WatchDogloop", /* Name of the task */
+            4096,           /* Stack size in words */
+            NULL,           /* Task input parameter */
+            20,             /* Priority of the task */
+            NULL,           /* Task handle. */
+            1);
     }
 } // namespace Watchdog
