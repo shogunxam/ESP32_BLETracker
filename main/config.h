@@ -4,7 +4,7 @@
 //  CONFIGURATION - SOFTWARE
 ///////////////////////////////////////////////////////////////////////////
 
-#include "user_config.h"
+#include "user_config_custom.h"
 
 //Scanning to discover devices is performed every BLE_SCANNING_PERIOD seconds
 #define BLE_SCANNING_PERIOD   10    /*10 s*/
@@ -26,7 +26,7 @@
 //#define DEBUG_SERIAL
 
 // MQTT
-#define MQTT_CONNECTION_TIMEOUT 5000 // [ms]
+#define MQTT_CONNECTION_TIME_OUT 5000 // [ms]
 
 // MQTT availability: available/unavailable
 #define MQTT_BASE_SENSOR_TOPIC     LOCATION "/" GATEWAY_NAME

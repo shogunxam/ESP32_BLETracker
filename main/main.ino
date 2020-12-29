@@ -55,48 +55,18 @@ OTAWebServer webserver;
 ///////////////////////////////////////////////////////////////////////////
 volatile unsigned long lastMQTTConnection = 0;
 /*
-  Function called to publish to a MQTT topic with the given payload
-*/
-void publishToMQTT(const String &topic, const String &payload, bool retain)
-{
-  uint8_t maxRetry = 3;
-  while (!mqttClient.connected())
-  {
-    DEBUG_PRINTF("INFO: Connecting to MQTT broker: %s\n", SettingsMngr.mqttServer.c_str());
-
-    Watchdog::Feed();
-
-    connectToMQTT();
-    delay(500);
-    maxRetry--;
-    if(maxRetry == 0)
-      return;
-  }
-
-  if (mqttClient.publish(topic.c_str(), payload.c_str(), retain))
-  {
-    DEBUG_PRINTF("INFO: MQTT message published successfully, topic: %s , payload: %s , retain: %s \n", topic.c_str(), payload.c_str(), retain ? "True" : "False");
-  }
-  else
-  {
-    DEBUG_PRINTF("ERROR: MQTT message not published, either connection lost, or message too large. Topic: %s , payload: %s , retain: %s \n", topic.c_str(), payload.c_str(), retain ? "True" : "False");
-    FILE_LOG_WRITE("Error: MQTT message not published");
-  }
-}
-/*
   Function called to connect/reconnect to the MQTT broker
 */
 static bool firstTimeMQTTConnection = true;
 static bool MQTTConnectionErrorSignaled = false;
 static uint32_t MQTTErrorCounter = 0;
-void connectToMQTT()
+bool connectToMQTT()
 {
-
   WiFiConnect(WIFI_SSID, WIFI_PASSWORD);
 
-  DEBUG_PRINTF("INFO: MQTT availability topic: %s\n", MQTT_AVAILABILITY_TOPIC);
-
-  if (!mqttClient.connected())
+  DEBUG_PRINTF("INFO: Connecting to MQTT broker: %s\n", SettingsMngr.mqttServer.c_str());
+  uint8_t maxRetry = 3;
+  while (!mqttClient.connected())
   {
     if (!firstTimeMQTTConnection && !MQTTConnectionErrorSignaled)
       FILE_LOG_WRITE("Error: MQTT broker disconnected, connecting...");
@@ -106,7 +76,7 @@ void connectToMQTT()
       DEBUG_PRINTLN(F("INFO: The client is successfully connected to the MQTT broker"));
       FILE_LOG_WRITE("MQTT broker connected!");
       MQTTConnectionErrorSignaled = false;
-      publishToMQTT(MQTT_AVAILABILITY_TOPIC, MQTT_PAYLOAD_AVAILABLE, true);
+      _publishToMQTT(MQTT_AVAILABILITY_TOPIC, MQTT_PAYLOAD_AVAILABLE, true);
     }
     else
     {
@@ -122,7 +92,6 @@ void connectToMQTT()
         deltaLogs = ~uint32_t(0) - MQTTErrorCounter + numLogs;
       else 
         deltaLogs = numLogs - MQTTErrorCounter;
-      DEBUG_PRINTF("numLogs %d - MQTTErrorCounter %d  - delta %d",numLogs,MQTTErrorCounter,deltaLogs)
       
       if(deltaLogs >= 500)
         MQTTConnectionErrorSignaled = false;
@@ -135,16 +104,47 @@ void connectToMQTT()
       }
       #endif
     }
+
+    Watchdog::Feed();
+
+    maxRetry--;
+    if(maxRetry == 0)
+      return false;
+
+  }
+  firstTimeMQTTConnection = false;
+}
+
+/*
+  Function called to publish to a MQTT topic with the given payload
+*/
+void _publishToMQTT(const String &topic, const String &payload, bool retain)
+{
+  if (mqttClient.publish(topic.c_str(), payload.c_str(), retain))
+  {
+    DEBUG_PRINTF("INFO: MQTT message published successfully, topic: %s , payload: %s , retain: %s \n", topic.c_str(), payload.c_str(), retain ? "True" : "False");
   }
   else
   {
-    if (lastMQTTConnection < millis())
+    DEBUG_PRINTF("ERROR: MQTT message not published, either connection lost, or message too large. Topic: %s , payload: %s , retain: %s \n", topic.c_str(), payload.c_str(), retain ? "True" : "False");
+    FILE_LOG_WRITE("Error: MQTT message not published");
+  }
+}
+
+void publishToMQTT(const String &topic, const String &payload, bool retain)
+{
+  connectToMQTT();
+  _publishToMQTT(topic, payload, retain);
+}
+
+void publishAvailabilityToMQTT()
+{
+    if (millis() > lastMQTTConnection)
     {
-      lastMQTTConnection = millis() + MQTT_CONNECTION_TIMEOUT;
+      lastMQTTConnection = millis() + MQTT_CONNECTION_TIME_OUT;
+      DEBUG_PRINTF("INFO: MQTT availability topic: %s\n", MQTT_AVAILABILITY_TOPIC);
       publishToMQTT(MQTT_AVAILABILITY_TOPIC, MQTT_PAYLOAD_AVAILABLE, true);
     }
-  }
-  firstTimeMQTTConnection = false;
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -256,8 +256,8 @@ void batteryTask()
 
   for (auto &trackedDevice : BLETrackedDevices)
   {
-
     Watchdog::Feed();
+    publishAvailabilityToMQTT();
 
     if (!SettingsMngr.InBatteryList(trackedDevice.address))
       continue;
@@ -529,6 +529,8 @@ void loop()
     pBLEScan->clearResults();
     //DEBUG_PRINTF("\n*** Memory After scan: %u\n",xPortGetFreeHeapSize());
 
+    publishAvailabilityToMQTT();
+
     for (auto &trackedDevice : BLETrackedDevices)
     {
       if (trackedDevice.isDiscovered == true && (trackedDevice.lastDiscovery + MAX_NON_ADV_PERIOD) < millis())
@@ -541,6 +543,8 @@ void loop()
 #if PUBLISH_BATTERY_LEVEL
     batteryTask();
 #endif
+
+    publishAvailabilityToMQTT();
 
     for (auto &trackedDevice : BLETrackedDevices)
     {
@@ -561,7 +565,7 @@ void loop()
       lastSySInfoTime = millis();
     }
 
-    connectToMQTT();
+    publishAvailabilityToMQTT();
   }
   catch (std::exception &e)
   {
