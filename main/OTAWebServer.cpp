@@ -75,7 +75,8 @@ const char logsJs[] PROGMEM = "<script>"
 #endif
 
 OTAWebServer::OTAWebServer()
-    : server(80), serverRunning(false)
+    : server(80),
+    dataBuffMutex("OTAWebServer_DataBuffer")
 {
 }
 
@@ -206,8 +207,8 @@ void OTAWebServer::getLogsData()
   SendChunkedContent("]");
   FlushChunkedContent();
 
-  CRITICALSECTION_END     //dataBuffMutex
-      CRITICALSECTION_END //SPIFFSLogger
+  CRITICALSECTION_END; //dataBuffMutex
+  CRITICALSECTION_END; //SPIFFSLogger
 }
 
 void OTAWebServer::getLogs()
@@ -550,12 +551,8 @@ void WebServerLoop(void *param)
   }
 }
 
-void OTAWebServer::loop(void)
+void OTAWebServer::begin(void)
 {
-
-  if (serverRunning)
-    return;
-
   xTaskCreatePinnedToCore(
       WebServerLoop,   /* Function to implement the task */
       "WebServerLoop", /* Name of the task */
@@ -564,7 +561,5 @@ void OTAWebServer::loop(void)
       20,              /* Priority of the task */
       NULL,            /* Task handle. */
       1);
-
-  serverRunning = true;
 }
 #endif /*ENABLE_OTA_WEBSERVER*/

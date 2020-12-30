@@ -9,7 +9,7 @@ namespace NTPTime
     {
         NPTIMEInitializing = true;
         ::configTime(GMT_OFFSET_IN_SEC, DST_OFFSET_INSEC, NTP_SERVER);
-        delay(100); //Wait for NTP server response
+        delay(500); //Wait for NTP server response
         NPTIMEInitializing = false;
     }
 

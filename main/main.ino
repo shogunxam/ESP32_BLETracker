@@ -64,10 +64,10 @@ bool connectToMQTT()
 {
   WiFiConnect(WIFI_SSID, WIFI_PASSWORD);
 
-  DEBUG_PRINTF("INFO: Connecting to MQTT broker: %s\n", SettingsMngr.mqttServer.c_str());
   uint8_t maxRetry = 3;
   while (!mqttClient.connected())
   {
+    DEBUG_PRINTF("INFO: Connecting to MQTT broker: %s\n", SettingsMngr.mqttServer.c_str());
     if (!firstTimeMQTTConnection && !MQTTConnectionErrorSignaled)
       FILE_LOG_WRITE("Error: MQTT broker disconnected, connecting...");
     DEBUG_PRINTLN(F("Error: MQTT broker disconnected, connecting..."));
@@ -84,33 +84,32 @@ bool connectToMQTT()
       DEBUG_PRINTF("INFO: MQTT username: %s\n", SettingsMngr.mqttUser.c_str())
       DEBUG_PRINTF("INFO: MQTT password: %s\n", SettingsMngr.mqttPwd.c_str());
       DEBUG_PRINTF("INFO: MQTT broker: %s\n", SettingsMngr.mqttServer.c_str());
-      #if ENABLE_FILE_LOG
+#if ENABLE_FILE_LOG
       uint32_t numLogs = SPIFFSLogger.numOfLogsPerSession();
       uint32_t deltaLogs;
-      
-      if(numLogs < MQTTErrorCounter)
+
+      if (numLogs < MQTTErrorCounter)
         deltaLogs = ~uint32_t(0) - MQTTErrorCounter + numLogs;
-      else 
+      else
         deltaLogs = numLogs - MQTTErrorCounter;
-      
-      if(deltaLogs >= 500)
+
+      if (deltaLogs >= 500)
         MQTTConnectionErrorSignaled = false;
 
-      if(!MQTTConnectionErrorSignaled)
+      if (!MQTTConnectionErrorSignaled)
       {
-          FILE_LOG_WRITE("Error: Connection to the MQTT broker failed!");
-          MQTTConnectionErrorSignaled=true;
-          MQTTErrorCounter = SPIFFSLogger.numOfLogsPerSession();
+        FILE_LOG_WRITE("Error: Connection to the MQTT broker failed!");
+        MQTTConnectionErrorSignaled = true;
+        MQTTErrorCounter = SPIFFSLogger.numOfLogsPerSession();
       }
-      #endif
+#endif
     }
 
     Watchdog::Feed();
 
     maxRetry--;
-    if(maxRetry == 0)
+    if (maxRetry == 0)
       return false;
-
   }
   firstTimeMQTTConnection = false;
 }
@@ -139,12 +138,12 @@ void publishToMQTT(const String &topic, const String &payload, bool retain)
 
 void publishAvailabilityToMQTT()
 {
-    if (millis() > lastMQTTConnection)
-    {
-      lastMQTTConnection = millis() + MQTT_CONNECTION_TIME_OUT;
-      DEBUG_PRINTF("INFO: MQTT availability topic: %s\n", MQTT_AVAILABILITY_TOPIC);
-      publishToMQTT(MQTT_AVAILABILITY_TOPIC, MQTT_PAYLOAD_AVAILABLE, true);
-    }
+  if (millis() > lastMQTTConnection)
+  {
+    lastMQTTConnection = millis() + MQTT_CONNECTION_TIME_OUT;
+    DEBUG_PRINTF("INFO: MQTT availability topic: %s\n", MQTT_AVAILABILITY_TOPIC);
+    publishToMQTT(MQTT_AVAILABILITY_TOPIC, MQTT_PAYLOAD_AVAILABLE, true);
+  }
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -304,7 +303,7 @@ bool batteryLevel(const String &address, esp_ble_addr_type_t addressType, int &b
 {
   log_i(">> ------------------batteryLevel----------------- ");
   bool bleconnected;
-  BLEClient *pClient = nullptr;
+  static BLEClient *pClient = nullptr;
   battLevel = -1;
   std::ostringstream osAddress;
   int len = address.length();
@@ -320,9 +319,19 @@ bool batteryLevel(const String &address, esp_ble_addr_type_t addressType, int &b
   FILE_LOG_WRITE("Reading battery level for device %s", address.c_str());
 
   // create a new client
-  pClient = BLEDevice::createClient();
-  log_i("Created client");
-  pClient->setClientCallbacks(new MyBLEClientCallBack());
+  if(pClient==nullptr)
+  {
+    pClient = BLEDevice::createClient();
+    if(pClient == nullptr)
+    {
+      DEBUG_PRINTLN("Failed to create BLEClient");
+      FILE_LOG_WRITE("Error: Failed to create BLEClient");
+      return false;
+    }
+    else
+      log_i("Created client");
+    pClient->setClientCallbacks(new MyBLEClientCallBack());
+  }
 
   // Connect to the remote BLE Server.
   bool result = false;
@@ -359,7 +368,7 @@ bool batteryLevel(const String &address, esp_ble_addr_type_t addressType, int &b
       }
     }
     //Before disconnecting I need to pause the task to wait (I'don't know what), otherwhise we have an heap corruption
-    vTaskDelay(100 * portTICK_PERIOD_MS);
+    delay(100);
     log_i("disconnecting...");
     pClient->disconnect();
     EventBits_t bits = xEventGroupWaitBits(connection_event_group, DISCONNECTED_EVENT, true, true, portMAX_DELAY);
@@ -370,12 +379,57 @@ bool batteryLevel(const String &address, esp_ble_addr_type_t addressType, int &b
     log_i("-------------------Not connected!!!--------------------");
     FILE_LOG_WRITE("Connection to device %s failed", address.c_str());
   }
-  delete pClient;
-  pClient = nullptr;
+
   log_i("<< ------------------batteryLevel----------------- ");
   return bleconnected;
 }
 #endif
+
+void LogResetReason()
+{
+  esp_reset_reason_t r = esp_reset_reason();
+  String msg;
+  switch (r)
+  {
+  case ESP_RST_POWERON:
+    msg = "Reset due to power-on event";
+    break;
+  case ESP_RST_EXT:
+    msg = "Reset by external pin";
+    break;
+  case ESP_RST_SW:
+    msg = " Software reset via esp_restart";
+    break;
+  case ESP_RST_PANIC:
+    msg = "Software reset due to exception/panic";
+    break;
+  case ESP_RST_INT_WDT:
+    msg = "Reset (software or hardware) due to interrupt watchdog";
+    break;
+  case ESP_RST_TASK_WDT:
+    msg = "Reset due to task watchdog";
+    break;
+  case ESP_RST_WDT:
+    msg = "Reset due to other watchdogs";
+    break;
+  case ESP_RST_DEEPSLEEP:
+    msg = "Reset after exiting deep sleep mode";
+    break;
+  case ESP_RST_BROWNOUT:
+    msg = "Brownout reset (software or hardware)";
+    break;
+  case ESP_RST_SDIO:
+    msg = "Reset over SDIO";
+    break;
+  case ESP_RST_UNKNOWN:
+  default:
+    msg = "Reset reason can not be determined";
+    break;
+  }
+  DEBUG_PRINTLN(msg.c_str());
+  FILE_LOG_WRITE(msg.c_str());
+}
+
 ///////////////////////////////////////////////////////////////////////////
 //   SETUP() & LOOP()
 ///////////////////////////////////////////////////////////////////////////
@@ -413,6 +467,8 @@ void setup()
 
   WiFiConnect(WIFI_SSID, WIFI_PASSWORD);
 
+  LogResetReason();
+
 #if ERASE_DATA_AFTER_FLASH
   if (dataErased == 1)
     FILE_LOG_WRITE("Error Erasing all persitent data!");
@@ -422,6 +478,7 @@ void setup()
 
 #if ENABLE_OTA_WEBSERVER
   webserver.setup(GATEWAY_NAME, WIFI_SSID, WIFI_PASSWORD);
+  webserver.begin();
 #endif
 
   SettingsMngr.SettingsFile(F("/settings.bin"));
@@ -500,13 +557,9 @@ void loop()
 {
   try
   {
-#if ENABLE_OTA_WEBSERVER
-    webserver.loop();
-#endif
-
     mqttClient.loop();
     Watchdog::Feed();
-    long tme = millis();
+
     Serial.println("INFO: Running mainloop");
     DEBUG_PRINTF("Number device discovered: %d\n", BLETrackedDevices.size());
 

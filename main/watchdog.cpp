@@ -1,6 +1,7 @@
 #include <esp32-hal-timer.h>
-#include "SPIFFSLogger.h"
 #include <atomic>
+#include "SPIFFSLogger.h"
+
 namespace Watchdog
 {
     static std::atomic_ulong WatchDogStartTime(0);
@@ -13,6 +14,9 @@ namespace Watchdog
             {
                 DEBUG_PRINTLN("INFO: Watchdog Reboot");
                 FILE_LOG_WRITE("Error: Watchdog Reboot");
+                #if ENABLE_FILE_LOG
+                SPIFFS.end();
+                #endif /*ENABLE_FILE_LOG*/
                 delay(100);
                 esp_restart();
             }
