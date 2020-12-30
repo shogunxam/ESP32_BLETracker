@@ -43,46 +43,40 @@ OTAWebServer::OTAWebServer()
 {
 }
 
+const size_t maxdatasize = 5 * 1024; //5Kb
+static uint8_t databuffer[maxdatasize];
+static size_t databufferStartPos;
+
 //Return the number of characters written
-size_t OTAWebServer::concat(char *dest, size_t buffsize, const char *src, size_t startpos)
+size_t OTAWebServer::append(uint8_t *dest, size_t buffsize, size_t destStartPos, const uint8_t *src, size_t srcSize, size_t srcStartPos)
 {
-  size_t destLen = strlen(dest);
-  size_t available = buffsize - destLen - 1;
+  size_t available = buffsize - destStartPos;
   size_t wrote = 0;
-  char *dstWlkr = dest + destLen;
-  const char *srcWlkr = src + startpos;
-  while (srcWlkr[wrote] != '\0' && wrote < available)
+  uint8_t *dstWlkr = dest + destStartPos;
+  const uint8_t *srcWlkr = src + srcStartPos;
+  while ((wrote + srcStartPos) < srcSize && wrote < available)
   {
     *dstWlkr = srcWlkr[wrote];
     wrote++;
     dstWlkr++;
   }
-  *dstWlkr = '\0';
   return wrote;
 }
 
-void OTAWebServer::concatAndFlush(char *dest, size_t buffsize, const char *src)
+ //Return the current position in the destination;
+size_t OTAWebServer::appendAndFlush(uint8_t *dest, size_t buffsize, size_t destStartPos, const uint8_t *src, size_t srcSize)
 {
-  size_t wrote = concat(dest, buffsize, src);
-  while (wrote < strlen(src))
+  size_t wrote = append(dest, buffsize, destStartPos, src , srcSize);
+  size_t totWrote = wrote;
+  while (totWrote < srcSize)
   {
-    server.sendContent_P(dest);
-    dest[0] = '\0';
-    wrote += concat(dest, buffsize, src, wrote);
+    //The destintion buffer is full
+    server.sendContent_P((char*)dest, buffsize);
+    destStartPos = 0;
+    wrote = append(dest, buffsize, destStartPos, src, srcSize, wrote);
+    totWrote+=wrote;
   }
-}
-
-const size_t maxdatasize = 5 * 1024;
-static char databuffer[maxdatasize];
-
-void OTAWebServer::SendContent(const String &content)
-{
-  server.sendContent(content);
-}
-
-void OTAWebServer::SendContent_P(PGM_P content)
-{
-  server.sendContent_P(content);
+  return destStartPos+wrote;
 }
 
 void OTAWebServer::StartChunkedContentTransfer(const String &contentType, bool zipped)
@@ -95,21 +89,23 @@ void OTAWebServer::StartChunkedContentTransfer(const String &contentType, bool z
     server.sendHeader(F("Content-Encoding"), F("gzip"));
   server.setContentLength(CONTENT_LENGTH_UNKNOWN);
   server.send(200, contentType, "");
+  databufferStartPos = 0;
 }
 
-void OTAWebServer::InitChunkedContent()
+void OTAWebServer::SendChunkedContent(const uint8_t *content, size_t size)
 {
-  databuffer[0] = '\0';
+  databufferStartPos = appendAndFlush(databuffer, maxdatasize, databufferStartPos, content, size);
 }
 
 void OTAWebServer::SendChunkedContent(const char *content)
 {
-  concatAndFlush(databuffer, maxdatasize, content);
+  databufferStartPos = appendAndFlush(databuffer, maxdatasize, databufferStartPos, (const uint8_t*)content, strlen(content));
 }
 
 void OTAWebServer::FlushChunkedContent()
 {
-  server.sendContent_P(databuffer);
+  if(databufferStartPos > 0);
+    server.sendContent_P((char*)databuffer,databufferStartPos);
   server.sendContent_P("", 0);
 }
 
@@ -147,13 +143,13 @@ void OTAWebServer::getLogsData()
   }
 
   CRITICALSECTION_START(SPIFFSLogger)
+  CRITICALSECTION_START(dataBuffMutex)
   StartChunkedContentTransfer(F("text/json"));
   SPIFFSLoggerClass::logEntry entry;
   SPIFFSLogger.read_logs_start(true);
   bool first = true;
   int count = 0;
-  CRITICALSECTION_START(dataBuffMutex)
-  InitChunkedContent();
+
   SendChunkedContent("[");
 
   while (SPIFFSLogger.read_next_entry(entry))
@@ -238,7 +234,6 @@ void OTAWebServer::getIndexData()
   }
   CRITICALSECTION_START(dataBuffMutex)
   StartChunkedContentTransfer("text/json");
-  InitChunkedContent();
   SendChunkedContent(R"({"gateway":")" GATEWAY_NAME R"(","logs":)");
 #if ENABLE_FILE_LOG
   SendChunkedContent("true");
@@ -366,7 +361,6 @@ void OTAWebServer::getSysInfoData()
 {
   StartChunkedContentTransfer(F("text/json"));
   CRITICALSECTION_START(dataBuffMutex)
-  InitChunkedContent();
   SendChunkedContent("{");
   SendChunkedContent(R"("gateway":")" GATEWAY_NAME R"(",)");
   SendChunkedContent(R"("firmware":")" VERSION R"(",)");

@@ -32,14 +32,12 @@ class OTAWebServer
         void getLogsData();
         #endif
         void StartChunkedContentTransfer(const String& contentType, bool zipped = false);
-        void InitChunkedContent();
-        void SendChunkedContent(const char* content);
+        void SendChunkedContent(const uint8_t *content, size_t size);
+        void SendChunkedContent(const char *content);
         void FlushChunkedContent();
-        void SendContent(const String& content);
-        void SendContent_P(PGM_P content);
 
-        size_t concat(char* dest, size_t buffsize, const char* src, size_t startpos=0);
-        void concatAndFlush(char* dest, size_t buffsize, const char* src);
+        size_t append(uint8_t *dest, size_t buffsize, size_t destStartPos, const uint8_t *src, size_t srcSize, size_t srcStartPos = 0);
+        size_t appendAndFlush(uint8_t *dest, size_t buffsize, size_t destStartPos, const uint8_t *src, size_t srcSize);
         WebServer server;
         String hostName;
         String ssid;
