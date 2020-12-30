@@ -21,58 +21,21 @@
 
 extern std::vector<BLETrackedDevice> BLETrackedDevices;
 
-const char jquery[] PROGMEM = R"=====(<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>)=====";
-
-//Import the style.css from file
-const char style[] = "<style>"
-#include "html/style-min.css.h"
-                     "</style>";
-
-/* Server Index Page */
-const char otaUpdateHtml[] PROGMEM =
-#include "html/otaupdate-min.html.h"
-    ;
-
-//Import the config.js script from file
-const char otaUpdateJs[] PROGMEM = "<script>"
-#include "html/otaupdate-min.js.h"
-                                   "</script>";
-
-//Import the config.html page from file
-const char configHtml[] PROGMEM =
-#include "html/config-min.html.h"
-    ;
-
-//Import the config.js script from file
-const char configJs[] PROGMEM = "<script>"
-#include "html/config-min.js.h"
-                                "</script>";
-
-const char indexHtml[] PROGMEM =
-#include "html/index-min.html.h"
-    ;
-
-const char indexJs[] PROGMEM = "<script>"
-#include "html/index-min.js.h"
-                               "</script>";
-
-const char sysInfoHtml[] PROGMEM =
-#include "html/sysinfo-min.html.h"
-    ;
-
-const char sysInfoJs[] PROGMEM = "<script>"
-#include "html/sysinfo-min.js.h"
-                                 "</script>";
+#include "html/style.css.gz.h"
+#include "html/index.html.gz.h"
+#include "html/index.js.gz.h"
+#include "html/sysinfo.html.gz.h"
+#include "html/sysinfo.js.gz.h"
+#include "html/config.html.gz.h"
+#include "html/config.js.gz.h"
 
 #if ENABLE_FILE_LOG
-const char logsHtml[] PROGMEM =
-#include "html/logs-min.html.h"
-    ;
+#include "html/logs.html.gz.h"
+#include "html/logs.js.gz.h"
+#endif/*ENABLE_FILE_LOG*/
 
-const char logsJs[] PROGMEM = "<script>"
-#include "html/logs-min.js.h"
-                              "</script>";
-#endif
+#include "html/otaupdate.html.gz.h"
+#include "html/otaupdate.js.gz.h"
 
 OTAWebServer::OTAWebServer()
     : server(80),
@@ -122,12 +85,14 @@ void OTAWebServer::SendContent_P(PGM_P content)
   server.sendContent_P(content);
 }
 
-void OTAWebServer::StartChunkedContentTransfer(const String &contentType)
+void OTAWebServer::StartChunkedContentTransfer(const String &contentType, bool zipped)
 {
   server.sendHeader(F("Cache-Control"), F("no-cache, no-store, must-revalidate"));
   server.sendHeader(F("Pragma"), F("no-cache"));
   server.sendHeader(F("Expires"), F("-1"));
   server.sendHeader(F("Transfer-Encoding"), F("chunked"));
+  if(zipped)
+    server.sendHeader(F("Content-Encoding"), F("gzip"));
   server.setContentLength(CONTENT_LENGTH_UNKNOWN);
   server.send(200, contentType, "");
 }
@@ -211,41 +176,47 @@ void OTAWebServer::getLogsData()
   CRITICALSECTION_END; //SPIFFSLogger
 }
 
-void OTAWebServer::getLogs()
-{
-  if (!server.authenticate(WEBSERVER_USER, WEBSERVER_PASSWORD))
-  {
-    return server.requestAuthentication();
-  }
-  CRITICALSECTION_START(dataBuffMutex)
-  StartChunkedContentTransfer(F("text/html"));
-  InitChunkedContent();
-  SendChunkedContent(jquery);
-  SendChunkedContent(logsJs);
-  SendChunkedContent(style);
-  SendChunkedContent(logsHtml);
-  FlushChunkedContent();
-  CRITICALSECTION_END
-}
-
-#endif /*ENABLE_FILE_LOG*/
-
-void OTAWebServer::getConfigData()
+void OTAWebServer::getLogsJs()
 {
   if (!server.authenticate(WEBSERVER_USER, WEBSERVER_PASSWORD))
   {
     return server.requestAuthentication();
   }
   server.sendHeader(F("Connection"), F("close"));
-  DEBUG_PRINTLN(SettingsMngr.toJSON());
-  if (server.args() > 0 && server.hasArg("factory") && server.arg("factory") == "true")
+  server.sendHeader(F("Content-Encoding"), F("gzip"));
+  server.send_P(200, "text/javascripthtml",(const char*)logs_js_gz, logs_js_gz_size);
+}
+
+void OTAWebServer::getLogs()
+{
+  if (!server.authenticate(WEBSERVER_USER, WEBSERVER_PASSWORD))
   {
-    Settings factoryValues;
-    server.send(200, F("text/json"), factoryValues.toJSON());
-    return;
+    return server.requestAuthentication();
+  }
+  server.sendHeader(F("Connection"), F("close"));
+  server.sendHeader(F("Content-Encoding"), F("gzip"));
+  server.send_P(200, "text/html",(const char*)logs_html_gz, logs_html_gz_size);
+}
+
+#endif /*ENABLE_FILE_LOG*/
+
+void OTAWebServer::getStyle()
+{
+  if (!server.authenticate(WEBSERVER_USER, WEBSERVER_PASSWORD))
+  {
+    return server.requestAuthentication();
   }
 
-  server.send(200, F("text/json"), SettingsMngr.toJSON());
+  server.sendHeader(F("Connection"), F("close"));
+  server.sendHeader(F("Content-Encoding"), F("gzip"));
+  server.send_P(200, "text/css",(const char*)style_css_gz, style_css_gz_size);
+}
+
+void OTAWebServer::getIndexJs()
+{
+  server.sendHeader(F("Connection"), F("close"));
+  server.sendHeader(F("Content-Encoding"), F("gzip"));
+  server.send_P(200, "text/javascript",(const char*)index_js_gz, index_js_gz_size);
 }
 
 void OTAWebServer::getIndex()
@@ -254,16 +225,9 @@ void OTAWebServer::getIndex()
   {
     return server.requestAuthentication();
   }
-  CRITICALSECTION_START(dataBuffMutex)
-  StartChunkedContentTransfer(F("text/html"));
-  InitChunkedContent();
-  SendChunkedContent(jquery);
-  SendChunkedContent(jquery);
-  SendChunkedContent(indexJs);
-  SendChunkedContent(style);
-  SendChunkedContent(indexHtml);
-  FlushChunkedContent();
-  CRITICALSECTION_END
+  server.sendHeader(F("Connection"), F("close"));
+  server.sendHeader(F("Content-Encoding"), F("gzip"));
+  server.send_P(200, "text/html",(const char*)index_html_gz, index_html_gz_size);
 }
 
 void OTAWebServer::getIndexData()
@@ -286,21 +250,51 @@ void OTAWebServer::getIndexData()
   CRITICALSECTION_END
 }
 
+void OTAWebServer::getOTAUpdateJs()
+{
+  if (!server.authenticate(WEBSERVER_USER, WEBSERVER_PASSWORD))
+  {
+    return server.requestAuthentication();
+  }
+  server.sendHeader(F("Connection"), F("close"));
+  server.sendHeader(F("Content-Encoding"), F("gzip"));
+  server.send_P(200, "text/javascript",(const char*)otaupdate_js_gz, otaupdate_js_gz_size);
+}
+
 void OTAWebServer::getOTAUpdate()
 {
   if (!server.authenticate(WEBSERVER_USER, WEBSERVER_PASSWORD))
   {
     return server.requestAuthentication();
   }
-  CRITICALSECTION_START(dataBuffMutex)
-  StartChunkedContentTransfer("text/html");
-  InitChunkedContent();
-  SendChunkedContent(jquery);
-  SendChunkedContent(otaUpdateJs);
-  SendChunkedContent(style);
-  SendChunkedContent(otaUpdateHtml);
-  FlushChunkedContent();
-  CRITICALSECTION_END
+  server.sendHeader(F("Connection"), F("close"));
+  server.sendHeader(F("Content-Encoding"), F("gzip"));
+  server.send_P(200, "text/html",(const char*)otaupdate_html_gz, otaupdate_html_gz_size);
+}
+
+void OTAWebServer::getConfigData()
+{
+  if (!server.authenticate(WEBSERVER_USER, WEBSERVER_PASSWORD))
+  {
+    return server.requestAuthentication();
+  }
+  server.sendHeader(F("Connection"), F("close"));
+  DEBUG_PRINTLN(SettingsMngr.toJSON());
+  if (server.args() > 0 && server.hasArg("factory") && server.arg("factory") == "true")
+  {
+    Settings factoryValues;
+    server.send(200, F("text/json"), factoryValues.toJSON());
+    return;
+  }
+
+  server.send(200, F("text/json"), SettingsMngr.toJSON());
+}
+
+void OTAWebServer::getConfigJs()
+{
+  server.sendHeader(F("Connection"), F("close"));
+  server.sendHeader(F("Content-Encoding"), F("gzip"));
+  server.send_P(200, "text/javascript",(const char*)config_js_gz, config_js_gz_size);
 }
 
 void OTAWebServer::getConfig()
@@ -309,15 +303,10 @@ void OTAWebServer::getConfig()
   {
     return server.requestAuthentication();
   }
-  CRITICALSECTION_START(dataBuffMutex)
-  StartChunkedContentTransfer(F("text/html"));
-  InitChunkedContent();
-  SendChunkedContent(jquery);
-  SendChunkedContent(configJs);
-  SendChunkedContent(style);
-  SendChunkedContent(configHtml);
-  FlushChunkedContent();
-  CRITICALSECTION_END;
+
+  server.sendHeader(F("Connection"), F("close"));
+  server.sendHeader(F("Content-Encoding"), F("gzip"));
+  server.send_P(200, "text/html",(const char*)config_html_gz, config_html_gz_size);
 }
 
 void OTAWebServer::postUpdateConfig()
@@ -373,7 +362,7 @@ void OTAWebServer::postUpdateConfig()
   server.client().stop();
 }
 
-void OTAWebServer::getServerInfoData()
+void OTAWebServer::getSysInfoData()
 {
   StartChunkedContentTransfer(F("text/json"));
   CRITICALSECTION_START(dataBuffMutex)
@@ -424,22 +413,28 @@ void OTAWebServer::getServerInfoData()
   CRITICALSECTION_END
 }
 
-void OTAWebServer::getServerInfo()
+void OTAWebServer::getSysInfoJs()
 {
   if (!server.authenticate(WEBSERVER_USER, WEBSERVER_PASSWORD))
   {
     return server.requestAuthentication();
   }
 
-  CRITICALSECTION_START(dataBuffMutex)
-  StartChunkedContentTransfer(F("text/html"));
-  InitChunkedContent();
-  SendChunkedContent(jquery);
-  SendChunkedContent(sysInfoJs);
-  SendChunkedContent(style);
-  SendChunkedContent(sysInfoHtml);
-  FlushChunkedContent();
-  CRITICALSECTION_END
+  server.sendHeader(F("Connection"), F("close"));
+  server.sendHeader(F("Content-Encoding"), F("gzip"));
+  server.send_P(200, "text/javascript",(const char*)sysinfo_js_gz, sysinfo_js_gz_size);
+}
+
+void OTAWebServer::getSysInfo()
+{
+  if (!server.authenticate(WEBSERVER_USER, WEBSERVER_PASSWORD))
+  {
+    return server.requestAuthentication();
+  }
+
+  server.sendHeader(F("Connection"), F("close"));
+  server.sendHeader(F("Content-Encoding"), F("gzip"));
+  server.send_P(200, "text/html",(const char*)sysinfo_html_gz, sysinfo_html_gz_size);
 }
 /*
  * setup function
@@ -464,23 +459,33 @@ void OTAWebServer::setup(const String &hN, const String &_ssid_, const String &_
 
   /*return index page which is stored in serverIndex */
   server.on(F("/"), HTTP_GET, [&]() { getIndex(); });
+  
+  server.on(F("/index.js"), HTTP_GET, [&]() { getIndexJs(); });
+
+  server.on(F("/style.css"), HTTP_GET, [&]() { getStyle(); });
 
   server.on(F("/getindexdata"), HTTP_GET, [&]() { getIndexData(); });
 
   server.on(F("/config"), HTTP_GET, [&]() { getConfig(); });
 
+  server.on(F("/config.js"), HTTP_GET, [&]() { getConfigJs(); });
+
   server.on(F("/getconfigdata"), HTTP_GET, [&]() { getConfigData(); });
 
   server.on(F("/updateconfig"), HTTP_POST, [&]() { postUpdateConfig(); });
 
-  server.on(F("/serverinfo"), HTTP_GET, [&]() { getServerInfo(); });
+  server.on(F("/sysinfo"), HTTP_GET, [&]() { getSysInfo(); });
 
-  server.on(F("/getserverinfodata"), HTTP_GET, [&]() { getServerInfoData(); });
+  server.on(F("/sysinfo.js"), HTTP_GET, [&]() { getSysInfoJs(); });
+
+  server.on(F("/getsysinfodata"), HTTP_GET, [&]() { getSysInfoData(); });
 
   server.on(F("/reset"), HTTP_GET, [&]() { resetESP32Page(); });
 
 #if ENABLE_FILE_LOG
   server.on(F("/logs"), HTTP_GET, [&] { getLogs(); });
+
+  server.on(F("/logs.js"), HTTP_GET, [&] { getLogsJs(); });
 
   server.on(F("/eraselogs"), HTTP_GET, [&] { eraseLogs(); });
 
@@ -488,6 +493,7 @@ void OTAWebServer::setup(const String &hN, const String &_ssid_, const String &_
 #endif
 
   server.on(F("/otaupdate"), HTTP_GET, [&]() { getOTAUpdate(); });
+  server.on(F("/otaupdate.js"), HTTP_GET, [&]() { getOTAUpdateJs(); });
 
   /*handling uploading firmware file */
   server.on(

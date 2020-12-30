@@ -1,1 +1,0 @@
-R"=====(function loadData(){now=new Date;var t="/getindexdata?time="+now.getTime();$.get(t,(function(t){$("#gateway").text(t.gateway),t.logs||$("#logs").hide()}))}$(document).ready((function(){loadData()}));)====="

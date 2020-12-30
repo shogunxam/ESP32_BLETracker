@@ -5,14 +5,13 @@ $(document).ready(function() {
 function loadData() {
   now = new Date();
   var url = "/getlogsdata?time=" + now.getTime();
-  $("#errormsg").text("Reading logs...");
-  $("#errormsg").css("color","#46bd02");
-  $("#errormsg").css("visibility","visible");
+  $("#logmsg").text("Reading logs...");
+  $("#logmsg").css("color","#46bd02");
+  $("#logmsg").css("visibility","visible");
   $.ajax({
     url: url,
     type: 'GET',
     success: function(data ,s) {
-      console.log(data);
       $("#logs > tbody").remove();
       var table = $('#logs');
       table.append($("<tbody/>").css("font-size","13px"));
@@ -26,22 +25,21 @@ function loadData() {
         var row = $("<tr/>").append(ttimestamp);
         row.append(tmessage);
         table.append(row);
-        console.log(table);
       });
-      $("#errormsg").css("visibility","hidden");
+      $("#logmsg").css("visibility","hidden");
     },
     error: function(a, b, c)
     {
-      $("#errormsg").text("Error Reading logs!!!");
-      $("#errormsg").css("color","#d21f1b");
-      $("#errormsg").css("visibility","visible");
+      $("#logmsg").text("Error Reading logs!!!");
+      $("#logmsg").css("color","#d21f1b");
+      $("#logmsg").css("visibility","visible");
     }
   });
 }
 
 $(function() {
   $('#refresh').click(function(e) {
-    $("#errormsg").css("visibility","hidden");
+    $("#logmsg").css("visibility","hidden");
     loadData();
     e.preventDefault();
   });

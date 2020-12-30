@@ -5,7 +5,7 @@ $(document).ready(function() {
 
 function loadData(){
   now = new Date();
-  var url = "/getserverinfodata?time="+now.getTime();
+  var url = "/getsysinfodata?time="+now.getTime();
   $.get(url,function(data)
   {
     $('#gateway').text(data.gateway);

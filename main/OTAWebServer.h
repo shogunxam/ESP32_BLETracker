@@ -11,20 +11,27 @@ class OTAWebServer
     void begin(void);
     private:
         void resetESP32Page();
-        void getConfigData();
-        void getServerInfoData();
+        void getStyle();
+
+        void getSysInfoData();
         void getIndex();
+        void getIndexJs();
         void getIndexData();
         void getOTAUpdate();
+        void getOTAUpdateJs();
         void getConfig();
+        void getConfigJs();
+        void getConfigData();
         void postUpdateConfig();
-        void getServerInfo();
+        void getSysInfo();
+        void getSysInfoJs();
         #if ENABLE_FILE_LOG
         void eraseLogs();
         void getLogs();
+        void getLogsJs();
         void getLogsData();
         #endif
-        void StartChunkedContentTransfer(const String& contentType);
+        void StartChunkedContentTransfer(const String& contentType, bool zipped = false);
         void InitChunkedContent();
         void SendChunkedContent(const char* content);
         void FlushChunkedContent();
