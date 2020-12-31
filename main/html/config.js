@@ -78,7 +78,7 @@
     raw = '<tr id="rw_'+ mac + '">';
     raw += '<td><input type="checkbox" id="' + mac + '"name="' + mac + '"style="width:auto;height:auto"></td>';
     raw += '<td>' + mac + '</td>';
-    raw += '<td><input type="button" id="rm_' + mac + '" value="Remove"style="width:auto;height:auto" class=removebtn onclick="$(\'#rw_'+mac+'\').remove()"></td>';
+    raw += '<td><input type="button" id="rm_' + mac + '" value="Remove"style="width:auto;height:auto" class=dangerbtn onclick="$(\'#rw_'+mac+'\').remove()"></td>';
     raw += '</tr>';
     container.append(raw);
     $('#' + mac).prop("checked", whitelist);

@@ -6,11 +6,13 @@ input {
   margin: 10px auto;
   font-size: 15px;
 }
+
 input {
   background: #f1f1f1;
   border: 0;
   padding: 0 15px;
 }
+
 body {
   background: #3498db;
   font-family: sans-serif;
@@ -35,6 +37,7 @@ body {
   width: 0%;
   height: 10px;
 }
+
 form {
   background: #fff;
   max-width: 358px;
@@ -43,6 +46,7 @@ form {
   border-radius: 5px;
   text-align: center;
 }
+
 #logform{
   background:#fff;
   max-width:600px;
@@ -51,22 +55,27 @@ form {
   border-radius:5px;
   text-align:center
 }
-.btn {
-  background: #3498db;
-  color: #fff;
-  cursor: pointer;
-}
+
+.btn, 
 .fatbtn {
   background: #3498db;
   color: #fff;
   cursor: pointer;
-  height: 44px;
 }
-.removebtn {
+
+.dangerbtn, 
+.fatdangerbtn{
   background: #d21f1b;
   color: #fff;
   cursor: pointer;
 }
+
+.fatbtn,
+.fatdangerbtn
+{ 
+   height: 44px;
+}
+
 .table-wrapper {
   overflow-x: auto;
   overflow-y: scroll;
@@ -95,18 +104,19 @@ table.scroll-table td {
   margin-left: 10%;
   margin-right: 10%;
 }
+
 .grid-container {
   display: grid;
   grid-template-columns: auto auto;
   padding: 10px;
 }
-.grid-value {
+
+.grid-value,
+.grid-label {
   padding: 5px;
   text-align: left;
 }
 
 .grid-label {
-  padding: 5px;
   font-weight: bold;
-  text-align: left;
 }

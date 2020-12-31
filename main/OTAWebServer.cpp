@@ -359,8 +359,9 @@ void OTAWebServer::postUpdateConfig()
 
 void OTAWebServer::getSysInfoData()
 {
-  StartChunkedContentTransfer(F("text/json"));
   CRITICALSECTION_START(dataBuffMutex)
+  StartChunkedContentTransfer(F("text/json"));
+
   SendChunkedContent("{");
   SendChunkedContent(R"("gateway":")" GATEWAY_NAME R"(",)");
   SendChunkedContent(R"("firmware":")" VERSION R"(",)");
@@ -379,6 +380,7 @@ void OTAWebServer::getSysInfoData()
   SendChunkedContent(R"("ssid":")" WIFI_SSID R"(",)");
   SendChunkedContent(R"("battery":)" xstr(PUBLISH_BATTERY_LEVEL) R"(,)");
   SendChunkedContent(R"("devices":[)");
+
   bool first = true;
   for (auto &trackedDevice : BLETrackedDevices)
   {
@@ -387,14 +389,14 @@ void OTAWebServer::getSysInfoData()
     else
       SendChunkedContent(",");
     SendChunkedContent(R"({"mac":")");
-    SendChunkedContent(trackedDevice.address.c_str());
+    SendChunkedContent(trackedDevice.address);
     SendChunkedContent(R"(",)");
     SendChunkedContent(R"("rssi":)");
-    SendChunkedContent(trackedDevice.rssi.c_str());
+    SendChunkedContent(trackedDevice.rssi);
     SendChunkedContent(R"(,)");
 #if PUBLISH_BATTERY_LEVEL
     SendChunkedContent(R"("battery":)");
-    SendChunkedContent(String(trackedDevice.batteryLevel).c_str());
+    SendChunkedContent(trackedDevice.batteryLevel);
     SendChunkedContent(R"(,)");
 #endif
     SendChunkedContent(R"("state":")");
