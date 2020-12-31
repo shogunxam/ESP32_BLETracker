@@ -18,10 +18,12 @@ function loadData() {
       data.forEach(function(item, index) {
           ttimestamp = $("<td/>").text(item.t).css("text-align","left").css("width","22%").css("white-space","nowrap");
           tmessage = $("<td/>").text(item.m).css("text-align","left").css("width","78%").css("white-space","nowrap");
-          if(item.m.startsWith("Error"))
+          if(item.m.startsWith("Error")){
             tmessage.css("color","#d21f1b");
-          else if(item.m.startsWith("BLETracker"))
+          }
+          else if(item.m.startsWith("BLETracker")){
             tmessage.css("color","#3498db");
+          }
         var row = $("<tr/>").append(ttimestamp);
         row.append(tmessage);
         table.append(row);
