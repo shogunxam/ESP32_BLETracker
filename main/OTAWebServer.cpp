@@ -476,7 +476,7 @@ void OTAWebServer::setup(const String &hN, const String &_ssid_, const String &_
 
   server.on(F("/getsysinfodata"), HTTP_GET, [&]() { getSysInfoData(); });
 
-  server.on(F("/reset"), HTTP_GET, [&]() { resetESP32Page(); });
+  server.on(F("/restart"), HTTP_GET, [&]() { resetESP32Page(); });
 
 #if ENABLE_FILE_LOG
   server.on(F("/logs"), HTTP_GET, [&] { getLogs(); });
