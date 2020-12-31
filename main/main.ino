@@ -566,7 +566,7 @@ String formatMillis(unsigned long milliseconds)
   unsigned long minutes = seconds / 60;
   unsigned long hours = minutes / 60;
   unsigned long days = hours / 24;
-  snprintf(strmilli,20, "%d.%2d:%2d:%2d",days,hours,minutes,seconds);
+  snprintf(strmilli,20, "%d.%02d:%02d:%02d",days,hours,minutes,seconds);
   return String(strmilli);
 }
 
