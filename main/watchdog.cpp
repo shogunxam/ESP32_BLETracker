@@ -1,5 +1,6 @@
 #include <esp32-hal-timer.h>
 #include <atomic>
+#include "DebugPrint.h"
 #include "SPIFFSLogger.h"
 
 namespace Watchdog
