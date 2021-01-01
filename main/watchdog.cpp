@@ -15,9 +15,6 @@ namespace Watchdog
             {
                 DEBUG_PRINTLN("INFO: Watchdog Reboot");
                 FILE_LOG_WRITE("Error: Watchdog Reboot");
-                #if ENABLE_FILE_LOG
-                SPIFFS.end();
-                #endif /*ENABLE_FILE_LOG*/
                 delay(100);
                 esp_restart();
             }
@@ -35,7 +32,7 @@ namespace Watchdog
         xTaskCreatePinnedToCore(
             WatchDogloop,   /* Function to implement the task */
             "WatchDogloop", /* Name of the task */
-            4096,           /* Stack size in words */
+            3072,           /* Stack size in words */
             NULL,           /* Task input parameter */
             20,             /* Priority of the task */
             NULL,           /* Task handle. */

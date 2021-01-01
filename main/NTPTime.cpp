@@ -20,15 +20,15 @@ namespace NTPTime
         ::getLocalTime(&timeinfo);
     }
 
-    void strftime(const String &format, const tm &timeInfo, String &out)
+    void strftime(const char* format, const tm &timeInfo, String &out)
     {
         char buff[255];
-        ::strftime(buff, 255, format.c_str(), &timeInfo);
+        ::strftime(buff, 255, format, &timeInfo);
         out = buff;
     }
 
-    void strftime(const String &format, const tm &timeInfo, char *outBuff, int size)
+    void strftime(const char* format, const tm &timeInfo, char *outBuff, int size)
     {
-        ::strftime(outBuff, size, format.c_str(), &timeInfo);
+        ::strftime(outBuff, size, format, &timeInfo);
     }
 } // namespace NTPTime

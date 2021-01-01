@@ -112,6 +112,7 @@ bool connectToMQTT()
       return false;
   }
   firstTimeMQTTConnection = false;
+  return true;
 }
 
 /*
@@ -132,8 +133,11 @@ void _publishToMQTT(const char* topic, const char* payload, bool retain)
 
 void publishToMQTT(const char* topic, const char* payload, bool retain)
 {
-  connectToMQTT();
-  _publishToMQTT(topic, payload, retain);
+  if(connectToMQTT())
+  {
+    _publishToMQTT(topic, payload, retain);
+    delay(100);
+  }
 }
 
 void publishAvailabilityToMQTT()
@@ -194,10 +198,11 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
           if (!trackedDevice.isDiscovered)
           {
             trackedDevice.isDiscovered = true;
-            trackedDevice.lastDiscovery = millis();
+            trackedDevice.lastDiscoveryTime = millis();
             trackedDevice.connectionRetry = 0;
+            trackedDevice.numContiguousDiscovering = 1;
             itoa(RSSI, trackedDevice.rssi, 10);
-            DEBUG_PRINTF("INFO: Tracked device newly discovered, Address: %s , RSSI: %d\n", address, RSSI);
+            DEBUG_PRINTF("INFO: Tracked device discovered again, Address: %s , RSSI: %d\n", address, RSSI);
             if (advertisedDevice.haveName())
             {
               FILE_LOG_WRITE("Device %s ( %s ) within range, RSSI: %d ", address, shortName, RSSI);
@@ -207,11 +212,14 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
           }
           else
           {
-            trackedDevice.lastDiscovery = millis();
+            trackedDevice.lastDiscoveryTime = millis();
             itoa(RSSI, trackedDevice.rssi, 10);
             DEBUG_PRINTF("INFO: Tracked device discovered, Address: %s , RSSI: %d\n", address, RSSI);
+            if(trackedDevice.numContiguousDiscovering < 254)//avoid overflow
+              trackedDevice.numContiguousDiscovering++;
           }
         }
+
         break;
       }
     }
@@ -224,8 +232,8 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
       memcpy(trackedDevice.address, address, ADDRESS_STRING_SIZE);
       trackedDevice.addressType = advertisedDevice.getAddressType();
       trackedDevice.isDiscovered = true;
-      trackedDevice.lastDiscovery = millis();
-      trackedDevice.lastBattMeasure = 0;
+      trackedDevice.lastDiscoveryTime = millis();
+      trackedDevice.lastBattMeasureTime = 0;
       itoa(-1, trackedDevice.batteryLevel, 10);
       trackedDevice.hasBatteryService = true;
       trackedDevice.connectionRetry = 0;
@@ -237,6 +245,7 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
         FILE_LOG_WRITE("Discovered new device %s ( %s ) within range, RSSI: %d ", address, shortName, RSSI);
       else
         FILE_LOG_WRITE("Discovered new device %s within range, RSSI: %d ", address, RSSI);
+      trackedDevice.numContiguousDiscovering = 1;
     }
   }
 };
@@ -269,22 +278,21 @@ void batteryTask()
 
   for (auto &trackedDevice : BLETrackedDevices)
   {
-    Watchdog::Feed();
-    publishAvailabilityToMQTT();
-
     if (!SettingsMngr.InBatteryList(trackedDevice.address))
       continue;
 
+    publishAvailabilityToMQTT();
+
     //We need to connect to the device to read the battery value
     //So that we check only the device really advertised by the scan
-    unsigned long BatteryReadTimeout = trackedDevice.lastBattMeasure + BATTERY_READ_PERIOD;
-    unsigned long BatteryRetryTimeout = trackedDevice.lastBattMeasure + BATTERY_RETRY_PERIOD;
+    unsigned long BatteryReadTimeout = trackedDevice.lastBattMeasureTime + BATTERY_READ_PERIOD;
+    unsigned long BatteryRetryTimeout = trackedDevice.lastBattMeasureTime + BATTERY_RETRY_PERIOD;
     unsigned long now = millis();
     bool batterySet = trackedDevice.batteryLevel[0] != '\0' && trackedDevice.batteryLevel[0] != '-' && trackedDevice.batteryLevel[0] != '0';
-    if (trackedDevice.advertised && trackedDevice.hasBatteryService &&
+    if (trackedDevice.advertised && trackedDevice.hasBatteryService && trackedDevice.numContiguousDiscovering >= 2 &&
         ((batterySet && (BatteryReadTimeout < now)) ||
          (!batterySet && (BatteryRetryTimeout < now)) ||
-         (trackedDevice.lastBattMeasure == 0)))
+         (trackedDevice.lastBattMeasureTime == 0)))
     {
       DEBUG_PRINTF("\nReading Battery level for %s: Retries: %d\n", trackedDevice.address, trackedDevice.connectionRetry);
       bool connectionExtabilished = batteryLevel(trackedDevice.address, trackedDevice.addressType, trackedDevice.batteryLevel, trackedDevice.hasBatteryService);
@@ -292,7 +300,7 @@ void batteryTask()
       {
         log_i("Device %s has battery service: %s", trackedDevice.address, trackedDevice.hasBatteryService ? "YES" : "NO");
         trackedDevice.connectionRetry = 0;
-        trackedDevice.lastBattMeasure = now;
+        trackedDevice.lastBattMeasureTime = now;
       }
       else
       {
@@ -300,7 +308,7 @@ void batteryTask()
         if (trackedDevice.connectionRetry >= MAX_BLE_CONNECTION_RETRIES)
         {
           trackedDevice.connectionRetry = 0;
-          trackedDevice.lastBattMeasure = now;
+          trackedDevice.lastBattMeasureTime = now;
         }
       }
     }
@@ -310,6 +318,7 @@ void batteryTask()
       //when the device will be advertised again
       itoa(-1, trackedDevice.batteryLevel, 10);
     }
+    Watchdog::Feed();
   }
   //DEBUG_PRINTF("\n*** Memory after battery scan: %u\n",xPortGetFreeHeapSize());
 }
@@ -335,7 +344,7 @@ bool batteryLevel(const char address[ADDRESS_STRING_SIZE], esp_ble_addr_type_t a
   bool bleconnected;
   BLEClient *pClient = nullptr;
   itoa(-1, battLevel, 10);
-  char denomAddress[ADDRESS_STRING_SIZE + 5];
+  static char denomAddress[ADDRESS_STRING_SIZE + 5];
   DenormalizeAddress(address, denomAddress);
   BLEAddress bleAddress = BLEAddress(denomAddress);
   log_i("connecting to : %s", bleAddress.toString().c_str());
@@ -388,7 +397,7 @@ bool batteryLevel(const char address[ADDRESS_STRING_SIZE], esp_ble_addr_type_t a
       }
     }
     //Before disconnecting I need to pause the task to wait (I'don't know what), otherwhise we have an heap corruption
-    delay(100);
+    delay(200);
     log_i("disconnecting...");
     pClient->disconnect();
     //EventBits_t bits = xEventGroupWaitBits(connection_event_group, DISCONNECTED_EVENT, true, true, portMAX_DELAY);
@@ -531,8 +540,8 @@ void setup()
 
 void publishBLEState(const char address[ADDRESS_STRING_SIZE], const char state[4], const char rssi[RSSI_STRING_SIZE], const char batteryLevel[BATTERY_STRING_SIZE])
 {
-  const uint16_t maxTopicLen = strlen(MQTT_BASE_SENSOR_TOPIC)+22;
-  char topic[maxTopicLen];
+  constexpr uint16_t maxTopicLen = sizeof(MQTT_BASE_SENSOR_TOPIC)+22;
+char topic[maxTopicLen];
 
 #if PUBLISH_SEPARATED_TOPICS
   snprintf(topic, maxTopicLen,"%s/%s/state",MQTT_BASE_SENSOR_TOPIC,address);
@@ -559,24 +568,27 @@ void publishBLEState(const char address[ADDRESS_STRING_SIZE], const char state[4
 #endif
 }
 
-String formatMillis(unsigned long milliseconds)
+char* formatMillis(unsigned long milliseconds, char outstr[20])
 {
-  char strmilli[20];
   unsigned long seconds = milliseconds / 1000;
   unsigned long minutes = seconds / 60;
-  unsigned long hours = minutes / 60;
-  unsigned long days = hours / 24;
-  snprintf(strmilli,20, "%d.%02d:%02d:%02d",days,hours,minutes,seconds);
-  return String(strmilli);
+  unsigned long hours   = minutes / 60;
+  unsigned long days    = hours / 24;
+  snprintf(outstr,20, "%d.%02d:%02d:%02d",days,hours % 24,minutes % 60,seconds % 60);
+  return outstr;
 }
 
+#define SYS_TOPIC MQTT_BASE_SENSOR_TOPIC "/sysinfo"
 void publishSySInfo()
 {
-  String sysTopic = MQTT_BASE_SENSOR_TOPIC "/sysinfo";
-  String IP = WiFi.localIP().toString();
-
-  String payload = R"({ "uptime":")" + formatMillis(millis()) + R"(","version":)" VERSION R"(,"SSID":")" WIFI_SSID R"(", "IP":")" + IP + R"("})";
-  publishToMQTT(sysTopic.c_str(), payload.c_str(), false);
+  constexpr uint16_t maxSysPayloadLen = 83+sizeof(VERSION)+sizeof(WIFI_SSID);
+  char sysPayload[maxSysPayloadLen];
+  static String IP;
+  IP.reserve(16);
+  IP = WiFi.localIP().toString();
+  char strmilli[20];
+  snprintf(sysPayload,maxSysPayloadLen,R"({"uptime":"%s","version":"%s","SSID":"%s","IP":"%s"})",formatMillis(millis(),strmilli),VERSION,WIFI_SSID,IP.c_str());
+  publishToMQTT(SYS_TOPIC, sysPayload, false);
 }
 
 void loop()
@@ -612,7 +624,10 @@ void loop()
 
     for (auto &trackedDevice : BLETrackedDevices)
     {
-      if (trackedDevice.isDiscovered && (trackedDevice.lastDiscovery + MAX_NON_ADV_PERIOD) < millis())
+      if(!trackedDevice.advertised)
+        trackedDevice.numContiguousDiscovering = 0;
+
+      if (trackedDevice.isDiscovered && (trackedDevice.lastDiscoveryTime + MAX_NON_ADV_PERIOD) < millis())
       {
         trackedDevice.isDiscovered = false;
         FILE_LOG_WRITE("Devices %s is gone out of range", trackedDevice.address);
@@ -624,6 +639,7 @@ void loop()
 #endif
 
     publishAvailabilityToMQTT();
+
 
     for (auto &trackedDevice : BLETrackedDevices)
     {

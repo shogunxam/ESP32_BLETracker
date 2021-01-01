@@ -31,7 +31,7 @@ class OTAWebServer
         void getLogsJs();
         void getLogsData();
         #endif
-        void StartChunkedContentTransfer(const String& contentType, bool zipped = false);
+        void StartChunkedContentTransfer(const char* contentType, bool zipped = false);
         void SendChunkedContent(const uint8_t *content, size_t size);
         void SendChunkedContent(const char *content);
         void FlushChunkedContent();
