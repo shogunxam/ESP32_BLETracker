@@ -386,9 +386,7 @@ void OTAWebServer::postUpdateConfig()
 void OTAWebServer::getSysInfoData()
 {
   CRITICALSECTION_START(dataBuffMutex)
-  char strmilli[20];
-  char strheap[1 + 8 * sizeof(uint32_t)];
-  itoa(xPortGetFreeHeapSize(),strheap,10);
+  char strbuff[20];
 
   StartChunkedContentTransfer("text/json");
   SendChunkedContent("{");
@@ -400,11 +398,12 @@ void OTAWebServer::getSysInfoData()
   SendChunkedContent(Firmware::BuildTime);
   SendChunkedContent(R"(",)");
   SendChunkedContent(R"("memory":")");
-  SendChunkedContent(strheap);
+  itoa(xPortGetFreeHeapSize(),strbuff,10);
+  SendChunkedContent(strbuff);
   SendChunkedContent(R"( bytes",)");
 #endif
   SendChunkedContent(R"("uptime":")");
-  SendChunkedContent(formatMillis(millis(),strmilli));
+  SendChunkedContent(formatMillis(millis(),strbuff));
   SendChunkedContent(R"(",)");
   SendChunkedContent(R"("ssid":")" WIFI_SSID R"(",)");
   SendChunkedContent(R"("battery":)" xstr(PUBLISH_BATTERY_LEVEL) R"(,)");
@@ -421,11 +420,13 @@ void OTAWebServer::getSysInfoData()
     SendChunkedContent(trackedDevice.address);
     SendChunkedContent(R"(",)");
     SendChunkedContent(R"("rssi":)");
-    SendChunkedContent(trackedDevice.rssi);
+    itoa(trackedDevice.rssiValue,strbuff,10);
+    SendChunkedContent(strbuff);
     SendChunkedContent(R"(,)");
 #if PUBLISH_BATTERY_LEVEL
     SendChunkedContent(R"("battery":)");
-    SendChunkedContent(trackedDevice.batteryLevel);
+    itoa(trackedDevice.batteryLevel,strbuff,10);
+    SendChunkedContent(strbuff);
     SendChunkedContent(R"(,)");
 #endif
     SendChunkedContent(R"("state":")");
