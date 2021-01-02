@@ -7,8 +7,6 @@
 #include "firmwarever.h"
 
 #define ADDRESS_STRING_SIZE 13
-#define RSSI_STRING_SIZE 5
-#define BATTERY_STRING_SIZE 5
 
 struct BLETrackedDevice
 {
