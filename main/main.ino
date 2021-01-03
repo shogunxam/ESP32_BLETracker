@@ -181,6 +181,7 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
     if (!SettingsMngr.IsTraceable(address))
       return;
 
+    DEBUG_PRINTF("~~ Advertised device Address: %s (type: %d), RSSI: %d, \n", address, advertisedDevice.getAddressType(), advertisedDevice.getRSSI());
     char shortName[shortNameSize];
     memset(shortName, 0, shortNameSize);
     if (advertisedDevice.haveName())
@@ -194,6 +195,7 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
       {
         if (!trackedDevice.advertised)
         {
+          trackedDevice.addressType = advertisedDevice.getAddressType();
           trackedDevice.advertised = true;
           if (!trackedDevice.isDiscovered)
           {
