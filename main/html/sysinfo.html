@@ -1,0 +1,42 @@
+<html>
+
+<head>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script src="sysinfo.js"></script>
+  <link rel="stylesheet" type="text/css" href="style.css">
+</head>
+
+<body>
+<form name='indexForm'>
+  <h1 id='gateway'></h1>
+  <h2>System Information</h2>
+  <div class="grid-container">
+    <div class="grid-label">Firmware Version</div>
+    <div class="grid-value" id="firmware"></div>
+    <div class="grid-label" id="buildlbl">Build Time</div>
+    <div class="grid-value" id="build"></div>
+    <div class="grid-label" id="memorylbl">Free Memory</div>
+    <div class="grid-value" id="memory"></div>
+    <div class="grid-label">Uptime</div>
+    <div class="grid-value" id="uptime"></div>
+    <div class="grid-label">SSID</div>
+    <div class="grid-value" id="ssid"></div>
+  </div>
+  <h2>Devices</h2>
+  <div id="devListContainer" name="devListContainer" class="table-wrapper">
+    <table id="devices" style='width:100%' class="scroll-table">
+      <thead>
+        <th>Device</th>
+        <th>RSSI</th>
+        <th id="c1">Battery</th>
+        <th>State</th>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <input type=button onclick="window.open('/restart','_self')" class=fatdangerbtn value="Restart">
+  <br><input type=button onclick="window.open('/','_self')" class=fatbtn value="Back">
+  <br><br><label>by Shogunxam</label>
+</form>
+</body>
+</html>
