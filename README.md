@@ -45,7 +45,8 @@ Build using the *Minimal SPIFFS* partition schema.
 | BLE Device | Discovery | Battery |
 |------------|----------|---------|
 |Nut mini   |  :heavy_check_mark:|  :heavy_check_mark:|
-|Nut        | :heavy_check_mark: |:heavy_exclamation_mark:|
+|Nut2        | :heavy_check_mark: |:heavy_exclamation_mark:|
+|Remote Shutter   |  :heavy_check_mark:|  :heavy_check_mark:|
 |Xiomi Amazfit Bip|:heavy_check_mark:|:x:|
 |REDMOND RFT-08S|:heavy_check_mark:|:x:|
 |Xiomi Mi Smart Band 4|:heavy_check_mark:|:x:|
