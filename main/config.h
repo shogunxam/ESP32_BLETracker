@@ -26,6 +26,7 @@
 //#define DEBUG_SERIAL
 
 // MQTT
+//If the MQTT_CONNECTION_TIME_OUT is expired the availability topic is re-published
 #define MQTT_CONNECTION_TIME_OUT 5000 // [ms]
 
 // MQTT availability: available/unavailable
