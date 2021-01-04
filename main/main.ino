@@ -252,9 +252,9 @@ static BLEUUID service_BATT_UUID(BLEUUID((uint16_t)0x180F));
 static BLEUUID char_BATT_UUID(BLEUUID((uint16_t)0x2A19));
 
 #if PUBLISH_BATTERY_LEVEL
-static EventGroupHandle_t connection_event_group;
-const int CONNECTED_EVENT = BIT0;
-const int DISCONNECTED_EVENT = BIT1;
+//static EventGroupHandle_t connection_event_group;
+//const int CONNECTED_EVENT = BIT0;
+//const int DISCONNECTED_EVENT = BIT1;
 
 class MyBLEClientCallBack : public BLEClientCallbacks
 {
@@ -264,9 +264,10 @@ class MyBLEClientCallBack : public BLEClientCallbacks
 
   virtual void onDisconnect(BLEClient *pClient)
   {
-    log_i(" >> onDisconnect callback");
-    xEventGroupSetBits(connection_event_group, DISCONNECTED_EVENT);
-    log_i(" << onDisconnect callback");
+    pClient->disconnect();
+    //log_i(" >> onDisconnect callback");
+    //xEventGroupSetBits(connection_event_group, DISCONNECTED_EVENT);
+    //log_i(" << onDisconnect callback");
   }
 };
 
@@ -347,7 +348,7 @@ bool batteryLevel(const char address[ADDRESS_STRING_SIZE], esp_ble_addr_type_t a
   BLEAddress bleAddress = BLEAddress(denomAddress);
   log_i("connecting to : %s", bleAddress.toString().c_str());
   FILE_LOG_WRITE("Reading battery level for device %s", address);
-
+  MyBLEClientCallBack callback;
   // create a new client each client is unique
   if (pClient == nullptr)
   {
@@ -360,7 +361,7 @@ bool batteryLevel(const char address[ADDRESS_STRING_SIZE], esp_ble_addr_type_t a
     }
     else
       log_i("Created client");
-    //pClient->setClientCallbacks(new MyBLEClientCallBack());
+    pClient->setClientCallbacks(&callback);
   }
 
   // Connect to the remote BLE Server.
@@ -395,9 +396,12 @@ bool batteryLevel(const char address[ADDRESS_STRING_SIZE], esp_ble_addr_type_t a
       }
     }
     //Before disconnecting I need to pause the task to wait (I'don't know what), otherwhise we have an heap corruption
-    delay(200);
+    delay(100);
     log_i("disconnecting...");
-    pClient->disconnect();
+    if(pClient->isConnected())
+      pClient->disconnect();
+    while(pClient->isConnected())
+      delay(100);
     //EventBits_t bits = xEventGroupWaitBits(connection_event_group, DISCONNECTED_EVENT, true, true, portMAX_DELAY);
     //log_i("wait for disconnection done: %d", bits);
   }
@@ -530,7 +534,7 @@ void setup()
   connectToMQTT();
 
 #if PUBLISH_BATTERY_LEVEL
-  connection_event_group = xEventGroupCreate();
+  //connection_event_group = xEventGroupCreate();
 #endif
 
   FILE_LOG_WRITE("BLETracker initialized");
