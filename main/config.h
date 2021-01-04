@@ -57,4 +57,10 @@
 //Enable persistent logs on File System
 #define ENABLE_FILE_LOG true
 #define MAX_NUM_OF_SAVED_LOGS 200
+
+//Enable this patch if you want the device is considered within the range
+//if it's discovered at least twice during a scan
+#define ENABLE_INRANGE_PATCH true
+
+
 #endif /*CONFIG_ESP32_BLETRACKER*/
