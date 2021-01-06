@@ -2,7 +2,7 @@
 #include "config.h"
 #include "DebugPrint.h"
 
-#define CURRENT_SETTING_VERSION 2
+#define CURRENT_SETTING_VERSION 3
 
 Settings SettingsMngr;
 
@@ -80,6 +80,7 @@ void Settings::FactoryReset(bool emptyLists)
     mqttServer = MQTT_SERVER;
     mqttPort = MQTT_SERVER_PORT;
     scanPeriod = BLE_SCANNING_PERIOD;
+    logLevel = DEFAULT_FILE_LOG_LEVEL;
 }
 
 std::size_t Settings::GetMaxNumOfTraceableDevices()
@@ -115,6 +116,7 @@ String Settings::toJSON()
     data += R"("mqtt_usr":")" + mqttUser + R"(",)";
     data += R"("mqtt_pwd":")" + mqttPwd + R"(",)";
     data += R"("scanPeriod":)" + String(scanPeriod) + ",";
+    data += R"("loglevel":)"+ String(logLevel) + ",";
     data += R"("whiteList":)";
     data += (enableWhiteList ? "true" : "false");
     data += R"(,)";
@@ -208,6 +210,7 @@ bool Settings::Save()
         SaveStringArray(file, batteryWhiteList);
         SaveStringArray(file, trackWhiteList);
         file.write((uint8_t *)&scanPeriod, sizeof(scanPeriod));
+        file.write((uint8_t *)&logLevel, sizeof(logLevel));
         file.flush();
         file.close();
         return true;
@@ -232,6 +235,8 @@ void Settings::Load()
         LoadStringArray(file, trackWhiteList);
         if (currVer > 1)
             file.read((uint8_t *)&scanPeriod, sizeof(scanPeriod));
+        if (currVer > 2)
+            file.read((uint8_t *)&logLevel, sizeof(logLevel));
     }
 
 }

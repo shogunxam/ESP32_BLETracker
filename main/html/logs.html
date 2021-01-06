@@ -17,7 +17,15 @@
       </thead>
       <tbody></tbody>
     </table>
-  </div>
+  </div><br>
+  <label for="loglevel"> Log Level</label>
+  <select name=loglevel id=loglevel onchange=logLevelChanged(this)>
+    <option value=0>Error</option>
+    <option value=1>Warning</option>
+    <option value=2>Info</option>
+    <option value=3>Debug</option>
+    <option value=4>Verbose</option>
+  </select><br>
   <input type=button id="refresh" class='btn' value="Refresh" style="width:49%">
   <input type=button id="clear" class='btn' value="Clear" style="width:49%">
   <br><input type=button onclick="window.open('/','_self')" class='fatbtn' value="Back">

@@ -7,7 +7,7 @@
 #define BACK_CIRCULAR_INDEX(x) x = x <= 0 ? (mHeader.mNumWrittenLogs - 1) : (x - 1)
 #define RECORD_POSITION(x) (cHeaderSize + (x * cRecordSize))
 
-SPIFFSLoggerClass::SPIFFSLoggerClass() : MyMutex("SPIFFSLogger") {}
+SPIFFSLoggerClass::SPIFFSLoggerClass() : MyMutex("SPIFFSLogger"),mLogLevel(LogLevel::Info) {}
 
 void SPIFFSLoggerClass::Initialize(const String &fileName, int max_records)
 {
@@ -99,8 +99,26 @@ bool SPIFFSLoggerClass::writeHeader()
 
     return bytes == cHeaderSize;
 }
+void SPIFFSLoggerClass::writeLog(LogLevel logLevel,const char *msg, ...)
+{
+    if(logLevel <= mLogLevel)
+    {
+        va_list args;
+        va_start(args, msg);
+        write_next_entry(msg, args);
+        va_end(args);
+    }
+}
 
 void SPIFFSLoggerClass::write_next_entry(const char *msg, ...)
+{
+    va_list args;
+    va_start(args, msg);
+    write_next_entry(msg, args);
+    va_end(args);
+}
+
+void SPIFFSLoggerClass::write_next_entry(const char *msg, va_list args)
 {
     locker guard(*this);
     
@@ -116,11 +134,8 @@ void SPIFFSLoggerClass::write_next_entry(const char *msg, ...)
     memset(&ent, 0x0, sizeof(ent));
 
     // format message into entry
-    va_list ap;
-    va_start(ap, msg);
     //The generated string has a length of at sizeof(ent.msg)-1, leaving space for the additional terminating null character.
-    vsnprintf(ent.msg, sizeof(ent.msg), msg, ap);
-    va_end(ap);
+    vsnprintf(ent.msg, sizeof(ent.msg), msg, args);
 
     struct tm timeInfo;
     NTPTime::getLocalTime(timeInfo);

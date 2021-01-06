@@ -32,7 +32,7 @@ void WiFiConnect(const String &_ssid_, const String &_password_)
       if (millis() > timeout)
       {
         DEBUG_PRINTLN("Failed connecting to the network: timeout error!!!");
-        FILE_LOG_WRITE("Restart because failing to connect to %s.",_ssid_.c_str());
+        LOG_TO_FILE_E("Restart because failing to connect to %s.",_ssid_.c_str());
         esp_restart();
       }
     }
@@ -43,6 +43,6 @@ void WiFiConnect(const String &_ssid_, const String &_password_)
     DEBUG_PRINTLN("--------------------");
     DEBUG_PRINTF("Connected to %s\n",_ssid_.c_str());
     DEBUG_PRINTF("IP address: %s\n",WiFi.localIP().toString().c_str());
-    FILE_LOG_WRITE("Connected to %s",_ssid_.c_str());
+    LOG_TO_FILE_I("Connected to %s",_ssid_.c_str());
   }
 }

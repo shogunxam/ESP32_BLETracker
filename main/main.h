@@ -21,9 +21,8 @@ struct BLETrackedDevice
   uint8_t connectionRetry;//Number of retries if the connection with the device fails
   int8_t rssiValue;
   esp_ble_addr_type_t addressType;
-  #if ENABLE_INRANGE_PATCH
-  uint8_t duplicatesCounter;
-  #endif
+  uint8_t advertisementCounter;
+
   BLETrackedDevice()
   {
     address[0] ='\0';
@@ -36,9 +35,7 @@ struct BLETrackedDevice
     connectionRetry = 0;
     rssiValue = -100;
     addressType = BLE_ADDR_TYPE_PUBLIC;
-    #if ENABLE_INRANGE_PATCH
-    duplicatesCounter = 0;
-    #endif
+    advertisementCounter = 0;
   }
 } ;
 

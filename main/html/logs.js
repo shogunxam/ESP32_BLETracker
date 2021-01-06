@@ -1,5 +1,6 @@
 $(document).ready(function() {
   loadData();
+  loadLogLevel();
 });
 
 function loadData() {
@@ -33,6 +34,36 @@ function loadData() {
     error: function(a, b, c)
     {
       $("#logmsg").text("Error Reading logs!!!");
+      $("#logmsg").css("color","#d21f1b");
+      $("#logmsg").css("visibility","visible");
+    }
+  });
+}
+
+function loadLogLevel() {
+  now = new Date();
+  var url = "/getconfigdata?time=" + now.getTime();
+   $.get(url,function(data) {
+    console.log(data);
+    $('#loglevel').val(data.loglevel);
+  });
+}
+
+function logLevelChanged(s)
+{
+	var data ={};
+  data[s.id]=s.value;
+$.ajax({
+    url: "/logs",
+    type: 'POST',
+    data:data,
+    success: function(data ,s) {
+    	$("#logmsg").css("visibility","hidden");
+      console.log("ok");
+    },
+    error: function(a, b, c)
+    {
+      $("#logmsg").text("Error saving new log level!!!");
       $("#logmsg").css("color","#d21f1b");
       $("#logmsg").css("visibility","visible");
     }

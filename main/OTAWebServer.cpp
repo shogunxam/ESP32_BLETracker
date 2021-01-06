@@ -116,7 +116,7 @@ void OTAWebServer::resetESP32Page()
     return server.requestAuthentication();
   }
 
-  FILE_LOG_WRITE("User request for restart...");
+  LOG_TO_FILE_I("User request for restart...");
   server.sendHeader("Connection", "close");
   server.send(200, "text/html", F("<div align='center'>Resetting...<br><progress id='g' class='y' value='0' max='100' style='align-self:center; text-align:center;'/></div>"
                                   "<script>window.onload=function(){};var progval=0;var myVar=setInterval(Prog,80);"
@@ -196,6 +196,43 @@ void OTAWebServer::getLogs()
   server.sendHeader(F("Connection"), F("close"));
   server.sendHeader(F("Content-Encoding"), F("gzip"));
   server.send_P(200, "text/html",(const char*)logs_html_gz, logs_html_gz_size);
+  server.client().flush();
+  server.client().stop();
+}
+
+void OTAWebServer::postLogs()
+{
+  if (!server.authenticate(WEBSERVER_USER, WEBSERVER_PASSWORD))
+  {
+    return server.requestAuthentication();
+  }
+
+  if (server.args() == 1 && server.hasArg("loglevel"))
+  {
+    Settings newSettings(SettingsMngr.GetSettingsFile(), true);
+    newSettings = SettingsMngr;
+    newSettings.logLevel = server.arg("loglevel").toInt();
+    SettingsMngr.logLevel = newSettings.logLevel;
+    SPIFFSLogger.setLogLevel(SPIFFSLoggerClass::LogLevel(SettingsMngr.logLevel));
+    server.sendHeader(F("Connection"), F("close"));
+    if (newSettings.Save())
+    {
+      LOG_TO_FILE_I("New LogLevel configuration succesfully saved.");
+      server.send(200, F("text/html"), "Ok");
+    }
+    else
+    {
+      LOG_TO_FILE_E("Error saving the new LogLevel configuration.");
+      server.send(500, F("text/html"), "Error saving settings");
+    }
+      server.client().flush();
+      server.client().stop();
+    return;
+  }
+
+  server.sendHeader(F("Connection"), F("close"));
+  server.send(400, F("text/html"), "Bad request");
+
   server.client().flush();
   server.client().stop();
 }
@@ -338,12 +375,6 @@ void OTAWebServer::postUpdateConfig()
   }
 
   Settings newSettings(SettingsMngr.GetSettingsFile(), true);
-
-  newSettings.mqttServer = server.arg("mqttsrvr");
-  newSettings.mqttPort = server.arg("mqttport").toInt();
-  newSettings.mqttUser = server.arg("mqttusr");
-  newSettings.mqttPwd = server.arg("mqttpwd");
-
   for (int i = 0; i < server.args(); i++)
   {
     if (server.argName(i) == "mqttsrvr")
@@ -368,15 +399,14 @@ void OTAWebServer::postUpdateConfig()
   DEBUG_PRINTLN(newSettings.toJSON().c_str());
 
   server.sendHeader(F("Connection"), F("close"));
-  server.setContentLength(CONTENT_LENGTH_UNKNOWN);
   if (newSettings.Save())
   {
-    FILE_LOG_WRITE("New configuration succesfully saved.");
+    LOG_TO_FILE_I("New configuration succesfully saved.");
     server.send(200, F("text/html"), "Ok");
   }
   else
   {
-    FILE_LOG_WRITE("Error saving the new configuration.");
+    LOG_TO_FILE_E("Error saving the new configuration.");
     server.send(500, F("text/html"), "Error saving settings");
   }
   server.client().flush();
@@ -516,6 +546,8 @@ void OTAWebServer::setup(const String &hN, const String &_ssid_, const String &_
 #if ENABLE_FILE_LOG
   server.on(F("/logs"), HTTP_GET, [&] { getLogs(); });
 
+  server.on(F("/logs"), HTTP_POST, [&] { postLogs(); });
+
   server.on(F("/logs.js"), HTTP_GET, [&] { getLogsJs(); });
 
   server.on(F("/eraselogs"), HTTP_GET, [&] { eraseLogs(); });
@@ -535,7 +567,7 @@ void OTAWebServer::setup(const String &hN, const String &_ssid_, const String &_
 #if ENABLE_FILE_LOG
       if(SPIFFSLogger.isEnabled())
         {
-          FILE_LOG_WRITE("OTA Update started...");
+          LOG_TO_FILE_I("OTA Update started...");
           SPIFFSLogger.enabled(false);
           SPIFFS.end();
         }
@@ -578,12 +610,12 @@ void WebServerLoop(void *param)
     catch (std::exception &e)
     {
       DEBUG_PRINTF("Error Caught Exception %s",e.what());
-      FILE_LOG_WRITE("Error Caught Exception %s",e.what());
+      LOG_TO_FILE_E("Error Caught Exception %s",e.what());
     }
     catch (...)
     {
       DEBUG_PRINTLN("Error Unhandled exception trapped in webserver loop");
-      FILE_LOG_WRITE("Error Unhandled exception trapped in webserver loop");
+      LOG_TO_FILE_E("Error Unhandled exception trapped in webserver loop");
     }
   }
 }

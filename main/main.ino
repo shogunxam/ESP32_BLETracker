@@ -69,12 +69,12 @@ bool connectToMQTT()
   {
     DEBUG_PRINTF("INFO: Connecting to MQTT broker: %s\n", SettingsMngr.mqttServer.c_str());
     if (!firstTimeMQTTConnection && !MQTTConnectionErrorSignaled)
-      FILE_LOG_WRITE("Error: MQTT broker disconnected, connecting...");
+      LOG_TO_FILE_E("Error: MQTT broker disconnected, connecting...");
     DEBUG_PRINTLN(F("Error: MQTT broker disconnected, connecting..."));
     if (mqttClient.connect(GATEWAY_NAME, SettingsMngr.mqttUser.c_str(), SettingsMngr.mqttPwd.c_str(), MQTT_AVAILABILITY_TOPIC, 1, true, MQTT_PAYLOAD_UNAVAILABLE))
     {
       DEBUG_PRINTLN(F("INFO: The client is successfully connected to the MQTT broker"));
-      FILE_LOG_WRITE("MQTT broker connected!");
+      LOG_TO_FILE_I("MQTT broker connected!");
       MQTTConnectionErrorSignaled = false;
       _publishToMQTT(MQTT_AVAILABILITY_TOPIC, MQTT_PAYLOAD_AVAILABLE, true);
     }
@@ -98,7 +98,7 @@ bool connectToMQTT()
 
       if (!MQTTConnectionErrorSignaled)
       {
-        FILE_LOG_WRITE("Error: Connection to the MQTT broker failed!");
+        LOG_TO_FILE_E("Error: Connection to the MQTT broker failed!");
         MQTTConnectionErrorSignaled = true;
         MQTTErrorCounter = SPIFFSLogger.numOfLogsPerSession();
       }
@@ -127,7 +127,7 @@ void _publishToMQTT(const char *topic, const char *payload, bool retain)
   else
   {
     DEBUG_PRINTF("ERROR: MQTT message not published, either connection lost, or message too large. Topic: %s , payload: %s , retain: %s \n", topic, payload, retain ? "True" : "False");
-    FILE_LOG_WRITE("Error: MQTT message not published");
+    LOG_TO_FILE_E("Error: MQTT message not published");
   }
 }
 
@@ -173,7 +173,6 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
   {
     Watchdog::Feed();
     const uint8_t shortNameSize = 31;
-    bool foundPreviouslyAdvertisedDevice = false;
     std::string std_address = advertisedDevice.getAddress().toString();
     char address[ADDRESS_STRING_SIZE];
     NormalizeAddress(std_address, address);
@@ -189,18 +188,17 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
     int RSSI = advertisedDevice.getRSSI();
     for (auto &trackedDevice : BLETrackedDevices)
     {
-      foundPreviouslyAdvertisedDevice = strcmp(address, trackedDevice.address) == 0;
-      if (foundPreviouslyAdvertisedDevice)
+      if (strcmp(address, trackedDevice.address) == 0)
       {
-#if ENABLE_INRANGE_PATCH
-        trackedDevice.duplicatesCounter++;
-        //To proceed we have to find at least 2 duplicates during the scan
-        //and the code have to be executed only one time
-        if (trackedDevice.duplicatesCounter != 2)
-          break;
-#endif
+        #if NUM_OF_ADVERTISEMENT_IN_SCAN > 1
+        trackedDevice.advertisementCounter++;
+        //To proceed we have to find at least NUM_OF_ADVERTISEMENT_IN_SCAN duplicates during the scan
+        //and the code have to be executed only once
+        if (trackedDevice.advertisementCounter != NUM_OF_ADVERTISEMENT_IN_SCAN)
+          return;
+        #endif
 
-        if (!trackedDevice.advertised)
+        if (!trackedDevice.advertised)//Skip advertised dups
         {
           trackedDevice.addressType = advertisedDevice.getAddressType();
           trackedDevice.advertised = true;
@@ -213,10 +211,10 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
             DEBUG_PRINTF("INFO: Tracked device discovered again, Address: %s , RSSI: %d\n", address, RSSI);
             if (advertisedDevice.haveName())
             {
-              FILE_LOG_WRITE("Device %s ( %s ) within range, RSSI: %d ", address, shortName, RSSI);
+              LOG_TO_FILE_D("Device %s ( %s ) within range, RSSI: %d ", address, shortName, RSSI);
             }
             else
-              FILE_LOG_WRITE("Device %s within range, RSSI: %d ", address, RSSI);
+              LOG_TO_FILE_D("Device %s within range, RSSI: %d ", address, RSSI);
           }
           else
           {
@@ -225,32 +223,29 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
             DEBUG_PRINTF("INFO: Tracked device discovered, Address: %s , RSSI: %d\n", address, RSSI);
           }
         }
-        break;
+        return;
       }
     }
 
     //This is a new device...
-    if (!foundPreviouslyAdvertisedDevice)
-    {
-      BLETrackedDevice trackedDevice;
-      trackedDevice.advertised = true; //Skip duplicates
-      memcpy(trackedDevice.address, address, ADDRESS_STRING_SIZE);
-      trackedDevice.addressType = advertisedDevice.getAddressType();
-      trackedDevice.isDiscovered = true;
-      trackedDevice.lastDiscoveryTime = millis();
-      trackedDevice.lastBattMeasureTime = 0;
-      trackedDevice.batteryLevel = -1;
-      trackedDevice.hasBatteryService = true;
-      trackedDevice.connectionRetry = 0;
-      trackedDevice.rssiValue = RSSI;
-      BLETrackedDevices.push_back(std::move(trackedDevice));
+    BLETrackedDevice trackedDevice;
+    trackedDevice.advertised = true; //Skip duplicates
+    memcpy(trackedDevice.address, address, ADDRESS_STRING_SIZE);
+    trackedDevice.addressType = advertisedDevice.getAddressType();
+    trackedDevice.isDiscovered = true;
+    trackedDevice.lastDiscoveryTime = millis();
+    trackedDevice.lastBattMeasureTime = 0;
+    trackedDevice.batteryLevel = -1;
+    trackedDevice.hasBatteryService = true;
+    trackedDevice.connectionRetry = 0;
+    trackedDevice.rssiValue = RSSI;
+    BLETrackedDevices.push_back(std::move(trackedDevice));
 
-      DEBUG_PRINTF("INFO: Device discovered, Address: %s , RSSI: %d\n", address, RSSI);
-      if (advertisedDevice.haveName())
-        FILE_LOG_WRITE("Discovered new device %s ( %s ) within range, RSSI: %d ", address, shortName, RSSI);
-      else
-        FILE_LOG_WRITE("Discovered new device %s within range, RSSI: %d ", address, RSSI);
-    }
+    DEBUG_PRINTF("INFO: Device discovered, Address: %s , RSSI: %d\n", address, RSSI);
+    if (advertisedDevice.haveName())
+      LOG_TO_FILE_D("Discovered new device %s ( %s ) within range, RSSI: %d ", address, shortName, RSSI);
+    else
+      LOG_TO_FILE_D("Discovered new device %s within range, RSSI: %d ", address, RSSI);
   }
 };
 
@@ -270,6 +265,7 @@ class MyBLEClientCallBack : public BLEClientCallbacks
 
   virtual void onDisconnect(BLEClient *pClient)
   {
+    log_i(" >> onDisconnect callback");
     pClient->disconnect();
     //log_i(" >> onDisconnect callback");
     //xEventGroupSetBits(connection_event_group, DISCONNECTED_EVENT);
@@ -353,7 +349,7 @@ bool batteryLevel(const char address[ADDRESS_STRING_SIZE], esp_ble_addr_type_t a
   DenormalizeAddress(address, denomAddress);
   BLEAddress bleAddress = BLEAddress(denomAddress);
   log_i("connecting to : %s", bleAddress.toString().c_str());
-  FILE_LOG_WRITE("Reading battery level for device %s", address);
+  LOG_TO_FILE_D("Reading battery level for device %s", address);
   MyBLEClientCallBack callback;
   // create a new client each client is unique
   if (pClient == nullptr)
@@ -362,7 +358,7 @@ bool batteryLevel(const char address[ADDRESS_STRING_SIZE], esp_ble_addr_type_t a
     if (pClient == nullptr)
     {
       DEBUG_PRINTLN("Failed to create BLEClient");
-      FILE_LOG_WRITE("Error: Failed to create BLEClient");
+      LOG_TO_FILE_E("Error: Failed to create BLEClient");
       return false;
     }
     else
@@ -379,7 +375,7 @@ bool batteryLevel(const char address[ADDRESS_STRING_SIZE], esp_ble_addr_type_t a
     if (pRemote_BATT_Service == nullptr)
     {
       log_i("Cannot find the BATTERY service.");
-      FILE_LOG_WRITE("Cannot find the BATTERY service for the device %s", address);
+      LOG_TO_FILE_E("Error: Cannot find the BATTERY service for the device %s", address);
       hasBatteryService = false;
     }
     else
@@ -388,7 +384,7 @@ bool batteryLevel(const char address[ADDRESS_STRING_SIZE], esp_ble_addr_type_t a
       if (pRemote_BATT_Characteristic == nullptr)
       {
         log_i("Cannot find the BATTERY characteristic.");
-        FILE_LOG_WRITE("Cannot find the BATTERY characteristic for device %s", address);
+        LOG_TO_FILE_E("Error: Cannot find the BATTERY characteristic for device %s", address);
         hasBatteryService = false;
       }
       else
@@ -397,28 +393,35 @@ bool batteryLevel(const char address[ADDRESS_STRING_SIZE], esp_ble_addr_type_t a
         if (value.length() > 0)
           battLevel = (int8_t)value[0];
         log_i("Reading BATTERY level : %d", battLevel);
-        FILE_LOG_WRITE("Battery level for device %s is %d", address, battLevel);
+        LOG_TO_FILE_I("Battery level for device %s is %d", address, battLevel);
         hasBatteryService = true;
       }
     }
     //Before disconnecting I need to pause the task to wait (I'don't know what), otherwhise we have an heap corruption
-    delay(100);
-    log_i("disconnecting...");
+    //delay(200);
     if(pClient->isConnected())
+    {
+      log_i("disconnecting...");
       pClient->disconnect();
+    }  
+    log_i("waiting for disconnection...");
     while(pClient->isConnected())
       delay(100);
+    log_i("Client disconnected.");
     //EventBits_t bits = xEventGroupWaitBits(connection_event_group, DISCONNECTED_EVENT, true, true, portMAX_DELAY);
     //log_i("wait for disconnection done: %d", bits);
   }
   else
   {
+    //We fail to connect and we have to be sure the PeerDevice is removed before delete it
+    BLEDevice::removePeerDevice(pClient->m_appId,true);
     log_i("-------------------Not connected!!!--------------------");
-    FILE_LOG_WRITE("Connection to device %s failed", address);
+    LOG_TO_FILE_E("Error: Connection to device %s failed", address);
   }
 
   if (pClient != nullptr)
   {
+    log_i("delete Client.");
     delete pClient;
     pClient = nullptr;
   }
@@ -469,7 +472,7 @@ void LogResetReason()
     break;
   }
   DEBUG_PRINTLN(msg);
-  FILE_LOG_WRITE(msg);
+  LOG_TO_FILE_E(msg);
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -503,8 +506,13 @@ void setup()
   }
 #endif //ERASE_DATA_AFTER_FLASH
 
+  SettingsMngr.SettingsFile(F("/settings.bin"));
+  if (SPIFFS.exists(F("/settings.bin")))
+    SettingsMngr.Load();
+
 #if ENABLE_FILE_LOG
-  SPIFFSLogger.Initialize("/logs.bin", 200);
+  SPIFFSLogger.Initialize("/logs.bin", MAX_NUM_OF_SAVED_LOGS);
+  SPIFFSLogger.setLogLevel(SPIFFSLoggerClass::LogLevel(SettingsMngr.logLevel));
 #endif
 
   WiFiConnect(WIFI_SSID, WIFI_PASSWORD);
@@ -513,9 +521,9 @@ void setup()
 
 #if ERASE_DATA_AFTER_FLASH
   if (dataErased == 1)
-    FILE_LOG_WRITE("Error Erasing all persitent data!");
+    LOG_TO_FILE_E("Error Erasing all persitent data!");
   else if (dataErased == 2)
-    FILE_LOG_WRITE("Erased all persitent data!");
+    LOG_TO_FILE_I("Erased all persitent data!");
 #endif
 
 #if ENABLE_OTA_WEBSERVER
@@ -523,18 +531,16 @@ void setup()
   webserver.begin();
 #endif
 
-  SettingsMngr.SettingsFile(F("/settings.bin"));
-  if (SPIFFS.exists(F("/settings.bin")))
-    SettingsMngr.Load();
-
   BLETrackedDevices.reserve(SettingsMngr.GetMaxNumOfTraceableDevices());
 
   Watchdog::Initialize();
 
   BLEDevice::init(GATEWAY_NAME);
   pBLEScan = BLEDevice::getScan();
-  pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks(), ENABLE_INRANGE_PATCH);
+  pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks(), NUM_OF_ADVERTISEMENT_IN_SCAN > 1);
   pBLEScan->setActiveScan(false);
+  pBLEScan->setInterval(50);
+  pBLEScan->setWindow(50);
 
   mqttClient.setServer(SettingsMngr.mqttServer.c_str(), SettingsMngr.mqttPort);
   connectToMQTT();
@@ -543,7 +549,7 @@ void setup()
   //connection_event_group = xEventGroupCreate();
 #endif
 
-  FILE_LOG_WRITE("BLETracker initialized");
+  LOG_TO_FILE("BLETracker initialized");
 }
 
 void publishBLEState(const char address[ADDRESS_STRING_SIZE], const char state[4], int8_t rssi, int8_t batteryLevel)
@@ -615,7 +621,7 @@ void loop()
     if (BLETrackedDevices.size() == SettingsMngr.GetMaxNumOfTraceableDevices())
     {
       DEBUG_PRINTLN("INFO: Restart because the array is full\n");
-      FILE_LOG_WRITE("Restart reached max number of traceable devices");
+      LOG_TO_FILE("Restarting: reached the max number of traceable devices");
       esp_restart();
     }
 
@@ -624,9 +630,7 @@ void loop()
     {
       trackedDevice.advertised = false;
       trackedDevice.rssiValue = -100;
-#if ENABLE_INRANGE_PATCH
-      trackedDevice.duplicatesCounter = 0;
-#endif
+      trackedDevice.advertisementCounter = 0;
     }
 
     //DEBUG_PRINTF("\n*** Memory Before scan: %u\n",xPortGetFreeHeapSize());
@@ -642,7 +646,7 @@ void loop()
       if (trackedDevice.isDiscovered && (trackedDevice.lastDiscoveryTime + MAX_NON_ADV_PERIOD) < millis())
       {
         trackedDevice.isDiscovered = false;
-        FILE_LOG_WRITE("Devices %s is gone out of range", trackedDevice.address);
+        LOG_TO_FILE_D("Devices %s is gone out of range", trackedDevice.address);
       }
     }
 
@@ -676,11 +680,11 @@ void loop()
   catch (std::exception &e)
   {
     DEBUG_PRINTF("Error Caught Exception %s", e.what());
-    FILE_LOG_WRITE("Error Caught Exception %s", e.what());
+    LOG_TO_FILE_E("Error Caught Exception %s", e.what());
   }
   catch (...)
   {
     DEBUG_PRINTLN("Error Unhandled exception trapped in main loop");
-    FILE_LOG_WRITE("Error Unhandled exception trapped in main loop");
+    LOG_TO_FILE_E("Error Unhandled exception trapped in main loop");
   }
 }

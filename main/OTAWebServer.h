@@ -28,6 +28,7 @@ class OTAWebServer
         #if ENABLE_FILE_LOG
         void eraseLogs();
         void getLogs();
+        void postLogs();
         void getLogsJs();
         void getLogsData();
         #endif
