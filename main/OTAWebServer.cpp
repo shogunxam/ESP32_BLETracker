@@ -15,9 +15,8 @@
 #include "macro_utility.h"
 #include "settings.h"
 
-#if ENABLE_FILE_LOG
 #include "SPIFFSLogger.h"
-#endif
+
 
 extern std::vector<BLETrackedDevice> BLETrackedDevices;
 

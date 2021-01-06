@@ -506,8 +506,9 @@ void setup()
   }
 #endif //ERASE_DATA_AFTER_FLASH
 
-  SettingsMngr.SettingsFile(F("/settings.bin"));
-  if (SPIFFS.exists(F("/settings.bin")))
+  const char* settingsFile = "/settings.bin";
+  SettingsMngr.SettingsFile(settingsFile);
+  if (SPIFFS.exists(settingsFile))
     SettingsMngr.Load();
 
 #if ENABLE_FILE_LOG
