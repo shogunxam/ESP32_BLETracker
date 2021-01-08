@@ -229,17 +229,24 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
 
     //This is a new device...
     BLETrackedDevice trackedDevice;
-    trackedDevice.advertised = true; //Skip duplicates
+    trackedDevice.advertised = NUM_OF_ADVERTISEMENT_IN_SCAN <= 1; //Skip duplicates
     memcpy(trackedDevice.address, address, ADDRESS_STRING_SIZE);
     trackedDevice.addressType = advertisedDevice.getAddressType();
-    trackedDevice.isDiscovered = true;
+    trackedDevice.isDiscovered = NUM_OF_ADVERTISEMENT_IN_SCAN <= 1;
     trackedDevice.lastDiscoveryTime = millis();
     trackedDevice.lastBattMeasureTime = 0;
     trackedDevice.batteryLevel = -1;
     trackedDevice.hasBatteryService = true;
     trackedDevice.connectionRetry = 0;
     trackedDevice.rssiValue = RSSI;
+    trackedDevice.advertisementCounter = 1;
     BLETrackedDevices.push_back(std::move(trackedDevice));
+
+    #if NUM_OF_ADVERTISEMENT_IN_SCAN > 1
+    //To proceed we have to find at least NUM_OF_ADVERTISEMENT_IN_SCAN duplicates during the scan
+    //and the code have to be executed only once
+    return;
+    #endif
 
     DEBUG_PRINTF("INFO: Device discovered, Address: %s , RSSI: %d\n", address, RSSI);
     if (advertisedDevice.haveName())
