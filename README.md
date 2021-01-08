@@ -75,19 +75,19 @@ sensor:
   force_update: true  
 
 ###############################################
-#Battery Sensor to resolve unknown device state
+#Battery Sensor to resolve unknown/unavailable device state
 - platform: template
   sensors:
     bt_nut_battery:
       unit_of_measurement: '%'
       value_template: >
-          {% if (is_state('sensor.bt_nut_upstairs_battery', 'unknown') or is_state('sensor.bt_nut_upstairs_battery', '-1')) %}
+          {% if (is_state('sensor.bt_nut_upstairs_battery', 'unknown') or is_state('sensor.bt_nut_upstairs_battery', 'unavailable') or is_state('sensor.bt_nut_upstairs_battery', '-1')) %}
             unknown
           {% else %}
             {{ states('sensor.bt_nut_upstairs_battery')|int }}
           {% endif %}
       icon_template: >
-        {% set battery_level = states.sensor.bt_nut_battery.state|default(0)|int %}
+        {% set battery_level = states('sensor.bt_nut_battery.state')|default(0)|int %}
         {% set battery_round = (battery_level / 10) |int * 10 %}
         {% if battery_round >= 100 %}
           mdi:battery
@@ -99,7 +99,7 @@ sensor:
 
 
 ###############################################
-#Binary Sensors to resolve unknown device state
+#Binary Sensors to resolve unknown/unavailable device state
 
 binary_sensor:
 - platform: template
@@ -107,7 +107,7 @@ binary_sensor:
     ble_tracker_nut_mario:
       friendly_name: 'ble_tracker_nut'
       value_template: >
-        {% if (is_state('sensor.bt_nut_upstairs_state', 'unknown') or is_state('sensor.bt_nut_upstairs_state', 'off')) %}
+        {% if (is_state('sensor.bt_nut_upstairs_state', 'unknown') or is_state('sensor.bt_nut_upstairs_state', 'unavailable') or is_state('sensor.bt_nut_upstairs_state', 'off')) %}
           false
         {% else %}
           true
@@ -149,12 +149,12 @@ automation:
   trigger:
   - platform: template
     value_template: >
-      {{ ((states.sensor.bt_nut_battery.state | int ) <= 20 ) and ( states.sensor.bt_nut_battery.state != 'unknown') and ( states.sensor.bt_nut_battery.state | int >= 0) }}
+      {{ ((states('sensor.bt_nut_battery') | int ) <= 20 ) and ( is_state('sensor.bt_nut_battery', 'unknown') or  is_state('sensor.bt_nut_battery', 'unavailable')) and ( states('sensor.bt_nut_battery') | int >= 0) }}
   action:
   - service: notify.telegram
     data_template:
       title: BLETracker
-      message: "Nut battery at {{states.sensor.bt_nut_battery.state}}%"
+      message: "Nut battery at {{states('sensor.bt_nut_battery')}}%"
 
 ```
 Alternatively you can use the single topic returning the state in the following way:
