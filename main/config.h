@@ -57,5 +57,12 @@
 
 //Enable persistent logs on File System
 #define ENABLE_FILE_LOG true
+#define DEFAULT_FILE_LOG_LEVEL 2 /*Error = 0, Warning = 1, Info = 2, Debug = 3, Verbose = 4*/
 #define MAX_NUM_OF_SAVED_LOGS 200
+
+//Set the number of advertisement for the same device to detect during a scan
+//to consider the device as discovered
+#define NUM_OF_ADVERTISEMENT_IN_SCAN 1
+
+
 #endif /*CONFIG_ESP32_BLETRACKER*/
