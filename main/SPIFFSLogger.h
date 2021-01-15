@@ -18,15 +18,26 @@ public:
         char msg[100];
     };
 
+    enum class LogLevel
+    {
+        Error = 0,
+        Warning = 1,
+        Info = 2,
+        Debug = 3,
+        Verbose = 4
+    };
+
     SPIFFSLoggerClass();
     ~SPIFFSLoggerClass();
     void Initialize(const String& filename, int max_records);
+    void setLogLevel(LogLevel logLevel){mLogLevel = logLevel;}
+    void writeLog(LogLevel logLevel,const char *msg, ...);
     void write_next_entry(const char *msg, ...);
     void read_logs_start(bool reverseMode = false);
     bool read_next_entry(SPIFFSLoggerClass::logEntry& ent);
     void read_logs_end();
     void clearLog();
-    void enabled(bool enabled){ locker guard(*this); mEnabled = enabled;};
+    void enabled(bool enabled){ locker guard(*this); mEnabled = enabled;}
     bool isEnabled(){ return mEnabled;};
     int numOfLogs() { return mHeader.mNumWrittenLogs; }
     size_t logSize(){ return mHeader.mRealLogsSize; }
@@ -40,6 +51,7 @@ private:
         int mRealLogsSize;
     };
     bool read_entry (int recnum, SPIFFSLoggerClass::logEntry& ent);
+    void write_next_entry(const char *msg, va_list args);
     bool readHeader();
     bool writeHeader();
     bool read_log_in_memory();
@@ -51,7 +63,7 @@ private:
     File mLogFile;
     String mFileName;
     uint32_t mPerSessionLogs;
-
+    LogLevel mLogLevel;
     bool mEnabled;
     bool mReadLogReverseMode;
     static const size_t cHeaderSize = sizeof(Header);
@@ -60,8 +72,18 @@ private:
 
 extern SPIFFSLoggerClass SPIFFSLogger;
 #define _RF_(x) String(F(x)).c_str()
-#define FILE_LOG_WRITE(x,...) SPIFFSLogger.write_next_entry(_RF_(x),##__VA_ARGS__)
+#define LOG_TO_FILE_E(x,...) SPIFFSLogger.writeLog(SPIFFSLoggerClass::LogLevel::Error,(x),##__VA_ARGS__)
+#define LOG_TO_FILE_W(x,...) SPIFFSLogger.writeLog(SPIFFSLoggerClass::LogLevel::Warning,(x),##__VA_ARGS__)
+#define LOG_TO_FILE_I(x,...) SPIFFSLogger.writeLog(SPIFFSLoggerClass::LogLevel::Info,(x),##__VA_ARGS__)
+#define LOG_TO_FILE_D(x,...) SPIFFSLogger.writeLog(SPIFFSLoggerClass::LogLevel::Debug,(x),##__VA_ARGS__)
+#define LOG_TO_FILE_V(x,...) SPIFFSLogger.writeLog(SPIFFSLoggerClass::LogLevel::Verbose,(x),##__VA_ARGS__)
+#define LOG_TO_FILE(x,...)   SPIFFSLogger.write_next_entry(_RF_(x),##__VA_ARGS__)
 #else
-#define FILE_LOG_WRITE(x,...) 0
+#define LOG_TO_FILE(x,...)
+#define LOG_TO_FILE_E(x,...)
+#define LOG_TO_FILE_W(x,...)
+#define LOG_TO_FILE_I(x,...)
+#define LOG_TO_FILE_D(x,...)
+#define LOG_TO_FILE_V(x,...)
 #endif /*ENABLE_FILE_LOG*/
 #endif /*SPIFFSLOGGER_H*/
