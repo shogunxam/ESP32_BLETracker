@@ -39,7 +39,7 @@ You can build this skatch using Arduino IDE (currently it's using arduino-esp32 
 * You have to install the esp32 Board in Arduino IDE. You can find a tutorial following this [link]( https://randomnerdtutorials.com/installing-the-esp32-board-in-arduino-ide-windows-instructions/)
 * You have to install the library PubSubClient v2.8
 * Because a bug in the BLE library provided by arduino-esp32 v1.0.4 you have to replace it with this one https://github.com/shogunxam/ESP32-BLE-Arduino.<br>
- **Since the release v2.0 this one must be used https://github.com/espressif/arduino-esp32/tree/6b0114366baf986c155e8173ab7c22bc0c5fcedc/libraries/BLE.**<br>
+ **Since the release v2.1 this one must be used https://github.com/espressif/arduino-esp32/tree/6b0114366baf986c155e8173ab7c22bc0c5fcedc/libraries/BLE.**<br>
  The libray to replace should be located in the folder ~/.arduino15/packages/esp32/hardware/esp32/x.x.x/libraries/BLE for Unix users and in C:\Users\YourUserName\AppData\Local\Arduino15\packages\esp32\hardware\esp32\x.x.x\libraries\BLE for Windows users.<br>
 Build using the *Minimal SPIFFS* partition schema.
 
