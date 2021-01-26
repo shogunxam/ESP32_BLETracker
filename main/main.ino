@@ -9,19 +9,6 @@
 
 #define CONFIG_ESP32_DEBUG_OCDAWARE 1
 
-// MQTT_KEEPALIVE : keepAlive interval in Seconds
-// Keepalive timeout for default MQTT Broker is 10s
-#ifndef MQTT_KEEPALIVE
-#define MQTT_KEEPALIVE 45
-#endif
-
-// MQTT_SOCKET_TIMEOUT: socket timeout interval in Seconds
-#ifndef MQTT_SOCKET_TIMEOUT
-#define MQTT_SOCKET_TIMEOUT 60
-#endif
-
-#include <PubSubClient.h> // https://github.com/knolleary/pubsubclient
-
 #include "esp_system.h"
 #include "DebugPrint.h"
 
@@ -33,15 +20,24 @@
 #include "watchdog.h"
 
 #include "SPIFFSLogger.h"
+#include "utility.h"
+
+#if USE_MQTT
+#include "mqtt_client.h"
+#endif
+
+#if USE_FHEM_LEPRESENCE_SERVER
+#include "fhem_lepresence_server.h"
+#endif
 
 char _printbuffer_[256];
 std::mutex _printLock_;
 
+MyMutex trackedDevicesMutex;
 std::vector<BLETrackedDevice> BLETrackedDevices;
+std::map<std::string, bool> FastDiscovery;
 
 BLEScan *pBLEScan;
-WiFiClient wifiClient;
-PubSubClient mqttClient(wifiClient);
 
 #define SYS_INFORMATION_DELAY 120000 /*2 minutes*/
 unsigned long lastSySInfoTime = 0;
@@ -51,123 +47,10 @@ OTAWebServer webserver;
 #endif
 
 ///////////////////////////////////////////////////////////////////////////
-//   MQTT
-///////////////////////////////////////////////////////////////////////////
-volatile unsigned long lastMQTTConnection = 0;
-/*
-  Function called to connect/reconnect to the MQTT broker
-*/
-static bool firstTimeMQTTConnection = true;
-static bool MQTTConnectionErrorSignaled = false;
-static uint32_t MQTTErrorCounter = 0;
-bool connectToMQTT()
-{
-  WiFiConnect(WIFI_SSID, WIFI_PASSWORD);
-
-  uint8_t maxRetry = 3;
-  while (!mqttClient.connected())
-  {
-    DEBUG_PRINTF("INFO: Connecting to MQTT broker: %s\n", SettingsMngr.mqttServer.c_str());
-    if (!firstTimeMQTTConnection && !MQTTConnectionErrorSignaled)
-      LOG_TO_FILE_E("Error: MQTT broker disconnected, connecting...");
-    DEBUG_PRINTLN(F("Error: MQTT broker disconnected, connecting..."));
-    if (mqttClient.connect(GATEWAY_NAME, SettingsMngr.mqttUser.c_str(), SettingsMngr.mqttPwd.c_str(), MQTT_AVAILABILITY_TOPIC, 1, true, MQTT_PAYLOAD_UNAVAILABLE))
-    {
-      DEBUG_PRINTLN(F("INFO: The client is successfully connected to the MQTT broker"));
-      LOG_TO_FILE_I("MQTT broker connected!");
-      MQTTConnectionErrorSignaled = false;
-      _publishToMQTT(MQTT_AVAILABILITY_TOPIC, MQTT_PAYLOAD_AVAILABLE, true);
-    }
-    else
-    {
-      DEBUG_PRINTLN(F("ERROR: The connection to the MQTT broker failed"));
-      DEBUG_PRINTF("INFO: MQTT username: %s\n", SettingsMngr.mqttUser.c_str())
-      DEBUG_PRINTF("INFO: MQTT password: %s\n", SettingsMngr.mqttPwd.c_str());
-      DEBUG_PRINTF("INFO: MQTT broker: %s\n", SettingsMngr.mqttServer.c_str());
-#if ENABLE_FILE_LOG
-      uint32_t numLogs = SPIFFSLogger.numOfLogsPerSession();
-      uint32_t deltaLogs;
-
-      if (numLogs < MQTTErrorCounter)
-        deltaLogs = ~uint32_t(0) - MQTTErrorCounter + numLogs;
-      else
-        deltaLogs = numLogs - MQTTErrorCounter;
-
-      if (deltaLogs >= 500)
-        MQTTConnectionErrorSignaled = false;
-
-      if (!MQTTConnectionErrorSignaled)
-      {
-        LOG_TO_FILE_E("Error: Connection to the MQTT broker failed!");
-        MQTTConnectionErrorSignaled = true;
-        MQTTErrorCounter = SPIFFSLogger.numOfLogsPerSession();
-      }
-#endif
-    }
-
-    Watchdog::Feed();
-
-    maxRetry--;
-    if (maxRetry == 0)
-      return false;
-  }
-  firstTimeMQTTConnection = false;
-  return true;
-}
-
-/*
-  Function called to publish to a MQTT topic with the given payload
-*/
-void _publishToMQTT(const char *topic, const char *payload, bool retain)
-{
-  if (mqttClient.publish(topic, payload, retain))
-  {
-    DEBUG_PRINTF("INFO: MQTT message published successfully, topic: %s , payload: %s , retain: %s \n", topic, payload, retain ? "True" : "False");
-  }
-  else
-  {
-    DEBUG_PRINTF("ERROR: MQTT message not published, either connection lost, or message too large. Topic: %s , payload: %s , retain: %s \n", topic, payload, retain ? "True" : "False");
-    LOG_TO_FILE_E("Error: MQTT message not published");
-  }
-}
-
-void publishToMQTT(const char *topic, const char *payload, bool retain)
-{
-  if (connectToMQTT())
-  {
-    _publishToMQTT(topic, payload, retain);
-    delay(100);
-  }
-}
-
-void publishAvailabilityToMQTT()
-{
-  if (millis() > lastMQTTConnection)
-  {
-    lastMQTTConnection = millis() + MQTT_CONNECTION_TIME_OUT;
-    DEBUG_PRINTF("INFO: MQTT availability topic: %s\n", MQTT_AVAILABILITY_TOPIC);
-    publishToMQTT(MQTT_AVAILABILITY_TOPIC, MQTT_PAYLOAD_AVAILABLE, true);
-  }
-}
-
-///////////////////////////////////////////////////////////////////////////
 //   BLUETOOTH
 ///////////////////////////////////////////////////////////////////////////
 class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
 {
-  void NormalizeAddress(const std::string &in, char out[ADDRESS_STRING_SIZE])
-  {
-    char *outWlkr = out;
-    for (int i = 0; i < in.length(); i++)
-    {
-      const char c = in.at(i);
-      if (c == ':')
-        continue;
-      *outWlkr = toupper(c);
-      outWlkr++;
-    }
-    out[ADDRESS_STRING_SIZE - 1] = '\0';
-  }
 
   void onResult(BLEAdvertisedDevice advertisedDevice) override
   {
@@ -190,15 +73,15 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
     {
       if (strcmp(address, trackedDevice.address) == 0)
       {
-        #if NUM_OF_ADVERTISEMENT_IN_SCAN > 1
+#if NUM_OF_ADVERTISEMENT_IN_SCAN > 1
         trackedDevice.advertisementCounter++;
         //To proceed we have to find at least NUM_OF_ADVERTISEMENT_IN_SCAN duplicates during the scan
         //and the code have to be executed only once
         if (trackedDevice.advertisementCounter != NUM_OF_ADVERTISEMENT_IN_SCAN)
           return;
-        #endif
+#endif
 
-        if (!trackedDevice.advertised)//Skip advertised dups
+        if (!trackedDevice.advertised) //Skip advertised dups
         {
           trackedDevice.addressType = advertisedDevice.getAddressType();
           trackedDevice.advertised = true;
@@ -208,6 +91,7 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
             trackedDevice.lastDiscoveryTime = millis();
             trackedDevice.connectionRetry = 0;
             trackedDevice.rssiValue = RSSI;
+            FastDiscovery[trackedDevice.address]= true;
             DEBUG_PRINTF("INFO: Tracked device discovered again, Address: %s , RSSI: %d\n", address, RSSI);
             if (advertisedDevice.haveName())
             {
@@ -241,12 +125,12 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
     trackedDevice.rssiValue = RSSI;
     trackedDevice.advertisementCounter = 1;
     BLETrackedDevices.push_back(std::move(trackedDevice));
-
-    #if NUM_OF_ADVERTISEMENT_IN_SCAN > 1
+    FastDiscovery[trackedDevice.address]= true;
+#if NUM_OF_ADVERTISEMENT_IN_SCAN > 1
     //To proceed we have to find at least NUM_OF_ADVERTISEMENT_IN_SCAN duplicates during the scan
     //and the code have to be executed only once
     return;
-    #endif
+#endif
 
     DEBUG_PRINTF("INFO: Device discovered, Address: %s , RSSI: %d\n", address, RSSI);
     if (advertisedDevice.haveName())
@@ -289,7 +173,9 @@ void batteryTask()
     if (!SettingsMngr.InBatteryList(trackedDevice.address))
       continue;
 
+#if USE_MQTT
     publishAvailabilityToMQTT();
+#endif
 
     //We need to connect to the device to read the battery value
     //So that we check only the device really advertised by the scan
@@ -331,21 +217,6 @@ void batteryTask()
   //DEBUG_PRINTF("\n*** Memory after battery scan: %u\n",xPortGetFreeHeapSize());
 }
 
-void DenormalizeAddress(const char address[ADDRESS_STRING_SIZE], char out[ADDRESS_STRING_SIZE + 5])
-{
-  char *outWlkr = out;
-  for (int i = 0; i < ADDRESS_STRING_SIZE; i++)
-  {
-    *outWlkr = address[i];
-    outWlkr++;
-    if ((i & 1) == 1 && i != (ADDRESS_STRING_SIZE - 2))
-    {
-      *outWlkr = ':';
-      outWlkr++;
-    }
-  }
-}
-
 bool batteryLevel(const char address[ADDRESS_STRING_SIZE], esp_ble_addr_type_t addressType, int8_t &battLevel, bool &hasBatteryService)
 {
   log_i(">> ------------------batteryLevel----------------- ");
@@ -353,7 +224,7 @@ bool batteryLevel(const char address[ADDRESS_STRING_SIZE], esp_ble_addr_type_t a
   BLEClient *pClient = nullptr;
   battLevel = -1;
   static char denomAddress[ADDRESS_STRING_SIZE + 5];
-  DenormalizeAddress(address, denomAddress);
+  CanonicalAddress(address, denomAddress);
   BLEAddress bleAddress = BLEAddress(denomAddress);
   log_i("connecting to : %s", bleAddress.toString().c_str());
   LOG_TO_FILE_D("Reading battery level for device %s", address);
@@ -406,13 +277,13 @@ bool batteryLevel(const char address[ADDRESS_STRING_SIZE], esp_ble_addr_type_t a
     }
     //Before disconnecting I need to pause the task to wait (I'don't know what), otherwhise we have an heap corruption
     //delay(200);
-    if(pClient->isConnected())
+    if (pClient->isConnected())
     {
       log_i("disconnecting...");
       pClient->disconnect();
-    }  
+    }
     log_i("waiting for disconnection...");
-    while(pClient->isConnected())
+    while (pClient->isConnected())
       delay(100);
     log_i("Client disconnected.");
     //EventBits_t bits = xEventGroupWaitBits(connection_event_group, DISCONNECTED_EVENT, true, true, portMAX_DELAY);
@@ -421,7 +292,7 @@ bool batteryLevel(const char address[ADDRESS_STRING_SIZE], esp_ble_addr_type_t a
   else
   {
     //We fail to connect and we have to be sure the PeerDevice is removed before delete it
-    BLEDevice::removePeerDevice(pClient->m_appId,true);
+    BLEDevice::removePeerDevice(pClient->m_appId, true);
     log_i("-------------------Not connected!!!--------------------");
     LOG_TO_FILE_E("Error: Connection to device %s failed", address);
   }
@@ -513,7 +384,7 @@ void setup()
   }
 #endif //ERASE_DATA_AFTER_FLASH
 
-  const char* settingsFile = "/settings.bin";
+  const char *settingsFile = "/settings.bin";
   SettingsMngr.SettingsFile(settingsFile);
   if (SPIFFS.exists(settingsFile))
     SettingsMngr.Load();
@@ -550,47 +421,20 @@ void setup()
   pBLEScan->setInterval(50);
   pBLEScan->setWindow(50);
 
+#if USE_MQTT
   mqttClient.setServer(SettingsMngr.mqttServer.c_str(), SettingsMngr.mqttPort);
   connectToMQTT();
+#endif
+
+#if USE_FHEM_LEPRESENCE_SERVER
+  FHEMLePresenceServer::Start();
+#endif
 
 #if PUBLISH_BATTERY_LEVEL
   //connection_event_group = xEventGroupCreate();
 #endif
 
   LOG_TO_FILE("BLETracker initialized");
-}
-
-void publishBLEState(const char address[ADDRESS_STRING_SIZE], const char state[4], int8_t rssi, int8_t batteryLevel)
-{
-  constexpr uint16_t maxTopicLen = sizeof(MQTT_BASE_SENSOR_TOPIC) + 22;
-  char topic[maxTopicLen];
-  char strbuff[5];
-
-#if PUBLISH_SEPARATED_TOPICS
-  snprintf(topic, maxTopicLen, "%s/%s/state", MQTT_BASE_SENSOR_TOPIC, address);
-  publishToMQTT(topic, state, false);
-  snprintf(topic, maxTopicLen, "%s/%s/rssi", MQTT_BASE_SENSOR_TOPIC, address);
-  itoa(rssi, strbuff, 10);
-  publishToMQTT(topic, strbuff, false);
-#if PUBLISH_BATTERY_LEVEL
-  snprintf(topic, maxTopicLen, "%s/%s/battery", MQTT_BASE_SENSOR_TOPIC, address);
-  itoa(batteryLevel, strbuff, 10);
-  publishToMQTT(topic, strbuff, false);
-#endif
-#endif
-
-#if PUBLISH_SIMPLE_JSON
-  snprintf(topic, maxTopicLen, "%s/%s", MQTT_BASE_SENSOR_TOPIC, address);
-  const uint16_t maxPayloadLen = 45;
-  char payload[maxPayloadLen];
-  snprintf(payload, maxPayloadLen, R"({"state":"%s","rssi":%d,"battery":%d})", state, rssi, batteryLevel);
-#if PUBLISH_BATTERY_LEVEL
-  snprintf(payload, maxPayloadLen, R"({"state":"%s","rssi":%d,"battery":%d})", state, rssi, batteryLevel);
-#else
-  snprintf(payload, maxPayloadLen, R"({"state":"%s","rssi":%d})", state, rssi);
-#endif
-  publishToMQTT(topic, payload, false);
-#endif
 }
 
 char *formatMillis(unsigned long milliseconds, char outstr[20])
@@ -603,24 +447,18 @@ char *formatMillis(unsigned long milliseconds, char outstr[20])
   return outstr;
 }
 
-#define SYS_TOPIC MQTT_BASE_SENSOR_TOPIC "/sysinfo"
-void publishSySInfo()
-{
-  constexpr uint16_t maxSysPayloadLen = 83 + sizeof(VERSION) + sizeof(WIFI_SSID);
-  char sysPayload[maxSysPayloadLen];
-  static String IP;
-  IP.reserve(16);
-  IP = WiFi.localIP().toString();
-  char strmilli[20];
-  snprintf(sysPayload, maxSysPayloadLen, R"({"uptime":"%s","version":"%s","SSID":"%s","IP":"%s"})", formatMillis(millis(), strmilli), VERSION, WIFI_SSID, IP.c_str());
-  publishToMQTT(SYS_TOPIC, sysPayload, false);
-}
-
 void loop()
 {
   try
   {
-    mqttClient.loop();
+#if USE_MQTT
+    mqttLoop();
+#endif
+
+#if USE_FHEM_LEPRESENCE_SERVER
+    FHEMLePresenceServer::RemoveCompletedTasks();
+#endif
+
     Watchdog::Feed();
 
     Serial.println("INFO: Running mainloop");
@@ -641,19 +479,25 @@ void loop()
       trackedDevice.advertisementCounter = 0;
     }
 
-    //DEBUG_PRINTF("\n*** Memory Before scan: %u\n",xPortGetFreeHeapSize());
-    pBLEScan->start(SettingsMngr.scanPeriod);
-    pBLEScan->stop();
-    pBLEScan->clearResults();
-    //DEBUG_PRINTF("\n*** Memory After scan: %u\n",xPortGetFreeHeapSize());
+    std::lock_guard<MyMutex> lock(trackedDevicesMutex);
+    {
+      //DEBUG_PRINTF("\n*** Memory Before scan: %u\n",xPortGetFreeHeapSize());
+      pBLEScan->start(SettingsMngr.scanPeriod);
+      pBLEScan->stop();
+      pBLEScan->clearResults();
+      //DEBUG_PRINTF("\n*** Memory After scan: %u\n",xPortGetFreeHeapSize());
+    }
 
+#if USE_MQTT
     publishAvailabilityToMQTT();
+#endif
 
     for (auto &trackedDevice : BLETrackedDevices)
     {
       if (trackedDevice.isDiscovered && (trackedDevice.lastDiscoveryTime + MAX_NON_ADV_PERIOD) < millis())
       {
         trackedDevice.isDiscovered = false;
+        FastDiscovery[trackedDevice.address]= false;
         LOG_TO_FILE_D("Devices %s is gone out of range", trackedDevice.address);
       }
     }
@@ -662,6 +506,7 @@ void loop()
     batteryTask();
 #endif
 
+#if USE_MQTT
     publishAvailabilityToMQTT();
 
     for (auto &trackedDevice : BLETrackedDevices)
@@ -684,6 +529,7 @@ void loop()
     }
 
     publishAvailabilityToMQTT();
+#endif
   }
   catch (std::exception &e)
   {

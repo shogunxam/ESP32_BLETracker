@@ -25,7 +25,14 @@
 // Debug output
 //#define DEBUG_SERIAL
 
+
+#define PUBLISH_BATTERY_LEVEL       true
+
 // MQTT
+#ifndef USE_MQTT
+#define USE_MQTT true
+#endif
+
 //If the MQTT_CONNECTION_TIME_OUT is expired the availability topic is re-published
 #define MQTT_CONNECTION_TIME_OUT 5000 // [ms]
 
@@ -41,7 +48,15 @@
 
 #define PUBLISH_SIMPLE_JSON         true
 #define PUBLISH_SEPARATED_TOPICS    false
-#define PUBLISH_BATTERY_LEVEL       true
+///////////////////
+
+
+//FHEM LE Presence server
+#ifndef USE_FHEM_LEPRESENCE_SERVER
+#define USE_FHEM_LEPRESENCE_SERVER false
+#endif
+/////////////////////////
+
 
 #define ENABLE_OTA_WEBSERVER    true
 
@@ -65,4 +80,7 @@
 #define NUM_OF_ADVERTISEMENT_IN_SCAN 1
 
 
+#if USE_MQTT && USE_FHEM_LEPRESENCE_SERVER
+#error MQTT and FHEM LE Presence Server are mutally exclusive
+#endif
 #endif /*CONFIG_ESP32_BLETRACKER*/

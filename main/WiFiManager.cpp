@@ -11,6 +11,8 @@ extern "C" {
 #include "NTPTime.h"
 #include "SPIFFSLogger.h"
 
+WiFiClient wifiClient;
+
 void WiFiConnect(const String &_ssid_, const String &_password_)
 {
   esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
