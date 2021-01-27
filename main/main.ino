@@ -30,8 +30,7 @@
 #include "fhem_lepresence_server.h"
 #endif
 
-char _printbuffer_[256];
-std::mutex _printLock_;
+#include "NTPTime.h"
 
 MyMutex trackedDevicesMutex;
 std::vector<BLETrackedDevice> BLETrackedDevices;
@@ -69,17 +68,19 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
       strncpy(shortName, advertisedDevice.getName().c_str(), shortNameSize - 1);
 
     int RSSI = advertisedDevice.getRSSI();
+    
+    CRITICALSECTION_START(trackedDevicesMutex)
     for (auto &trackedDevice : BLETrackedDevices)
     {
       if (strcmp(address, trackedDevice.address) == 0)
       {
-#if NUM_OF_ADVERTISEMENT_IN_SCAN > 1
+    #if NUM_OF_ADVERTISEMENT_IN_SCAN > 1
         trackedDevice.advertisementCounter++;
         //To proceed we have to find at least NUM_OF_ADVERTISEMENT_IN_SCAN duplicates during the scan
         //and the code have to be executed only once
         if (trackedDevice.advertisementCounter != NUM_OF_ADVERTISEMENT_IN_SCAN)
           return;
-#endif
+    #endif
 
         if (!trackedDevice.advertised) //Skip advertised dups
         {
@@ -88,7 +89,7 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
           if (!trackedDevice.isDiscovered)
           {
             trackedDevice.isDiscovered = true;
-            trackedDevice.lastDiscoveryTime = millis();
+            trackedDevice.lastDiscoveryTime = NTPTime::seconds();
             trackedDevice.connectionRetry = 0;
             trackedDevice.rssiValue = RSSI;
             FastDiscovery[trackedDevice.address]= true;
@@ -102,7 +103,7 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
           }
           else
           {
-            trackedDevice.lastDiscoveryTime = millis();
+            trackedDevice.lastDiscoveryTime = NTPTime::seconds();
             trackedDevice.rssiValue = RSSI;
             DEBUG_PRINTF("INFO: Tracked device discovered, Address: %s , RSSI: %d\n", address, RSSI);
           }
@@ -117,7 +118,7 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
     memcpy(trackedDevice.address, address, ADDRESS_STRING_SIZE);
     trackedDevice.addressType = advertisedDevice.getAddressType();
     trackedDevice.isDiscovered = NUM_OF_ADVERTISEMENT_IN_SCAN <= 1;
-    trackedDevice.lastDiscoveryTime = millis();
+    trackedDevice.lastDiscoveryTime = NTPTime::seconds();
     trackedDevice.lastBattMeasureTime = 0;
     trackedDevice.batteryLevel = -1;
     trackedDevice.hasBatteryService = true;
@@ -126,11 +127,12 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
     trackedDevice.advertisementCounter = 1;
     BLETrackedDevices.push_back(std::move(trackedDevice));
     FastDiscovery[trackedDevice.address]= true;
-#if NUM_OF_ADVERTISEMENT_IN_SCAN > 1
+  #if NUM_OF_ADVERTISEMENT_IN_SCAN > 1
     //To proceed we have to find at least NUM_OF_ADVERTISEMENT_IN_SCAN duplicates during the scan
     //and the code have to be executed only once
     return;
-#endif
+  #endif
+    CRITICALSECTION_END;
 
     DEBUG_PRINTF("INFO: Device discovered, Address: %s , RSSI: %d\n", address, RSSI);
     if (advertisedDevice.haveName())
@@ -181,7 +183,7 @@ void batteryTask()
     //So that we check only the device really advertised by the scan
     unsigned long BatteryReadTimeout = trackedDevice.lastBattMeasureTime + BATTERY_READ_PERIOD;
     unsigned long BatteryRetryTimeout = trackedDevice.lastBattMeasureTime + BATTERY_RETRY_PERIOD;
-    unsigned long now = millis();
+    unsigned long now = NTPTime::seconds();
     bool batterySet = trackedDevice.batteryLevel > 0;
     if (trackedDevice.advertised && trackedDevice.hasBatteryService && trackedDevice.rssiValue > -90 &&
         ((batterySet && (BatteryReadTimeout < now)) ||
@@ -221,35 +223,22 @@ bool batteryLevel(const char address[ADDRESS_STRING_SIZE], esp_ble_addr_type_t a
 {
   log_i(">> ------------------batteryLevel----------------- ");
   bool bleconnected;
-  BLEClient *pClient = nullptr;
+  BLEClient client;
   battLevel = -1;
-  static char denomAddress[ADDRESS_STRING_SIZE + 5];
-  CanonicalAddress(address, denomAddress);
-  BLEAddress bleAddress = BLEAddress(denomAddress);
+  static char canonicalAddress[ADDRESS_STRING_SIZE + 5];
+  CanonicalAddress(address, canonicalAddress);
+  BLEAddress bleAddress = BLEAddress(canonicalAddress);
   log_i("connecting to : %s", bleAddress.toString().c_str());
   LOG_TO_FILE_D("Reading battery level for device %s", address);
   MyBLEClientCallBack callback;
-  // create a new client each client is unique
-  if (pClient == nullptr)
-  {
-    pClient = new BLEClient();
-    if (pClient == nullptr)
-    {
-      DEBUG_PRINTLN("Failed to create BLEClient");
-      LOG_TO_FILE_E("Error: Failed to create BLEClient");
-      return false;
-    }
-    else
-      log_i("Created client");
-    pClient->setClientCallbacks(&callback);
-  }
+  client.setClientCallbacks(&callback);
 
   // Connect to the remote BLE Server.
-  bleconnected = pClient->connect(bleAddress, addressType);
+  bleconnected = client.connect(bleAddress, addressType);
   if (bleconnected)
   {
     log_i("Connected to server");
-    BLERemoteService *pRemote_BATT_Service = pClient->getService(service_BATT_UUID);
+    BLERemoteService *pRemote_BATT_Service = client.getService(service_BATT_UUID);
     if (pRemote_BATT_Service == nullptr)
     {
       log_i("Cannot find the BATTERY service.");
@@ -277,13 +266,13 @@ bool batteryLevel(const char address[ADDRESS_STRING_SIZE], esp_ble_addr_type_t a
     }
     //Before disconnecting I need to pause the task to wait (I'don't know what), otherwhise we have an heap corruption
     //delay(200);
-    if (pClient->isConnected())
+    if (client.isConnected())
     {
       log_i("disconnecting...");
-      pClient->disconnect();
+      client.disconnect();
     }
     log_i("waiting for disconnection...");
-    while (pClient->isConnected())
+    while (client.isConnected())
       delay(100);
     log_i("Client disconnected.");
     //EventBits_t bits = xEventGroupWaitBits(connection_event_group, DISCONNECTED_EVENT, true, true, portMAX_DELAY);
@@ -292,17 +281,12 @@ bool batteryLevel(const char address[ADDRESS_STRING_SIZE], esp_ble_addr_type_t a
   else
   {
     //We fail to connect and we have to be sure the PeerDevice is removed before delete it
-    BLEDevice::removePeerDevice(pClient->m_appId, true);
+    BLEDevice::removePeerDevice(client.m_appId, true);
     log_i("-------------------Not connected!!!--------------------");
     LOG_TO_FILE_E("Error: Connection to device %s failed", address);
+    DEBUG_PRINTF("Error: Connection to device %s failed", address);
   }
 
-  if (pClient != nullptr)
-  {
-    log_i("delete Client.");
-    delete pClient;
-    pClient = nullptr;
-  }
   log_i("<< ------------------batteryLevel----------------- ");
   return bleconnected;
 }
@@ -462,6 +446,7 @@ void loop()
     Watchdog::Feed();
 
     Serial.println("INFO: Running mainloop");
+    DEBUG_PRINTF("Free heap: %u\n",esp_get_free_heap_size());
     DEBUG_PRINTF("Number device discovered: %d\n", BLETrackedDevices.size());
 
     if (BLETrackedDevices.size() == SettingsMngr.GetMaxNumOfTraceableDevices())
@@ -479,14 +464,11 @@ void loop()
       trackedDevice.advertisementCounter = 0;
     }
 
-    std::lock_guard<MyMutex> lock(trackedDevicesMutex);
-    {
-      //DEBUG_PRINTF("\n*** Memory Before scan: %u\n",xPortGetFreeHeapSize());
-      pBLEScan->start(SettingsMngr.scanPeriod);
-      pBLEScan->stop();
-      pBLEScan->clearResults();
-      //DEBUG_PRINTF("\n*** Memory After scan: %u\n",xPortGetFreeHeapSize());
-    }
+    //DEBUG_PRINTF("\n*** Memory Before scan: %u\n",xPortGetFreeHeapSize());
+    pBLEScan->start(SettingsMngr.scanPeriod);
+    pBLEScan->stop();
+    pBLEScan->clearResults();
+    //DEBUG_PRINTF("\n*** Memory After scan: %u\n",xPortGetFreeHeapSize());
 
 #if USE_MQTT
     publishAvailabilityToMQTT();
@@ -494,7 +476,7 @@ void loop()
 
     for (auto &trackedDevice : BLETrackedDevices)
     {
-      if (trackedDevice.isDiscovered && (trackedDevice.lastDiscoveryTime + MAX_NON_ADV_PERIOD) < millis())
+      if (trackedDevice.isDiscovered && (trackedDevice.lastDiscoveryTime + MAX_NON_ADV_PERIOD) < NTPTime::seconds())
       {
         trackedDevice.isDiscovered = false;
         FastDiscovery[trackedDevice.address]= false;
@@ -522,10 +504,10 @@ void loop()
     }
 
     //System Information
-    if (((lastSySInfoTime + SYS_INFORMATION_DELAY) < millis()) || (lastSySInfoTime == 0))
+    if (((lastSySInfoTime + SYS_INFORMATION_DELAY) < NTPTime::seconds()) || (lastSySInfoTime == 0))
     {
       publishSySInfo();
-      lastSySInfoTime = millis();
+      lastSySInfoTime = NTPTime::seconds();
     }
 
     publishAvailabilityToMQTT();

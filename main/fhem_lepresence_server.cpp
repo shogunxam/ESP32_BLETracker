@@ -7,6 +7,7 @@
 #include <Regexp.h>
 #include "myMutex.h"
 #include "utility.h"
+#include "SPIFFSLogger.h"
 
 extern std::vector<BLETrackedDevice> BLETrackedDevices;
 extern std::map<std::string, bool> FastDiscovery;
@@ -15,10 +16,11 @@ extern MyMutex trackedDevicesMutex;
 namespace FHEMLePresenceServer
 {
 
-  void publishTag(WiFiClient *client, char address[ADDRESS_STRING_SIZE + 5], unsigned long timeout)
+  void publishTag(WiFiClient *client, char address[ADDRESS_STRING_SIZE + 5], unsigned long timeout,const char* reason )
   {
     char normalizedAddress[ADDRESS_STRING_SIZE];
-    char msg[100] = "absence;rssi=unreachable;daemon=BLETracker V" VERSION;
+    char msg[100] = "absence;rssi=unreachable;daemon="GATEWAY_NAME" V"VERSION;
+
     NormalizeAddress(address, normalizedAddress);
 
     CRITICALSECTION_START(trackedDevicesMutex)
@@ -27,46 +29,50 @@ namespace FHEMLePresenceServer
       if (strcmp(normalizedAddress, trackedDevice.address) != 0)
         continue;
 
-      DEBUG_PRINTF("$$$$$-> %lu + %lu < %lu\n", trackedDevice.lastDiscoveryTime, timeout, millis());
-      if ((trackedDevice.lastDiscoveryTime + timeout) > millis())
+      if ((trackedDevice.lastDiscoveryTime + timeout) > NTPTime::seconds())
       {
         if (PUBLISH_BATTERY_LEVEL && trackedDevice.batteryLevel > 0)
-          snprintf(msg, 100, "present;device_name=%s;rssi=%d;batteryPercent=%d;daemon=BLETracker V%s", address, trackedDevice.rssiValue, trackedDevice.batteryLevel, VERSION);
+          snprintf(msg, 100, "present;device_name=%s;rssi=%d;batteryPercent=%d;daemon="GATEWAY_NAME" V"VERSION, address, trackedDevice.rssiValue, trackedDevice.batteryLevel);
         else
-          snprintf(msg, 100, "present;device_name=%s;rssi=%d;daemon=BLETracker V%s", address, trackedDevice.rssiValue, VERSION);
+          snprintf(msg, 100, "present;device_name=%s;rssi=%d;daemon="GATEWAY_NAME" V"VERSION, address, trackedDevice.rssiValue);
       }
       break;
     }
     CRITICALSECTION_END
 
-    DEBUG_PRINTLN(msg);
+    DEBUG_PRINTF("%s : %s\n", reason, msg);
+
     try
     {
       client->println(msg);
     }
     catch (...)
     {
+      LOG_TO_FILE_E("Error: Cought exception sending message to FHEM client");
     }
-    DEBUG_PRINTLN("$$$$$$$$$$ publishTag 3 ");
   }
 
   void handleClient(void *pvParameters)
   {
     const uint16_t buffLen = 64;
     uint8_t buf[buffLen];
+    char normalizedAddress[ADDRESS_STRING_SIZE];
     char address[ADDRESS_STRING_SIZE + 5];
     unsigned long timeout = MAX_NON_ADV_PERIOD;
     unsigned long lastreport = 0;
     short discoveryCounter = 0;
-
     address[0] = '\0';
+    normalizedAddress[0] = '\0';
 
     WiFiClient *client = static_cast<WiFiClient *>(pvParameters);
+    
     try
     {
       while (client->connected())
       {
         bool publish = false;
+        bool fastDiscovery = false;
+        char* reason = nullptr;
         if (client->available())
         {
           memset(buf, 0, buffLen);
@@ -77,48 +83,58 @@ namespace FHEMLePresenceServer
             if (buf[read - 1] == '\n')
               buf[read - 1] = '\0';
             MatchState ms((char *)buf);
-            if (ms.Match(R"(^%s*([0-9a-fA-F][0-9a-fA-F]:[0-9a-fA-F][0-9a-fA-F]:[0-9a-fA-F][0-9a-fA-F]:[0-9a-fA-F][0-9a-fA-F]:[0-9a-fA-F][0-9a-fA-F]:[0-9a-fA-F][0-9a-fA-F])%s*|%s*(%d+)%s*$)") == REGEXP_MATCHED)
+            if (ms.Match(R"(^%s*(%x%x:%x%x:%x%x:%x%x:%x%x:%x%x)%s*|%s*(%d+)%s*$)") == REGEXP_MATCHED)
             {
               ms.GetCapture(address, 0);
               char matchTimeout[10];
               ms.GetCapture(matchTimeout, 1);
-              timeout = atoi(matchTimeout) * 1000;
+              timeout = atoi(matchTimeout); 
+              NormalizeAddress(address, normalizedAddress);
+              FastDiscovery[normalizedAddress] = false;
+              reason = "on request";
               publish = true;
             }
             else if (ms.Match(R"(^%s*now%s*$)") == REGEXP_MATCHED)
             {
+              reason = "forced request";
               publish = true;
             }
           }
         }
         else if (address[0] != '\0')
         {
-          char normalizedAddress[ADDRESS_STRING_SIZE];
-          NormalizeAddress(address, normalizedAddress);
-          bool fastDiscovery = (FastDiscovery.find(normalizedAddress) != FastDiscovery.end()) && FastDiscovery[normalizedAddress];
-          if ((lastreport + timeout) > millis() || fastDiscovery)
+          fastDiscovery = (FastDiscovery.find(normalizedAddress) != FastDiscovery.end()) && FastDiscovery[normalizedAddress];
+          if ((lastreport + timeout) < NTPTime::seconds() || fastDiscovery)
           {
             publish = true;
             if (fastDiscovery)
-              FastDiscovery[normalizedAddress] = false;
+            {
+                FastDiscovery[normalizedAddress] = false;
+                reason = "fast discovery";
+            } else
+              reason = "periodic report";
           }
-          delay(100);
         }
 
         if (address[0] != '\0' && publish)
         {
-          publishTag(client, address, timeout);
-          lastreport = millis();
+          publishTag(client, address, timeout, reason);
+          lastreport = NTPTime::seconds();
+          if(fastDiscovery)
+            delay(1000);
         }
+
+        delay(100);
       }
     }
     catch (...)
     {
+      LOG_TO_FILE_E("Error: Cought exception handling FHEM client");
     }
 
     DEBUG_PRINTLN("Client Disconnect");
     client->stop();
-    delete (client);
+    delete client;
     vTaskDelete(NULL);
   }
 
@@ -127,7 +143,6 @@ namespace FHEMLePresenceServer
   void wifiTask(void *pvParameters)
   {
     server.begin();
-    DEBUG_PRINTLN("$$$$$$$$$$ wifiTask Started $$$$$$$");
     for (;;)
     {
       esp_task_wdt_reset();
@@ -140,11 +155,11 @@ namespace FHEMLePresenceServer
         char taskName[50];
         snprintf(taskName, 50, "clientTask_%s:%d", pClient->remoteIP().toString().c_str(), pClient->remotePort());
         DEBUG_PRINTF("New connection from %s\n", (taskName + 11));
+        LOG_TO_FILE_I("New connection from %s", (taskName + 11));
 
         TaskHandle_t h_task;
-        xTaskCreate(handleClient, taskName, 2000, pClient, 2, &h_task);
+        xTaskCreate(handleClient, taskName, 3000, pClient, 2, &h_task);
         tasks[h_task] = taskName;
-        DEBUG_PRINTLN("$$$$$$$$$$ wifiTask 1 ");
       }
       else
       {

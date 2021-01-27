@@ -115,9 +115,9 @@ void publishToMQTT(const char *topic, const char *payload, bool retain)
 
 void publishAvailabilityToMQTT()
 {
-  if (millis() > lastMQTTConnection)
+  if (NTPTime::seconds() > lastMQTTConnection)
   {
-    lastMQTTConnection = millis() + MQTT_CONNECTION_TIME_OUT;
+    lastMQTTConnection = NTPTime::seconds() + MQTT_CONNECTION_TIME_OUT;
     DEBUG_PRINTF("INFO: MQTT availability topic: %s\n", MQTT_AVAILABILITY_TOPIC);
     publishToMQTT(MQTT_AVAILABILITY_TOPIC, MQTT_PAYLOAD_AVAILABLE, true);
   }

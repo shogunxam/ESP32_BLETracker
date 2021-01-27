@@ -10,14 +10,14 @@
 #define BLE_SCANNING_PERIOD   10    /*10 s*/
 
 //If the device is not advertides for MAX_NON_ADV_PERIOD milliseconds it's considered away
-#define MAX_NON_ADV_PERIOD    120000 /*2m -> 2m*60s*1000milli*/
+#define MAX_NON_ADV_PERIOD    120 /*2m -> 2m*60s*/
 
 //The device's battery is read every BATTERY_READ_PERIOD milliseconds
 //If the battery value's is not read after BATTERY_READ_PERIOD it becomes unknown
-#define BATTERY_READ_PERIOD    43200000 /*12h -> 12h*60m*60s*1000milli*/
+#define BATTERY_READ_PERIOD    43200 /*12h -> 12h*60m*60s*/
 
 //In case of failure reading the battery's value we retry after BATTERY_RETRY_PERIOD milliseconds
-#define BATTERY_RETRY_PERIOD    3600000 /*1h -> 60m*60s*1000milli*/
+#define BATTERY_RETRY_PERIOD    3600 /*1h -> 60m*60s*/
 
 //Retries to read the battery level if connections fails before to give up until BATTERY_RETRY_PERIOD expires
 #define MAX_BLE_CONNECTION_RETRIES 3
@@ -34,7 +34,7 @@
 #endif
 
 //If the MQTT_CONNECTION_TIME_OUT is expired the availability topic is re-published
-#define MQTT_CONNECTION_TIME_OUT 5000 // [ms]
+#define MQTT_CONNECTION_TIME_OUT 5 // [seconds]
 
 // MQTT availability: available/unavailable
 #define MQTT_BASE_SENSOR_TOPIC     LOCATION "/" GATEWAY_NAME
@@ -60,7 +60,7 @@
 
 #define ENABLE_OTA_WEBSERVER    true
 
-#define WIFI_CONNECTION_TIME_OUT  30000 /*30 seconds*/
+#define WIFI_CONNECTION_TIME_OUT  30 /*30 seconds*/
 
 //Print more data in the System Info page
 #ifndef DEVELOPER_MODE
