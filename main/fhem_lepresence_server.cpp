@@ -5,13 +5,9 @@
 #include <esp_task_wdt.h>
 #include <WiFi.h>
 #include <Regexp.h>
-#include "myMutex.h"
+
 #include "utility.h"
 #include "SPIFFSLogger.h"
-
-extern std::vector<BLETrackedDevice> BLETrackedDevices;
-extern std::map<std::string, bool> FastDiscovery;
-extern MyMutex trackedDevicesMutex;
 
 namespace FHEMLePresenceServer
 {
@@ -23,7 +19,7 @@ namespace FHEMLePresenceServer
 
     NormalizeAddress(address, normalizedAddress);
 
-    CRITICALSECTION_START(trackedDevicesMutex)
+    CRITICALSECTION_READSTART(trackedDevicesMutex)
     for (auto &trackedDevice : BLETrackedDevices)
     {
       if (strcmp(normalizedAddress, trackedDevice.address) != 0)
@@ -38,7 +34,7 @@ namespace FHEMLePresenceServer
       }
       break;
     }
-    CRITICALSECTION_END
+    CRITICALSECTION_READEND
 
     DEBUG_PRINTF("%s : %s\n", reason, msg);
 
@@ -60,7 +56,6 @@ namespace FHEMLePresenceServer
     char address[ADDRESS_STRING_SIZE + 5];
     unsigned long timeout = MAX_NON_ADV_PERIOD;
     unsigned long lastreport = 0;
-    short discoveryCounter = 0;
     address[0] = '\0';
     normalizedAddress[0] = '\0';
 
@@ -138,7 +133,7 @@ namespace FHEMLePresenceServer
     vTaskDelete(NULL);
   }
 
-  WiFiServer server(5333, 16); // Port, Maxclients
+  WiFiServer server(5333, 10); // Port, Maxclients
   std::map<TaskHandle_t, std::string> tasks;
   void wifiTask(void *pvParameters)
   {

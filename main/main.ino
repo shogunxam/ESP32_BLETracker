@@ -32,7 +32,7 @@
 
 #include "NTPTime.h"
 
-MyMutex trackedDevicesMutex;
+MyRWMutex trackedDevicesMutex;
 std::vector<BLETrackedDevice> BLETrackedDevices;
 std::map<std::string, bool> FastDiscovery;
 
@@ -69,7 +69,7 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
 
     int RSSI = advertisedDevice.getRSSI();
     
-    CRITICALSECTION_START(trackedDevicesMutex)
+    CRITICALSECTION_WRITESTART(trackedDevicesMutex)
     for (auto &trackedDevice : BLETrackedDevices)
     {
       if (strcmp(address, trackedDevice.address) == 0)
@@ -132,7 +132,7 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
     //and the code have to be executed only once
     return;
   #endif
-    CRITICALSECTION_END;
+    CRITICALSECTION_WRITEEND;
 
     DEBUG_PRINTF("INFO: Device discovered, Address: %s , RSSI: %d\n", address, RSSI);
     if (advertisedDevice.haveName())
