@@ -86,12 +86,12 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
         {
           trackedDevice.addressType = advertisedDevice.getAddressType();
           trackedDevice.advertised = true;
+          trackedDevice.lastDiscoveryTime = NTPTime::seconds();
+          trackedDevice.rssiValue = RSSI;
           if (!trackedDevice.isDiscovered)
           {
             trackedDevice.isDiscovered = true;
-            trackedDevice.lastDiscoveryTime = NTPTime::seconds();
             trackedDevice.connectionRetry = 0;
-            trackedDevice.rssiValue = RSSI;
             FastDiscovery[trackedDevice.address]= true;
             DEBUG_PRINTF("INFO: Tracked device discovered again, Address: %s , RSSI: %d\n", address, RSSI);
             if (advertisedDevice.haveName())
@@ -103,8 +103,6 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
           }
           else
           {
-            trackedDevice.lastDiscoveryTime = NTPTime::seconds();
-            trackedDevice.rssiValue = RSSI;
             DEBUG_PRINTF("INFO: Tracked device discovered, Address: %s , RSSI: %d\n", address, RSSI);
           }
         }
