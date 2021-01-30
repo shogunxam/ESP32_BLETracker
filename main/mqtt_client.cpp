@@ -33,6 +33,27 @@ static bool firstTimeMQTTConnection = true;
 static bool MQTTConnectionErrorSignaled = false;
 static uint32_t MQTTErrorCounter = 0;
 
+/*
+  Function called to publish to a MQTT topic with the given payload
+*/
+void _publishToMQTT(const char *topic, const char *payload, bool retain)
+{
+  if (mqttClient.publish(topic, payload, retain))
+  {
+    DEBUG_PRINTF("INFO: MQTT message published successfully, topic: %s , payload: %s , retain: %s \n", topic, payload, retain ? "True" : "False");
+  }
+  else
+  {
+    DEBUG_PRINTF("ERROR: MQTT message not published, either connection lost, or message too large. Topic: %s , payload: %s , retain: %s \n", topic, payload, retain ? "True" : "False");
+    LOG_TO_FILE_E("Error: MQTT message not published");
+  }
+}
+
+void initializeMQTT()
+{
+    mqttClient.setServer(SettingsMngr.mqttServer.c_str(), SettingsMngr.mqttPort);
+}
+
 bool connectToMQTT()
 {
   WiFiConnect(WIFI_SSID, WIFI_PASSWORD);
@@ -86,22 +107,6 @@ bool connectToMQTT()
   }
   firstTimeMQTTConnection = false;
   return true;
-}
-
-/*
-  Function called to publish to a MQTT topic with the given payload
-*/
-void _publishToMQTT(const char *topic, const char *payload, bool retain)
-{
-  if (mqttClient.publish(topic, payload, retain))
-  {
-    DEBUG_PRINTF("INFO: MQTT message published successfully, topic: %s , payload: %s , retain: %s \n", topic, payload, retain ? "True" : "False");
-  }
-  else
-  {
-    DEBUG_PRINTF("ERROR: MQTT message not published, either connection lost, or message too large. Topic: %s , payload: %s , retain: %s \n", topic, payload, retain ? "True" : "False");
-    LOG_TO_FILE_E("Error: MQTT message not published");
-  }
 }
 
 void publishToMQTT(const char *topic, const char *payload, bool retain)

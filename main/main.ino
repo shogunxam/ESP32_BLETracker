@@ -406,7 +406,7 @@ void setup()
   pBLEScan->setWindow(50);
 
 #if USE_MQTT
-  mqttClient.setServer(SettingsMngr.mqttServer.c_str(), SettingsMngr.mqttPort);
+  initializeMQTT();
   connectToMQTT();
 #endif
 
