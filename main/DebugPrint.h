@@ -8,7 +8,7 @@ extern std::mutex _printLock_;
 #define DEBUG_PRINTLN(x) Serial.println(x)
 #define DEBUG_PRINTF(x,...) {\
 std::lock_guard<std::mutex> lock(_printLock_); \
-snprintf(_printbuffer_,255,x,__VA_ARGS__);\
+snprintf(_printbuffer_,sizeof(_printbuffer_),x,__VA_ARGS__);\
 Serial.print(_printbuffer_);\
 }
 #else
@@ -18,6 +18,6 @@ Serial.print(_printbuffer_);\
 #endif
 #define SERIAL_PRINTF(x,...) {\
 std::lock_guard<std::mutex> lock(_printLock_); \
-snprintf(_printbuffer_,255,x,__VA_ARGS__);\
+snprintf(_printbuffer_,sizeof(_printbuffer_),x,__VA_ARGS__);\
 Serial.print(_printbuffer_);\
 }

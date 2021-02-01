@@ -75,6 +75,7 @@ void Settings::FactoryReset(bool emptyLists)
 
     enableWhiteList = ENABLE_BLE_TRACKER_WHITELIST;
 
+    mqttEnabled = USE_MQTT;
     mqttUser = MQTT_USERNAME;
     mqttPwd = MQTT_PASSWORD;
     mqttServer = MQTT_SERVER;
@@ -111,6 +112,9 @@ String Settings::toJSON()
 {
     String data = "{";
     data += R"("version":)" + String(version) + R"(,)";
+    data += R"("mqtt_enabled":)";
+    data += mqttEnabled ? "true" : "false";
+    data += R"(,)";
     data += R"("mqtt_address":")" + mqttServer + R"(",)";
     data += R"("mqtt_port":)" + String(mqttPort) + ",";
     data += R"("mqtt_usr":")" + mqttUser + R"(",)";

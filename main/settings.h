@@ -26,6 +26,7 @@ public:
     uint16_t mqttPort;
     uint32_t scanPeriod;
     uint8_t logLevel;
+    bool mqttEnabled;
 
 private:
     bool InWhiteList(const String &value, const std::vector<String> &whiteList);

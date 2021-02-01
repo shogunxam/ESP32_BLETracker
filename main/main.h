@@ -6,7 +6,7 @@
 #include <iomanip>
 #include "config.h"
 #include "firmwarever.h"
-
+#include "myRWMutex.h"
 #define ADDRESS_STRING_SIZE 13
 
 struct BLETrackedDevice
@@ -41,4 +41,7 @@ struct BLETrackedDevice
 
 char* formatMillis(unsigned long milliseconds, char outStr[20]);
 
+extern MyRWMutex trackedDevicesMutex;
+extern  std::vector<BLETrackedDevice> BLETrackedDevices;
+extern  std::map<std::string, bool> FastDiscovery;
 #endif /*MAIN_H*/
