@@ -1,7 +1,7 @@
 #ifndef __FIRMWAREVER_h__
 #define __FIRMWAREVER_h__
 #include <WString.h>
-#define VERSION "2.1R"
+#define VERSION "3.0R"
 namespace Firmware{
     
 extern const char BuildTime[];
