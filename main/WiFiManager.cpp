@@ -2,7 +2,7 @@
 #include <BLEUtils.h>
 #include <BLEScan.h>
 #include <BLEAdvertisedDevice.h>
-
+#include "config.h"
 #include "WiFiManager.h"
 #include "DebugPrint.h"
 extern "C" {
@@ -21,6 +21,21 @@ void WiFiConnect(const String &_ssid_, const String &_password_)
     // Connect to WiFi network
     WiFi.mode(WIFI_STA);
     WiFi.disconnect(true);
+    
+    #if !USE_DHCP
+    IPAddress ip,netmask,gateway,primaryDNS,secondaryDNS;
+    ip.fromString(LOCAL_IP);
+    netmask.fromString(NETMASK);
+    gateway.fromString(GATEWAY);
+    primaryDNS.fromString(PRIMARY_DNS);
+    secondaryDNS.fromString(SECONDARY_DNS);
+    if (!WiFi.config(ip, gateway, netmask, primaryDNS, secondaryDNS))
+    {
+      DEBUG_PRINTLN("Error: WiFi configuration failed");
+      LOG_TO_FILE_E("Error: WiFi configuration failed");
+    }
+    #endif/*!USE_DHCP*/
+
     WiFi.begin(_ssid_.c_str(), _password_.c_str());
     DEBUG_PRINTLN("");
 
