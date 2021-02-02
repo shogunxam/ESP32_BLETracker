@@ -8,6 +8,16 @@
 #define WIFI_SSID     "YOUR_WIFI_SSID"
 #define WIFI_PASSWORD "YOUR_WIFI_PASSWORD"
 
+/*Set to false to assign manually an IP to the BLETracker*/
+#define USE_DHCP true
+#if !USE_DHCP
+#define LOCAL_IP        "192.168.0.100" /*IP to assign to the BLETRacker, it must be unique in your network*/
+#define NETMASK         "255.255.255.0" /*Usually you don't need to change this*/
+#define GATEWAY         "192.168.0.1"   /*IP of your router with access to internet*/
+#define PRIMARY_DNS     "8.8.8.8"       /*Optional*/
+#define SECONDARY_DNS   "8.8.4.4"       /*Optional*/
+#endif
+
 // MQTT
 #define MQTT_USERNAME     "YOUR_MQTT_USERNAME"
 #define MQTT_PASSWORD     "YOUR_MQTT_PASSWORD"
