@@ -31,4 +31,9 @@ namespace NTPTime
     {
         ::strftime(outBuff, size, format, &timeInfo);
     }
+
+    unsigned long seconds()
+    {
+        return millis() / 1000;
+    }
 } // namespace NTPTime

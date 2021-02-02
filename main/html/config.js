@@ -8,6 +8,8 @@ $(document).ready(function() {
 
   $.get(url,function(data) {
     console.log(data);
+    if(!data.mqtt_enabled)
+      $('#mqttbroker').hide()
     $('#mqttsrvr').val(data.mqtt_address);
     $('#mqttport').val(data.mqtt_port);
     $('#mqttusr').val(data.mqtt_usr);

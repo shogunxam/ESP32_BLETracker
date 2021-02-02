@@ -11,6 +11,8 @@ extern "C" {
 #include "NTPTime.h"
 #include "SPIFFSLogger.h"
 
+WiFiClient wifiClient;
+
 void WiFiConnect(const String &_ssid_, const String &_password_)
 {
   esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
@@ -22,14 +24,14 @@ void WiFiConnect(const String &_ssid_, const String &_password_)
     WiFi.begin(_ssid_.c_str(), _password_.c_str());
     DEBUG_PRINTLN("");
 
-    unsigned long timeout = millis() + WIFI_CONNECTION_TIME_OUT;
+    unsigned long timeout = NTPTime::seconds() + WIFI_CONNECTION_TIME_OUT;
     // Wait for connection
     while (WiFi.status() != WL_CONNECTED)
     {
       delay(500);
       DEBUG_PRINT(".");
 
-      if (millis() > timeout)
+      if (NTPTime::seconds() > timeout)
       {
         DEBUG_PRINTLN("Failed connecting to the network: timeout error!!!");
         LOG_TO_FILE_E("Restart because failing to connect to %s.",_ssid_.c_str());
