@@ -8,27 +8,29 @@
 
 <body>
   <form id="form" name="config" action="">
-    <fieldset>
-      <legend>MQTT Broker:</legend>
-      <table>
-        <tr>
-          <td><label for="mqttsrvr">Address:</label></td>
-          <td><input type="text" id="mqttsrvr" name="mqttsrvr"></td>
-        </tr>
-        <tr>
-          <td><label for="mqttport">Port:</label></td>
-          <td><input type="number" id="mqttport" name="mqttport"></td>
-        </tr>
-        <tr>
-          <td><label for="mqttusr">User:</label></td>
-          <td><input type="text" id="mqttusr" name="mqttusr"></td>
-        </tr>
-        <tr>
-          <td><label for="mqttpwd">Password:</label></td>
-          <td><input type="password" id="mqttpwd" name="mqttpwd"></td>
-        </tr>
-      </table>
-    </fieldset>
+    <div id="mqttbroker">
+      <fieldset>
+        <legend>MQTT Broker:</legend>
+        <table>
+          <tr>
+            <td><label for="mqttsrvr">Address:</label></td>
+            <td><input type="text" id="mqttsrvr" name="mqttsrvr"></td>
+          </tr>
+          <tr>
+            <td><label for="mqttport">Port:</label></td>
+            <td><input type="number" id="mqttport" name="mqttport"></td>
+          </tr>
+          <tr>
+            <td><label for="mqttusr">User:</label></td>
+            <td><input type="text" id="mqttusr" name="mqttusr"></td>
+          </tr>
+          <tr>
+            <td><label for="mqttpwd">Password:</label></td>
+            <td><input type="password" id="mqttpwd" name="mqttpwd"></td>
+          </tr>
+        </table>
+      </fieldset>
+    </div>
     <fieldset>
       <legend>Devices to track</legend>
       <label for="scanperiod" style="width:auto height:auto">Scan period:</label>
