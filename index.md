@@ -1,5 +1,5 @@
 # ESP32 BLETracker
-A simple example describing how to track a Bluetooth Low Energy device with an ESP32, the MQTT protocol and Home Assistant. Please note that the targeted device can't have a changing BLE address (normally called random instead of public address).  
+A simple example describing how to track a Bluetooth Low Energy device with an ESP32, the MQTT protocol and Home Assistant. Please note that the targeted device can't have a changing BLE address (normally called random instead of public address). 
 
 Use [PlatformIO](https://platformio.org/) to build and deploy this application, remember to install [git](https://git-scm.com/downloads) in order to allow PlatformIO to download automatically all the required dependencies.<br>
 You have to modify the **user_config.h** file inserting the correct informations to connect to the WiFi and to the MQTT broker.<br>
