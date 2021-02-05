@@ -51,17 +51,6 @@ You can build this skatch using Arduino IDE (currently it's using arduino-esp32 
 
 Build using the *Minimal SPIFFS* partition schema.
 
-# Tested BLE Devices
-| BLE Device | Discovery | Battery |
-|------------|----------|---------|
-|Nut mini   |  :heavy_check_mark:|  :heavy_check_mark:|
-|Nut2        | :heavy_check_mark: |:heavy_exclamation_mark:|
-|Remote Shutter   |  :heavy_check_mark:|  :heavy_check_mark:|
-|Xiomi Amazfit Bip|:heavy_check_mark:|:x:|
-|REDMOND RFT-08S|:heavy_check_mark:|:x:|
-|Xiomi Mi Smart Band 4|:heavy_check_mark:|:x:|
-|Fitness Band GT101|:heavy_check_mark:|:x:|
-
 ## Licence
 
 Permission is hereby granted, free of charge, to any person obtaining a copy<br>
