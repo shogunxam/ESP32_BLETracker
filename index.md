@@ -44,11 +44,11 @@ The new WEB server interface allow to customize the list of devices to be tracke
 The new interface allows also to monitor some logs. The number of logs is limited and when the maxium capacity is reached the oldest are removed.<br>
 <br>
 {:refdef: style="text-align: center;"}
-![indexpage]({{ site.baseimg }}/images/webindex.png)
-![systempage]({{ site.baseimg }}/images/websysinfo.png)
-![configpage]({{ site.baseimg }}/images/webconfig.png)
-![logspage]({{ site.baseimg }}/images/weblogs.png)
-![otapage]({{ site.baseimg }}/images/webOTA.png)
+![indexpage]({{ site.url }}/images/webindex.png)
+![systempage]({{ site.url }}/images/websysinfo.png)
+![configpage]({{ site.url }}/images/webconfig.png)
+![logspage]({{ site.url }}/images/weblogs.png)
+![otapage]({{ site.url }}/images/webOTA.png)
 {: refdef}
 
 ## FHEM Support
