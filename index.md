@@ -1,6 +1,6 @@
 
 {:refdef: style="text-align: center;"}
-![preview]({{ site.baseimg }}/images/preview.png)
+![preview](./images/preview.png)
 {: refdef}
 
 <h1>Contents</h1>
@@ -44,11 +44,11 @@ The new WEB server interface allow to customize the list of devices to be tracke
 The new interface allows also to monitor some logs. The number of logs is limited and when the maxium capacity is reached the oldest are removed.<br>
 <br>
 {:refdef: style="text-align: center;"}
-![indexpage]({{ site.url }}/images/webindex.png)
-![systempage]({{ site.url }}/images/websysinfo.png)
-![configpage]({{ site.url }}/images/webconfig.png)
-![logspage]({{ site.url }}/images/weblogs.png)
-![otapage]({{ site.url }}/images/webOTA.png)
+![indexpage](./images/webindex.png)
+![systempage](./images/websysinfo.png)
+![configpage](./images/webconfig.png)
+![logspage](./images/weblogs.png)
+![otapage](./images/webOTA.png)
 {: refdef}
 
 ## FHEM Support
