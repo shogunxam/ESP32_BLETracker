@@ -8,7 +8,16 @@
 {:toc}
 # ESP32 BLETracker
 This firmware help you to track a Bluetooth Low Energy device with an ESP32, uning the MQTT protocol and [Home Assistant](https://www.home-assistant.io/) or [FHEM](https://fhem.de/) and the collectord daemon.<br>
-Please note that the targeted device can't have a changing BLE address (normally called 'random' instead of 'public' address). 
+Please note that the targeted device can't have a changing BLE address (normally called 'random' instead of 'public' address).<br><br>
+**What this firmware can do for you:**  
+* Tracks all discovered ble devices or only the desired devices placed in a white-list
+* Selectively reads the battery level of tracked devices
+* Generates MQTT topic for an easy integration in you favourite Home Automation Hub
+* Mimics a lepresenced server to be integrated in FHEM
+* You can configure the devices to be tracked directly from the integrated WebServer without need to re-flash the firmware
+* Supports for OTA Update
+* Logs main events in order to identify problems.
+
 
 ## Easy to build
 Use [PlatformIO](https://platformio.org/) to build and deploy this application, remember to install [git](https://git-scm.com/downloads) in order to allow PlatformIO to download automatically all the required dependencies.<br>
