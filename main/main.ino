@@ -55,9 +55,8 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
   {
     Watchdog::Feed();
     const uint8_t shortNameSize = 31;
-    std::string std_address = advertisedDevice.getAddress().toString();
     char address[ADDRESS_STRING_SIZE];
-    NormalizeAddress(std_address, address);
+    NormalizeAddress(*(advertisedDevice.getAddress().getNative()), address);
 
     if (!SettingsMngr.IsTraceable(address))
       return;
