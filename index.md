@@ -20,7 +20,7 @@ Please note that the targeted device can't have a changing BLE address (normally
 
 
 ## Easy to build
-Use [PlatformIO](https://platformio.org/) to build and deploy this application, remember to install [git](https://git-scm.com/downloads) in order to allow PlatformIO to download automatically all the required dependencies.<br>
+Use [PlatformIO](https://platformio.org/) to build and deploy this firmware, remember to install [git](https://git-scm.com/downloads) in order to allow PlatformIO to download automatically all the required dependencies.<br>
 You have to modify the **user_config.h** file inserting the correct informations to connect to the WiFi and to the MQTT broker.<br>
 The GATEWAY_NAME is used as Client ID to connect to the broker so be sure it's unique.<br>
 The battery level can be read from the devices providing the Battery Service (0x180F) and the Battery Level characteristic (0x2A19), check the avaiability using a nRF Sniffer i.e. [nRF Connect](https://play.google.com/store/apps/details?id=no.nordicsemi.android.mcp)<br>
