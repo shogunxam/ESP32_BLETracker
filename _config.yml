@@ -1,3 +1,8 @@
+title: ESP32 BLETracker
+description: >- # this means to ignore newlines until "theme:"
+  Track Bluetooth Low Energy devices using an ESP32.
 theme: jekyll-theme-architect
 markdown: kramdown
 url: https://shogunxam.github.io/ESP32_BLETracker/
+plugins:
+  - jekyll-seo-tag
