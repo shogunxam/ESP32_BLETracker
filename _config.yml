@@ -6,3 +6,4 @@ markdown: kramdown
 url: https://shogunxam.github.io
 plugins:
   - jekyll-seo-tag
+  - jekyll-sitemap
