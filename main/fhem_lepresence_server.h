@@ -6,6 +6,5 @@
 namespace FHEMLePresenceServer
 {
     void Start();
-    void RemoveCompletedTasks();
 };
 #endif /*__FHEM_LEPRESENCE_SERVER_H__*/

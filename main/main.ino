@@ -436,10 +436,6 @@ void loop()
     mqttLoop();
 #endif
 
-#if USE_FHEM_LEPRESENCE_SERVER
-    FHEMLePresenceServer::RemoveCompletedTasks();
-#endif
-
     Watchdog::Feed();
 
     Serial.println("INFO: Running mainloop");

@@ -158,7 +158,6 @@ namespace FHEMLePresenceServer
   }
 
   WiFiServer server(5333, 10); // Port, Maxclients
-  std::map<TaskHandle_t, std::string> tasks;
   void wifiTask(void *pvParameters)
   {
     server.begin();
@@ -176,9 +175,7 @@ namespace FHEMLePresenceServer
         DEBUG_PRINTF("New connection from %s\n", (taskName + 11));
         LOG_TO_FILE_D("New connection from %s", (taskName + 11));
 
-        TaskHandle_t h_task;
-        xTaskCreate(handleClient, taskName, 3000, pClient, 2, &h_task);
-        tasks[h_task] = taskName;
+        xTaskCreate(handleClient, taskName, 2500, pClient, 2, nullptr);
       }
       else
       {
@@ -189,22 +186,7 @@ namespace FHEMLePresenceServer
 
   void Start()
   {
-    TaskHandle_t h_task;
-    xTaskCreatePinnedToCore(wifiTask, "wifiTask", 3000, NULL, 1 | portPRIVILEGE_BIT, &h_task, 1);
-    tasks[h_task] = "wifiTask";
-  }
-
-  void RemoveCompletedTasks()
-  {
-    for (auto it = tasks.begin(); it != tasks.end();)
-    {
-      if (eTaskGetState(it->first) == eReady && it->second.substr(0, 6) == "client")
-        it = tasks.erase(it);
-      else
-      {
-        ++it;
-      }
-    }
+    xTaskCreatePinnedToCore(wifiTask, "wifiTask", 3000, NULL, 1 | portPRIVILEGE_BIT, nullptr, 1);
   }
 
 } // namespace FHEMLePresenceServer
