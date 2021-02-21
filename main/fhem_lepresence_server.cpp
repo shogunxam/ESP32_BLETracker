@@ -15,7 +15,7 @@ namespace FHEMLePresenceServer
   void publishTag(WiFiClient *client, char address[ADDRESS_STRING_SIZE + 5], unsigned long timeout, const char *reason)
   {
     char normalizedAddress[ADDRESS_STRING_SIZE];
-    char msg[100] = "absence;rssi=unreachable;daemon=" GATEWAY_NAME " V" VERSION"\n";
+    char msg[100] = "absence;rssi=unreachable;daemon=" GATEWAY_NAME " V" VERSION "\n";
 
     NormalizeAddress(address, normalizedAddress);
 
@@ -28,9 +28,9 @@ namespace FHEMLePresenceServer
       if ((trackedDevice.lastDiscoveryTime + timeout) >= NTPTime::seconds())
       {
         if (PUBLISH_BATTERY_LEVEL && trackedDevice.batteryLevel > 0)
-          snprintf(msg, 100, "present;device_name=%s;rssi=%d;batteryPercent=%d;daemon=" GATEWAY_NAME " V" VERSION"\n", address, trackedDevice.rssiValue, trackedDevice.batteryLevel);
+          snprintf(msg, 100, "present;device_name=%s;rssi=%d;batteryPercent=%d;daemon=" GATEWAY_NAME " V" VERSION "\n", address, trackedDevice.rssiValue, trackedDevice.batteryLevel);
         else
-          snprintf(msg, 100, "present;device_name=%s;rssi=%d;daemon=" GATEWAY_NAME " V" VERSION"\n", address, trackedDevice.rssiValue);
+          snprintf(msg, 100, "present;device_name=%s;rssi=%d;daemon=" GATEWAY_NAME " V" VERSION "\n", address, trackedDevice.rssiValue);
       }
       break;
     }
@@ -40,7 +40,10 @@ namespace FHEMLePresenceServer
 
     try
     {
-      client->print(msg);
+      DEBUG_PRINTF("Free heap before print: %u\n", xPortGetFreeHeapSize());
+      client->write(msg);
+      client->flush();
+      DEBUG_PRINTF("Free heap after: %u\n", xPortGetFreeHeapSize());
     }
     catch (...)
     {
@@ -48,19 +51,50 @@ namespace FHEMLePresenceServer
     }
   }
 
-  int readLine(WiFiClient *client, uint8_t* buff, size_t bufflen)
+  int readLine(WiFiClient *client, uint8_t *buff, size_t bufflen)
   {
     int byteRead = 0;
     uint8_t data;
     int res = 0;
 
-    while ( (res = client->read(&data, 1)) > 0 && (byteRead < (bufflen-1)) && (data != '\n'))
+    while ((res = client->read(&data, 1)) > 0 && (byteRead < (bufflen - 1)) && (data != '\n'))
     {
       buff[byteRead] = data;
       byteRead++;
     }
     buff[byteRead] = 0;
     return res > 0 ? byteRead : res;
+  }
+
+  struct WiFiClientItem
+  {
+    WiFiClientItem() : mAvailable(true) {}
+    WiFiClient mClient;
+    bool mAvailable;
+  };
+
+  const int maxNumberOfClients = 10;
+  WiFiClientItem WiFiClientPool[maxNumberOfClients];
+  MyMutex WiFiClientPoolLock;
+
+  void RelaseWiFiClientItem(WiFiClientItem *item)
+  {
+    std::lock_guard<MyMutex> lock(WiFiClientPoolLock);
+    item->mAvailable = true;
+  }
+
+  WiFiClientItem *GetAvailabeWiFiClientItem()
+  {
+    std::lock_guard<MyMutex> lock(WiFiClientPoolLock);
+    for (int i = 0; i < maxNumberOfClients; i++)
+    {
+      if (WiFiClientPool[i].mAvailable)
+      {
+        WiFiClientPool[i].mAvailable = false;
+        return &WiFiClientPool[i];
+      }
+    }
+    return nullptr;
   }
 
   void handleClient(void *pvParameters)
@@ -74,20 +108,20 @@ namespace FHEMLePresenceServer
     address[0] = '\0';
     normalizedAddress[0] = '\0';
 
-    WiFiClient *client = static_cast<WiFiClient *>(pvParameters);
+    WiFiClientItem *pClientItem = static_cast<WiFiClientItem *>(pvParameters);
 
     try
     {
-      while (client->connected())
+      while (pClientItem->mClient.connected())
       {
         bool publish = false;
         bool fastDiscovery = false;
         char *reason = nullptr;
-        client->setTimeout(timeout);
-        if (client->available())
+        pClientItem->mClient.setTimeout(timeout);
+        if (pClientItem->mClient.available())
         {
           memset(buf, 0, buffLen);
-          if (readLine(client, buf, buffLen) > 0)
+          if (readLine(&(pClientItem->mClient), buf, buffLen) > 0)
           {
             DEBUG_PRINTLN((char *)buf);
             MatchState ms((char *)buf);
@@ -104,17 +138,20 @@ namespace FHEMLePresenceServer
               FastDiscovery[normalizedAddress] = false;
               reason = "on request";
               publish = true;
-              client->print("command accepted\n");
+              pClientItem->mClient.write("command accepted\n");
+              pClientItem->mClient.flush();
             }
             else if (ms.Match(R"(^%s*now%s*$)") == REGEXP_MATCHED)
             {
               reason = "forced request";
               publish = true;
-              client->print("command accepted\n");
+              pClientItem->mClient.write("command accepted\n");
+              pClientItem->mClient.flush();
             }
             else
             {
-              client->print("command rejected\n");
+              pClientItem->mClient.write("command rejected\n");
+              pClientItem->mClient.flush();
             }
           }
         }
@@ -136,7 +173,7 @@ namespace FHEMLePresenceServer
 
         if (address[0] != '\0' && publish)
         {
-          publishTag(client, address, timeout, reason);
+          publishTag(&(pClientItem->mClient), address, timeout, reason);
           lastreport = NTPTime::seconds();
           if (fastDiscovery)
             delay(1000);
@@ -152,12 +189,13 @@ namespace FHEMLePresenceServer
     }
 
     DEBUG_PRINTLN("Client Disconnect");
-    client->stop();
-    delete client;
+    pClientItem->mClient.stop();
+    RelaseWiFiClientItem(pClientItem);
     vTaskDelete(NULL);
   }
 
-  WiFiServer server(5333, 10); // Port, Maxclients
+  WiFiServer server(5333, maxNumberOfClients); // Port, Maxclients
+
   void wifiTask(void *pvParameters)
   {
     server.begin();
@@ -168,14 +206,20 @@ namespace FHEMLePresenceServer
       WiFiClient client = server.available();
       if (client)
       {
-        WiFiClient *pClient = new WiFiClient(); //<-- Will be deleted when the client disconnects
-        *pClient = client;
-        char taskName[50];
-        snprintf(taskName, 50, "clientTask_%s:%d", pClient->remoteIP().toString().c_str(), pClient->remotePort());
-        DEBUG_PRINTF("New connection from %s\n", (taskName + 11));
-        LOG_TO_FILE_D("New connection from %s", (taskName + 11));
+        WiFiClientItem *wifiClientItem = GetAvailabeWiFiClientItem();
+        if (wifiClientItem == nullptr)
+        {
+          DEBUG_PRINTLN("Warning: Reached the maximum number of clients\n");
+          LOG_TO_FILE_W("Warning: Reached the maximum number of clients");
+          client.stop();
+          continue;
+        }
 
-        xTaskCreate(handleClient, taskName, 2500, pClient, 2, nullptr);
+        wifiClientItem->mClient = client;
+        DEBUG_PRINTF("New connection from %s:%d\n", client.remoteIP().toString().c_str(), client.remotePort());
+        LOG_TO_FILE_D("New connection from %s:%d\n", client.remoteIP().toString().c_str(), client.remotePort());
+
+        xTaskCreate(handleClient, "", 2500, wifiClientItem, 2, nullptr);
       }
       else
       {

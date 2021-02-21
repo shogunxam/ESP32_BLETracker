@@ -439,7 +439,7 @@ void loop()
     Watchdog::Feed();
 
     Serial.println("INFO: Running mainloop");
-    DEBUG_PRINTF("Free heap: %u\n",esp_get_free_heap_size());
+    DEBUG_PRINTF("Free heap: %u\n",xPortGetFreeHeapSize());
     DEBUG_PRINTF("Number device discovered: %d\n", BLETrackedDevices.size());
 
     if (BLETrackedDevices.size() == SettingsMngr.GetMaxNumOfTraceableDevices())
