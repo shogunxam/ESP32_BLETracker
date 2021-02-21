@@ -1,3 +1,15 @@
+# Table of Contents
+- [ESP32 BLETracker](#esp32-bletracker)
+  - [WEB Server](#web-server)
+  - [FHEM Support](#fhem-support)
+- [Arduino IDE Notes](#arduino-ide-notes)
+- [Have you found a crash? Help me to fix it.](#have-you-found-a-crash-help-me-to-fix-it)
+- [Tested BLE Devices](#tested-ble-devices)
+- [Home Assistant integration](#home-assistant-integration)
+- [Licence](#licence)
+- [Support my work](#support-my-work)
+<br><br>
+
 # ESP32 BLETracker
 A simple example describing how to track a Bluetooth Low Energy device with an ESP32, the MQTT protocol and Home Assistant. Please note that the targeted device can't have a changing BLE address (normally called random instead of public address).  
 
@@ -221,7 +233,7 @@ Alternatively you can use the single topic returning the state in the following 
      {% endif %}
 ```
 
-## Licence
+# Licence
 
 Permission is hereby granted, free of charge, to any person obtaining a copy<br>
 of this software and associated documentation files (the "Software"), to deal<br>
