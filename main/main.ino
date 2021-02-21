@@ -436,6 +436,11 @@ void loop()
     mqttLoop();
 #endif
 
+#if USE_FHEM_LEPRESENCE_SERVER
+  //Check and restore the wifi connection if it's loose
+  WiFiConnect(WIFI_SSID, WIFI_PASSWORD);
+#endif
+
     Watchdog::Feed();
 
     Serial.println("INFO: Running mainloop");

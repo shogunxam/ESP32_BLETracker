@@ -15,9 +15,9 @@ WiFiClient wifiClient;
 
 void WiFiConnect(const String &_ssid_, const String &_password_)
 {
-  esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
   if (WiFi.status() != WL_CONNECTED)
   {
+    esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
     // Connect to WiFi network
     WiFi.mode(WIFI_STA);
     WiFi.disconnect(true);
