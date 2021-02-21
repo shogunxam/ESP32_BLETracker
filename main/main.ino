@@ -398,7 +398,7 @@ void setup()
   BLEDevice::init(GATEWAY_NAME);
   pBLEScan = BLEDevice::getScan();
   pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks(), NUM_OF_ADVERTISEMENT_IN_SCAN > 1);
-  pBLEScan->setActiveScan(false);
+  pBLEScan->setActiveScan(ACTIVE_SCAN);
   pBLEScan->setInterval(50);
   pBLEScan->setWindow(50);
 
