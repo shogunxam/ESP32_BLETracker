@@ -444,7 +444,7 @@ void loop()
     Watchdog::Feed();
 
     Serial.println("INFO: Running mainloop");
-    DEBUG_PRINTF("Free heap: %u\n",xPortGetFreeHeapSize());
+    DEBUG_PRINTF("Main loop Free heap: %u\n",xPortGetFreeHeapSize());
     DEBUG_PRINTF("Number device discovered: %d\n", BLETrackedDevices.size());
 
     if (BLETrackedDevices.size() == SettingsMngr.GetMaxNumOfTraceableDevices())
@@ -521,4 +521,5 @@ void loop()
     DEBUG_PRINTLN("Error Unhandled exception trapped in main loop");
     LOG_TO_FILE_E("Error Unhandled exception trapped in main loop");
   }
+  delay(100);
 }

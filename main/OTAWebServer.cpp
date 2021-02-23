@@ -114,7 +114,7 @@ void OTAWebServer::resetESP32Page()
   {
     return server.requestAuthentication();
   }
-
+  server.client().setNoDelay(true);
   LOG_TO_FILE_I("User request for restart...");
   server.sendHeader("Connection", "close");
   server.send(200, "text/html", F("<div align='center'>Resetting...<br><progress id='g' class='y' value='0' max='100' style='align-self:center; text-align:center;'/></div>"
@@ -130,6 +130,7 @@ void OTAWebServer::resetESP32Page()
 void OTAWebServer::eraseLogs()
 {
   SPIFFSLogger.clearLog();
+  server.client().setNoDelay(true);
   server.sendHeader("Connection", "close");
   server.send(200, "text/html", "Ok");
   server.client().stop();
@@ -141,7 +142,7 @@ void OTAWebServer::getLogsData()
   {
     return server.requestAuthentication();
   }
-
+  server.client().setNoDelay(true);
   CRITICALSECTION_START(SPIFFSLogger)
   CRITICALSECTION_START(dataBuffMutex)
   StartChunkedContentTransfer("text/json");
@@ -167,7 +168,6 @@ void OTAWebServer::getLogsData()
 
   SendChunkedContent("]");
   FlushChunkedContent();
-  server.client().flush();
   server.client().stop();
   CRITICALSECTION_END; //dataBuffMutex
   CRITICALSECTION_END; //SPIFFSLogger
@@ -179,10 +179,10 @@ void OTAWebServer::getLogsJs()
   {
     return server.requestAuthentication();
   }
+  server.client().setNoDelay(true);
   server.sendHeader(F("Connection"), F("close"));
   server.sendHeader(F("Content-Encoding"), F("gzip"));
   server.send_P(200, "text/javascripthtml",(const char*)logs_js_gz, logs_js_gz_size);
-  server.client().flush();
   server.client().stop();
 }
 
@@ -192,10 +192,10 @@ void OTAWebServer::getLogs()
   {
     return server.requestAuthentication();
   }
+  server.client().setNoDelay(true);
   server.sendHeader(F("Connection"), F("close"));
   server.sendHeader(F("Content-Encoding"), F("gzip"));
   server.send_P(200, "text/html",(const char*)logs_html_gz, logs_html_gz_size);
-  server.client().flush();
   server.client().stop();
 }
 
@@ -206,6 +206,7 @@ void OTAWebServer::postLogs()
     return server.requestAuthentication();
   }
 
+  server.client().setNoDelay(true);
   if (server.args() == 1 && server.hasArg("loglevel"))
   {
     Settings newSettings(SettingsMngr.GetSettingsFile(), true);
@@ -224,7 +225,6 @@ void OTAWebServer::postLogs()
       LOG_TO_FILE_E("Error saving the new LogLevel configuration.");
       server.send(500, F("text/html"), "Error saving settings");
     }
-      server.client().flush();
       server.client().stop();
     return;
   }
@@ -232,7 +232,6 @@ void OTAWebServer::postLogs()
   server.sendHeader(F("Connection"), F("close"));
   server.send(400, F("text/html"), "Bad request");
 
-  server.client().flush();
   server.client().stop();
 }
 
@@ -245,19 +244,19 @@ void OTAWebServer::getStyle()
     return server.requestAuthentication();
   }
 
+  server.client().setNoDelay(true);
   server.sendHeader(F("Connection"), F("close"));
   server.sendHeader(F("Content-Encoding"), F("gzip"));
   server.send_P(200, "text/css",(const char*)style_css_gz, style_css_gz_size);
-  server.client().flush();
   server.client().stop();
 }
 
 void OTAWebServer::getIndexJs()
 {
+  server.client().setNoDelay(true);
   server.sendHeader(F("Connection"), F("close"));
   server.sendHeader(F("Content-Encoding"), F("gzip"));
   server.send_P(200, "text/javascript",(const char*)index_js_gz, index_js_gz_size);
-  server.client().flush();
   server.client().stop();
 }
 
@@ -267,10 +266,10 @@ void OTAWebServer::getIndex()
   {
     return server.requestAuthentication();
   }
+  server.client().setNoDelay(true);
   server.sendHeader(F("Connection"), F("close"));
   server.sendHeader(F("Content-Encoding"), F("gzip"));
   server.send_P(200, "text/html",(const char*)index_html_gz, index_html_gz_size);
-  server.client().flush();
   server.client().stop();
 }
 
@@ -280,6 +279,7 @@ void OTAWebServer::getIndexData()
   {
     return server.requestAuthentication();
   }
+  server.client().setNoDelay(true);
   CRITICALSECTION_START(dataBuffMutex)
   StartChunkedContentTransfer("text/json");
   SendChunkedContent(R"({"gateway":")" GATEWAY_NAME R"(","logs":)");
@@ -290,7 +290,6 @@ void OTAWebServer::getIndexData()
 #endif
   SendChunkedContent("}");
   FlushChunkedContent();
-  server.client().flush();
   server.client().stop();
   CRITICALSECTION_END
 }
@@ -301,10 +300,10 @@ void OTAWebServer::getOTAUpdateJs()
   {
     return server.requestAuthentication();
   }
+  server.client().setNoDelay(true);
   server.sendHeader(F("Connection"), F("close"));
   server.sendHeader(F("Content-Encoding"), F("gzip"));
   server.send_P(200, "text/javascript",(const char*)otaupdate_js_gz, otaupdate_js_gz_size);
-  server.client().flush();
   server.client().stop();
 }
 
@@ -314,10 +313,10 @@ void OTAWebServer::getOTAUpdate()
   {
     return server.requestAuthentication();
   }
+  server.client().setNoDelay(true);
   server.sendHeader(F("Connection"), F("close"));
   server.sendHeader(F("Content-Encoding"), F("gzip"));
   server.send_P(200, "text/html",(const char*)otaupdate_html_gz, otaupdate_html_gz_size);
-  server.client().flush();
   server.client().stop();
 }
 
@@ -327,28 +326,27 @@ void OTAWebServer::getConfigData()
   {
     return server.requestAuthentication();
   }
+  server.client().setNoDelay(true);
   server.sendHeader(F("Connection"), F("close"));
   DEBUG_PRINTLN(SettingsMngr.toJSON());
   if (server.args() > 0 && server.hasArg("factory") && server.arg("factory") == "true")
   {
     Settings factoryValues;
     server.send(200, F("text/json"), factoryValues.toJSON());
-    server.client().flush();
     server.client().stop();
     return;
   }
 
   server.send(200, F("text/json"), SettingsMngr.toJSON());
-  server.client().flush();
   server.client().stop();
 }
 
 void OTAWebServer::getConfigJs()
 {
+  server.client().setNoDelay(true);
   server.sendHeader(F("Connection"), F("close"));
   server.sendHeader(F("Content-Encoding"), F("gzip"));
   server.send_P(200, "text/javascript",(const char*)config_js_gz, config_js_gz_size);
-  server.client().flush();
   server.client().stop();
 }
 
@@ -358,11 +356,10 @@ void OTAWebServer::getConfig()
   {
     return server.requestAuthentication();
   }
-
+  server.client().setNoDelay(true);
   server.sendHeader(F("Connection"), F("close"));
   server.sendHeader(F("Content-Encoding"), F("gzip"));
   server.send_P(200, "text/html",(const char*)config_html_gz, config_html_gz_size);
-  server.client().flush();
   server.client().stop();
 }
 
@@ -372,7 +369,8 @@ void OTAWebServer::postUpdateConfig()
   {
     return server.requestAuthentication();
   }
-
+  
+  server.client().setNoDelay(true);
   Settings newSettings(SettingsMngr.GetSettingsFile(), true);
   for (int i = 0; i < server.args(); i++)
   {
@@ -408,7 +406,6 @@ void OTAWebServer::postUpdateConfig()
     LOG_TO_FILE_E("Error saving the new configuration.");
     server.send(500, F("text/html"), "Error saving settings");
   }
-  server.client().flush();
   server.client().stop();
 }
 
@@ -416,7 +413,7 @@ void OTAWebServer::getSysInfoData()
 {
   CRITICALSECTION_START(dataBuffMutex)
   char strbuff[20];
-
+  server.client().setNoDelay(true);
   StartChunkedContentTransfer("text/json");
   SendChunkedContent("{");
   SendChunkedContent(R"("gateway":")" GATEWAY_NAME R"(",)");
@@ -464,7 +461,6 @@ void OTAWebServer::getSysInfoData()
   }
   SendChunkedContent("]}");
   FlushChunkedContent();
-  server.client().flush();
   server.client().stop();
   CRITICALSECTION_END
 }
@@ -475,11 +471,10 @@ void OTAWebServer::getSysInfoJs()
   {
     return server.requestAuthentication();
   }
-
+  server.client().setNoDelay(true);
   server.sendHeader(F("Connection"), F("close"));
   server.sendHeader(F("Content-Encoding"), F("gzip"));
   server.send_P(200, "text/javascript",(const char*)sysinfo_js_gz, sysinfo_js_gz_size);
-  server.client().flush();
   server.client().stop();
 }
 
@@ -489,11 +484,10 @@ void OTAWebServer::getSysInfo()
   {
     return server.requestAuthentication();
   }
-
+  server.client().setNoDelay(true);
   server.sendHeader(F("Connection"), F("close"));
   server.sendHeader(F("Content-Encoding"), F("gzip"));
   server.send_P(200, "text/html",(const char*)sysinfo_html_gz, sysinfo_html_gz_size);
-  server.client().flush();
   server.client().stop();
 }
 /*
