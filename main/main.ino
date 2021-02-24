@@ -45,6 +45,21 @@ unsigned long lastSySInfoTime = 0;
 OTAWebServer webserver;
 #endif
 
+extern "C" {
+void vApplicationMallocFailedHook(void);
+void vMyApplicationStackOverflowHook( TaskHandle_t xTask, char *pcTaskName );
+}
+void vApplicationMallocFailedHook(void)
+{
+  DEBUG_PRINTLN("---MallocFailed----");
+}
+
+void vMyApplicationStackOverflowHook( TaskHandle_t xTask, char *pcTaskName )
+{
+  DEBUG_PRINTF("StackOverflow:%x (%s)\n", xTask, pcTaskName);
+}
+
+
 ///////////////////////////////////////////////////////////////////////////
 //   BLUETOOTH
 ///////////////////////////////////////////////////////////////////////////
