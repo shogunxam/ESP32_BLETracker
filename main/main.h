@@ -22,6 +22,7 @@ struct BLETrackedDevice
   int8_t rssiValue;
   esp_ble_addr_type_t addressType;
   uint8_t advertisementCounter;
+  bool forceBatteryRead;
 
   BLETrackedDevice()
   {
@@ -36,11 +37,12 @@ struct BLETrackedDevice
     rssiValue = -100;
     addressType = BLE_ADDR_TYPE_PUBLIC;
     advertisementCounter = 0;
+    forceBatteryRead = false;
   }
 } ;
 
 char* formatMillis(unsigned long milliseconds, char outStr[20]);
-
+void ForceBatteryRead(const char* normalizedmac);
 extern MyRWMutex trackedDevicesMutex;
 extern  std::vector<BLETrackedDevice> BLETrackedDevices;
 extern  std::map<std::string, bool> FastDiscovery;

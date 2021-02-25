@@ -22,6 +22,7 @@ class OTAWebServer
         void getConfig();
         void getConfigJs();
         void getConfigData();
+        void getUpdateBattery();
         void postUpdateConfig();
         void getSysInfo();
         void getSysInfoJs();
