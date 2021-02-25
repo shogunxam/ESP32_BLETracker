@@ -9,10 +9,12 @@ function loadData() {
   $("#logmsg").text("Reading logs...");
   $("#logmsg").css("color","#46bd02");
   $("#logmsg").css("visibility","visible");
+  setTimeout(loadData, 15000);
   $.ajax({
     url: url,
     type: 'GET',
     success: function(data ,s) {
+      clearTimeout();
       $("#logs > tbody").remove();
       var table = $('#logs');
       table.append($("<tbody/>").css("font-size","13px"));
@@ -33,7 +35,7 @@ function loadData() {
     },
     error: function(a, b, c)
     {
-      $("#logmsg").text("Error Reading logs!!!");
+      $("#logmsg").text("Error Reading logs!!! Retring in 15 seconds.");
       $("#logmsg").css("color","#d21f1b");
       $("#logmsg").css("visibility","visible");
     }

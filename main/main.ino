@@ -45,20 +45,21 @@ unsigned long lastSySInfoTime = 0;
 OTAWebServer webserver;
 #endif
 
-extern "C" {
-void vApplicationMallocFailedHook(void);
-void vMyApplicationStackOverflowHook( TaskHandle_t xTask, char *pcTaskName );
+extern "C"
+{
+  void vApplicationMallocFailedHook(void);
+  void vMyApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName);
 }
+
 void vApplicationMallocFailedHook(void)
 {
   DEBUG_PRINTLN("---MallocFailed----");
 }
 
-void vMyApplicationStackOverflowHook( TaskHandle_t xTask, char *pcTaskName )
+void vMyApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName)
 {
   DEBUG_PRINTF("StackOverflow:%x (%s)\n", xTask, pcTaskName);
 }
-
 
 ///////////////////////////////////////////////////////////////////////////
 //   BLUETOOTH
@@ -82,19 +83,19 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
       strncpy(shortName, advertisedDevice.getName().c_str(), shortNameSize - 1);
 
     int RSSI = advertisedDevice.getRSSI();
-    
+
     CRITICALSECTION_WRITESTART(trackedDevicesMutex)
     for (auto &trackedDevice : BLETrackedDevices)
     {
       if (strcmp(address, trackedDevice.address) == 0)
       {
-    #if NUM_OF_ADVERTISEMENT_IN_SCAN > 1
+#if NUM_OF_ADVERTISEMENT_IN_SCAN > 1
         trackedDevice.advertisementCounter++;
         //To proceed we have to find at least NUM_OF_ADVERTISEMENT_IN_SCAN duplicates during the scan
         //and the code have to be executed only once
         if (trackedDevice.advertisementCounter != NUM_OF_ADVERTISEMENT_IN_SCAN)
           return;
-    #endif
+#endif
 
         if (!trackedDevice.advertised) //Skip advertised dups
         {
@@ -106,7 +107,7 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
           {
             trackedDevice.isDiscovered = true;
             trackedDevice.connectionRetry = 0;
-            FastDiscovery[trackedDevice.address]= true;
+            FastDiscovery[trackedDevice.address] = true;
             DEBUG_PRINTF("INFO: Tracked device discovered again, Address: %s , RSSI: %d\n", address, RSSI);
             if (advertisedDevice.haveName())
             {
@@ -138,12 +139,12 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
     trackedDevice.rssiValue = RSSI;
     trackedDevice.advertisementCounter = 1;
     BLETrackedDevices.push_back(std::move(trackedDevice));
-    FastDiscovery[trackedDevice.address]= true;
-  #if NUM_OF_ADVERTISEMENT_IN_SCAN > 1
+    FastDiscovery[trackedDevice.address] = true;
+#if NUM_OF_ADVERTISEMENT_IN_SCAN > 1
     //To proceed we have to find at least NUM_OF_ADVERTISEMENT_IN_SCAN duplicates during the scan
     //and the code have to be executed only once
     return;
-  #endif
+#endif
     CRITICALSECTION_WRITEEND;
 
     DEBUG_PRINTF("INFO: Device discovered, Address: %s , RSSI: %d\n", address, RSSI);
@@ -178,18 +179,36 @@ class MyBLEClientCallBack : public BLEClientCallbacks
   }
 };
 
+void ForceBatteryRead(const char *normalizedAddr)
+{
+  for (auto &trackedDevice : BLETrackedDevices)
+  {
+    if (strcmp(trackedDevice.address, normalizedAddr) == 0)
+    {
+      trackedDevice.forceBatteryRead = true;
+      return;
+    }
+  }
+}
+
 void batteryTask()
 {
   //DEBUG_PRINTF("\n*** Memory before battery scan: %u\n",xPortGetFreeHeapSize());
 
   for (auto &trackedDevice : BLETrackedDevices)
   {
-    if (!SettingsMngr.InBatteryList(trackedDevice.address))
+    if (!(SettingsMngr.InBatteryList(trackedDevice.address) || trackedDevice.forceBatteryRead))
       continue;
 
 #if USE_MQTT
     publishAvailabilityToMQTT();
 #endif
+
+    if (trackedDevice.forceBatteryRead)
+    {
+      trackedDevice.lastBattMeasureTime = 0;
+      trackedDevice.forceBatteryRead = false;
+    }
 
     //We need to connect to the device to read the battery value
     //So that we check only the device really advertised by the scan
@@ -452,14 +471,14 @@ void loop()
 #endif
 
 #if USE_FHEM_LEPRESENCE_SERVER
-  //Check and restore the wifi connection if it's loose
-  WiFiConnect(WIFI_SSID, WIFI_PASSWORD);
+    //Check and restore the wifi connection if it's loose
+    WiFiConnect(WIFI_SSID, WIFI_PASSWORD);
 #endif
 
     Watchdog::Feed();
 
     Serial.println("INFO: Running mainloop");
-    DEBUG_PRINTF("Main loop Free heap: %u\n",xPortGetFreeHeapSize());
+    DEBUG_PRINTF("Main loop Free heap: %u\n", xPortGetFreeHeapSize());
     DEBUG_PRINTF("Number device discovered: %d\n", BLETrackedDevices.size());
 
     if (BLETrackedDevices.size() == SettingsMngr.GetMaxNumOfTraceableDevices())
@@ -492,7 +511,7 @@ void loop()
       if (trackedDevice.isDiscovered && (trackedDevice.lastDiscoveryTime + MAX_NON_ADV_PERIOD) < NTPTime::seconds())
       {
         trackedDevice.isDiscovered = false;
-        FastDiscovery[trackedDevice.address]= false;
+        FastDiscovery[trackedDevice.address] = false;
         LOG_TO_FILE_D("Devices %s is gone out of range", trackedDevice.address);
       }
     }
