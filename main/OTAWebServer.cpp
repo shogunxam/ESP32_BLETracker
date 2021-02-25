@@ -17,7 +17,6 @@
 
 #include "SPIFFSLogger.h"
 
-
 extern std::vector<BLETrackedDevice> BLETrackedDevices;
 
 #include "html/style.css.gz.h"
@@ -31,14 +30,14 @@ extern std::vector<BLETrackedDevice> BLETrackedDevices;
 #if ENABLE_FILE_LOG
 #include "html/logs.html.gz.h"
 #include "html/logs.js.gz.h"
-#endif/*ENABLE_FILE_LOG*/
+#endif /*ENABLE_FILE_LOG*/
 
 #include "html/otaupdate.html.gz.h"
 #include "html/otaupdate.js.gz.h"
 
 OTAWebServer::OTAWebServer()
     : server(80),
-    dataBuffMutex("OTAWebServer_DataBuffer")
+      dataBuffMutex("OTAWebServer_DataBuffer")
 {
 }
 
@@ -62,29 +61,29 @@ size_t OTAWebServer::append(uint8_t *dest, size_t buffsize, size_t destStartPos,
   return wrote;
 }
 
- //Return the current position in the destination;
+//Return the current position in the destination;
 size_t OTAWebServer::appendAndFlush(uint8_t *dest, size_t buffsize, size_t destStartPos, const uint8_t *src, size_t srcSize)
 {
-  size_t wrote = append(dest, buffsize, destStartPos, src , srcSize);
+  size_t wrote = append(dest, buffsize, destStartPos, src, srcSize);
   size_t totWrote = wrote;
   while (totWrote < srcSize)
   {
     //The destintion buffer is full
-    server.sendContent_P((char*)dest, buffsize);
+    server.sendContent_P((char *)dest, buffsize);
     destStartPos = 0;
     wrote = append(dest, buffsize, destStartPos, src, srcSize, wrote);
-    totWrote+=wrote;
+    totWrote += wrote;
   }
-  return destStartPos+wrote;
+  return destStartPos + wrote;
 }
 
-void OTAWebServer::StartChunkedContentTransfer(const char* contentType, bool zipped)
+void OTAWebServer::StartChunkedContentTransfer(const char *contentType, bool zipped)
 {
   server.sendHeader(F("Cache-Control"), F("no-cache, no-store, must-revalidate"));
   server.sendHeader(F("Pragma"), F("no-cache"));
   server.sendHeader(F("Expires"), F("-1"));
   server.sendHeader(F("Transfer-Encoding"), F("chunked"));
-  if(zipped)
+  if (zipped)
     server.sendHeader(F("Content-Encoding"), F("gzip"));
   server.setContentLength(CONTENT_LENGTH_UNKNOWN);
   server.send(200, contentType, "");
@@ -98,13 +97,14 @@ void OTAWebServer::SendChunkedContent(const uint8_t *content, size_t size)
 
 void OTAWebServer::SendChunkedContent(const char *content)
 {
-  databufferStartPos = appendAndFlush(databuffer, maxdatasize, databufferStartPos, (const uint8_t*)content, strlen(content));
+  databufferStartPos = appendAndFlush(databuffer, maxdatasize, databufferStartPos, (const uint8_t *)content, strlen(content));
 }
 
 void OTAWebServer::FlushChunkedContent()
 {
-  if(databufferStartPos > 0);
-    server.sendContent_P((char*)databuffer,databufferStartPos);
+  if (databufferStartPos > 0)
+    ;
+  server.sendContent_P((char *)databuffer, databufferStartPos);
   server.sendContent_P("", 0);
 }
 
@@ -181,7 +181,7 @@ void OTAWebServer::getLogsJs()
   }
   server.sendHeader(F("Connection"), F("close"));
   server.sendHeader(F("Content-Encoding"), F("gzip"));
-  server.send_P(200, "text/javascripthtml",(const char*)logs_js_gz, logs_js_gz_size);
+  server.send_P(200, "text/javascripthtml", (const char *)logs_js_gz, logs_js_gz_size);
   server.client().flush();
   server.client().stop();
 }
@@ -194,7 +194,7 @@ void OTAWebServer::getLogs()
   }
   server.sendHeader(F("Connection"), F("close"));
   server.sendHeader(F("Content-Encoding"), F("gzip"));
-  server.send_P(200, "text/html",(const char*)logs_html_gz, logs_html_gz_size);
+  server.send_P(200, "text/html", (const char *)logs_html_gz, logs_html_gz_size);
   server.client().flush();
   server.client().stop();
 }
@@ -224,8 +224,8 @@ void OTAWebServer::postLogs()
       LOG_TO_FILE_E("Error saving the new LogLevel configuration.");
       server.send(500, F("text/html"), "Error saving settings");
     }
-      server.client().flush();
-      server.client().stop();
+    server.client().flush();
+    server.client().stop();
     return;
   }
 
@@ -247,7 +247,7 @@ void OTAWebServer::getStyle()
 
   server.sendHeader(F("Connection"), F("close"));
   server.sendHeader(F("Content-Encoding"), F("gzip"));
-  server.send_P(200, "text/css",(const char*)style_css_gz, style_css_gz_size);
+  server.send_P(200, "text/css", (const char *)style_css_gz, style_css_gz_size);
   server.client().flush();
   server.client().stop();
 }
@@ -256,7 +256,7 @@ void OTAWebServer::getIndexJs()
 {
   server.sendHeader(F("Connection"), F("close"));
   server.sendHeader(F("Content-Encoding"), F("gzip"));
-  server.send_P(200, "text/javascript",(const char*)index_js_gz, index_js_gz_size);
+  server.send_P(200, "text/javascript", (const char *)index_js_gz, index_js_gz_size);
   server.client().flush();
   server.client().stop();
 }
@@ -269,7 +269,7 @@ void OTAWebServer::getIndex()
   }
   server.sendHeader(F("Connection"), F("close"));
   server.sendHeader(F("Content-Encoding"), F("gzip"));
-  server.send_P(200, "text/html",(const char*)index_html_gz, index_html_gz_size);
+  server.send_P(200, "text/html", (const char *)index_html_gz, index_html_gz_size);
   server.client().flush();
   server.client().stop();
 }
@@ -303,7 +303,7 @@ void OTAWebServer::getOTAUpdateJs()
   }
   server.sendHeader(F("Connection"), F("close"));
   server.sendHeader(F("Content-Encoding"), F("gzip"));
-  server.send_P(200, "text/javascript",(const char*)otaupdate_js_gz, otaupdate_js_gz_size);
+  server.send_P(200, "text/javascript", (const char *)otaupdate_js_gz, otaupdate_js_gz_size);
   server.client().flush();
   server.client().stop();
 }
@@ -316,7 +316,7 @@ void OTAWebServer::getOTAUpdate()
   }
   server.sendHeader(F("Connection"), F("close"));
   server.sendHeader(F("Content-Encoding"), F("gzip"));
-  server.send_P(200, "text/html",(const char*)otaupdate_html_gz, otaupdate_html_gz_size);
+  server.send_P(200, "text/html", (const char *)otaupdate_html_gz, otaupdate_html_gz_size);
   server.client().flush();
   server.client().stop();
 }
@@ -347,7 +347,7 @@ void OTAWebServer::getConfigJs()
 {
   server.sendHeader(F("Connection"), F("close"));
   server.sendHeader(F("Content-Encoding"), F("gzip"));
-  server.send_P(200, "text/javascript",(const char*)config_js_gz, config_js_gz_size);
+  server.send_P(200, "text/javascript", (const char *)config_js_gz, config_js_gz_size);
   server.client().flush();
   server.client().stop();
 }
@@ -361,9 +361,26 @@ void OTAWebServer::getConfig()
 
   server.sendHeader(F("Connection"), F("close"));
   server.sendHeader(F("Content-Encoding"), F("gzip"));
-  server.send_P(200, "text/html",(const char*)config_html_gz, config_html_gz_size);
+  server.send_P(200, "text/html", (const char *)config_html_gz, config_html_gz_size);
   server.client().flush();
   server.client().stop();
+}
+
+void OTAWebServer::getUpdateBattery()
+{
+  if (!server.authenticate(WEBSERVER_USER, WEBSERVER_PASSWORD))
+  {
+    return server.requestAuthentication();
+  }
+
+  if (server.hasArg("mac"))
+  {
+    DEBUG_PRINTF("Force Battery Update for: %s\n",server.arg("mac").c_str());
+    ForceBatteryRead(server.arg("mac").c_str());
+  }
+
+  server.sendHeader(F("Connection"), F("close"));
+  server.send(200, F("text/html"), "Ok");
 }
 
 void OTAWebServer::postUpdateConfig()
@@ -427,12 +444,12 @@ void OTAWebServer::getSysInfoData()
   SendChunkedContent(Firmware::BuildTime);
   SendChunkedContent(R"(",)");
   SendChunkedContent(R"("memory":")");
-  itoa(xPortGetFreeHeapSize(),strbuff,10);
+  itoa(xPortGetFreeHeapSize(), strbuff, 10);
   SendChunkedContent(strbuff);
   SendChunkedContent(R"( bytes",)");
 #endif
   SendChunkedContent(R"("uptime":")");
-  SendChunkedContent(formatMillis(millis(),strbuff));
+  SendChunkedContent(formatMillis(millis(), strbuff));
   SendChunkedContent(R"(",)");
   SendChunkedContent(R"("ssid":")" WIFI_SSID R"(",)");
   SendChunkedContent(R"("battery":)" xstr(PUBLISH_BATTERY_LEVEL) R"(,)");
@@ -449,12 +466,12 @@ void OTAWebServer::getSysInfoData()
     SendChunkedContent(trackedDevice.address);
     SendChunkedContent(R"(",)");
     SendChunkedContent(R"("rssi":)");
-    itoa(trackedDevice.rssiValue,strbuff,10);
+    itoa(trackedDevice.rssiValue, strbuff, 10);
     SendChunkedContent(strbuff);
     SendChunkedContent(R"(,)");
 #if PUBLISH_BATTERY_LEVEL
     SendChunkedContent(R"("battery":)");
-    itoa(trackedDevice.batteryLevel,strbuff,10);
+    itoa(trackedDevice.batteryLevel, strbuff, 10);
     SendChunkedContent(strbuff);
     SendChunkedContent(R"(,)");
 #endif
@@ -478,7 +495,7 @@ void OTAWebServer::getSysInfoJs()
 
   server.sendHeader(F("Connection"), F("close"));
   server.sendHeader(F("Content-Encoding"), F("gzip"));
-  server.send_P(200, "text/javascript",(const char*)sysinfo_js_gz, sysinfo_js_gz_size);
+  server.send_P(200, "text/javascript", (const char *)sysinfo_js_gz, sysinfo_js_gz_size);
   server.client().flush();
   server.client().stop();
 }
@@ -492,7 +509,7 @@ void OTAWebServer::getSysInfo()
 
   server.sendHeader(F("Connection"), F("close"));
   server.sendHeader(F("Content-Encoding"), F("gzip"));
-  server.send_P(200, "text/html",(const char*)sysinfo_html_gz, sysinfo_html_gz_size);
+  server.send_P(200, "text/html", (const char *)sysinfo_html_gz, sysinfo_html_gz_size);
   server.client().flush();
   server.client().stop();
 }
@@ -519,7 +536,7 @@ void OTAWebServer::setup(const String &hN, const String &_ssid_, const String &_
 
   /*return index page which is stored in serverIndex */
   server.on(F("/"), HTTP_GET, [&]() { getIndex(); });
-  
+
   server.on(F("/index.js"), HTTP_GET, [&]() { getIndexJs(); });
 
   server.on(F("/style.css"), HTTP_GET, [&]() { getStyle(); });
@@ -531,6 +548,8 @@ void OTAWebServer::setup(const String &hN, const String &_ssid_, const String &_
   server.on(F("/config.js"), HTTP_GET, [&]() { getConfigJs(); });
 
   server.on(F("/getconfigdata"), HTTP_GET, [&]() { getConfigData(); });
+
+  server.on(F("/updatebattery"), HTTP_GET, [&]() { getUpdateBattery(); });
 
   server.on(F("/updateconfig"), HTTP_POST, [&]() { postUpdateConfig(); });
 
@@ -608,8 +627,8 @@ void WebServerLoop(void *param)
     }
     catch (std::exception &e)
     {
-      DEBUG_PRINTF("Error Caught Exception %s",e.what());
-      LOG_TO_FILE_E("Error Caught Exception %s",e.what());
+      DEBUG_PRINTF("Error Caught Exception %s", e.what());
+      LOG_TO_FILE_E("Error Caught Exception %s", e.what());
     }
     catch (...)
     {
@@ -624,7 +643,7 @@ void OTAWebServer::begin(void)
   xTaskCreatePinnedToCore(
       WebServerLoop,   /* Function to implement the task */
       "WebServerLoop", /* Name of the task */
-      4096,           /* Stack size in words */
+      4096,            /* Stack size in words */
       (void *)&server, /* Task input parameter */
       20,              /* Priority of the task */
       NULL,            /* Task handle. */
