@@ -39,7 +39,7 @@ function loadData() {
       tbtr = $("<td/>");
       div = '<div>' +
        '<p style="display : inline-block; width: fit-content; height: fit-content;float: left;">'+ item.battery +'</p>'+
-        '<input type="button" value="Refresh" id="rbtn_' + item.mac + '" class=btn onclick="readbBattery(\'' + item.mac + '\')"style="font-size : 0.8em; padding : 5px; display : inline-block; width: fit-content; height: fit-content;float: right;">';  
+        '<input type="button" value="Refresh" id="rbtn_' + item.mac + '" class=btn onclick="readbBattery(\'' + item.mac + '\')"style="font-size : 0.8em; padding : 5px; display : inline-block; width: fit-content; width: -moz-fit-content;height: fit-content;float: right;">';  
       tbtr.append(div);
     }
     tstate = $("<td/>").text(item.state);
