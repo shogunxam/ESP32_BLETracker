@@ -3,18 +3,22 @@ $(document).ready(function() {
   loadLogLevel();
 });
 
+var reloadOnErrorHandle;
+var watchDogHandle;
 function loadData() {
   now = new Date();
   var url = "/getlogsdata?time=" + now.getTime();
   $("#logmsg").text("Reading logs...");
   $("#logmsg").css("color","#46bd02");
   $("#logmsg").css("visibility","visible");
-  setTimeout(loadData, 15000);
+  clearTimeout(watchDogHandle);
+  watchDogHandle = setTimeout(loadData, 10000);
   $.ajax({
     url: url,
     type: 'GET',
     success: function(data ,s) {
-      clearTimeout();
+      clearTimeout(watchDogHandle);
+      clearTimeout(reloadOnErrorHandle);
       $("#logs > tbody").remove();
       var table = $('#logs');
       table.append($("<tbody/>").css("font-size","13px"));
@@ -35,7 +39,10 @@ function loadData() {
     },
     error: function(a, b, c)
     {
-      $("#logmsg").text("Error Reading logs!!! Retring in 15 seconds.");
+      $("#logmsg").text("Error Reading logs!!! Retring in 5 seconds...");
+      clearTimeout(watchDogHandle);
+      clearTimeout(reloadOnErrorHandle);
+      reloadOnErrorHandle = setTimeout(loadData, 5000);
       $("#logmsg").css("color","#d21f1b");
       $("#logmsg").css("visibility","visible");
     }
