@@ -8,6 +8,7 @@
 
 #include "utility.h"
 #include "SPIFFSLogger.h"
+#include "WiFiManager.h"
 
 namespace FHEMLePresenceServer
 {
@@ -21,7 +22,7 @@ namespace FHEMLePresenceServer
     void Release()
     {
       mAvailable = true;
-      mClient = WiFiClient();// the following line is a workaround for a memory leak bug in arduino
+      mClient = WiFiClient(); // the following line is a workaround for a memory leak bug in arduino
       address[0] = '\0';
       normalizedAddress[0] = '\0';
       timeout = MAX_NON_ADV_PERIOD;
@@ -195,51 +196,61 @@ namespace FHEMLePresenceServer
 
   WiFiServer server(5333, maxNumberOfClients); // Port, Maxclients
 
-  void wifiTask(void *pvParameters)
+  void ListenForClientConnection()
   {
-    DEBUG_PRINTLN("wifiTask started...");
+    WiFiClient client = server.available();
+    if (client)
+    {
+      FHEMClient *fhemClient = GetAvailabeFHEMClient();
+      if (fhemClient == nullptr)
+      {
+        DEBUG_PRINTLN("Warning: Reached the maximum number of clients\n");
+        LOG_TO_FILE_W("Warning: Reached the maximum number of clients");
+        client.stop();
+      }
+      else
+      {
+        if (client.available())
+          client.setNoDelay(true);
+
+        fhemClient->AssignToClient(client);
+        DEBUG_PRINTF("New connection from %s:%d\n", client.remoteIP().toString().c_str(), client.remotePort());
+        LOG_TO_FILE_D("New connection from %s:%d\n", client.remoteIP().toString().c_str(), client.remotePort());
+      }
+      client = WiFiClient(); // the following line is a workaround for a memory leak bug in arduino
+    }
+  }
+
+  void loop()
+  {
+    ListenForClientConnection();
+    for (int i = 0; i < maxNumberOfClients; i++)
+    {
+      if (!FHEMClientPool[i].mAvailable)
+      {
+        handleClient(FHEMClientPool[i]);
+      }
+    }
+  }
+
+  void initializeServer()
+  {
     server.begin();
+  }
+
+  void serverTask(void *pvParameters)
+  {
+    DEBUG_PRINTLN("FHEM serverTask started...");
     for (;;)
     {
-      //DEBUG_PRINTF("wifiTask Free heap: %u\n",xPortGetFreeHeapSize());
-      WiFiClient client = server.available();
-      if (client)
-      {
-        FHEMClient *fhemClient = GetAvailabeFHEMClient();
-        if (fhemClient == nullptr)
-        {
-          DEBUG_PRINTLN("Warning: Reached the maximum number of clients\n");
-          LOG_TO_FILE_W("Warning: Reached the maximum number of clients");
-          client.stop();
-        }
-        else
-        {
-          if (client.available())
-            client.setNoDelay(true);
-
-          fhemClient->AssignToClient(client);
-          DEBUG_PRINTF("New connection from %s:%d\n", client.remoteIP().toString().c_str(), client.remotePort());
-          LOG_TO_FILE_D("New connection from %s:%d\n", client.remoteIP().toString().c_str(), client.remotePort());
-        }
-        client = WiFiClient();// the following line is a workaround for a memory leak bug in arduino
-      }
-
-      for (int i = 0; i < maxNumberOfClients; i++)
-      {
-        if (!FHEMClientPool[i].mAvailable)
-        {
-          handleClient(FHEMClientPool[i]);
-          delay(50);
-        }
-      }
-
+      loop();
       delay(250);
     }
   }
 
-  void Start()
+  void startAsyncServer()
   {
-    xTaskCreatePinnedToCore(wifiTask, "wifiTask", 4096, NULL, 10, nullptr, 1);
+    xTaskCreatePinnedToCore(serverTask, "FHEMLePresenceServer::serverTask", 4096, NULL, 10, nullptr, 1);
   }
 
 } // namespace FHEMLePresenceServer

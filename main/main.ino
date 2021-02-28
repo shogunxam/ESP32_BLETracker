@@ -48,7 +48,7 @@ OTAWebServer webserver;
 extern "C"
 {
   void vApplicationMallocFailedHook(void);
-  void vMyApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName);
+  void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName);
 }
 
 void vApplicationMallocFailedHook(void)
@@ -56,7 +56,7 @@ void vApplicationMallocFailedHook(void)
   DEBUG_PRINTLN("---MallocFailed----");
 }
 
-void vMyApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName)
+void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName)
 {
   DEBUG_PRINTF("StackOverflow:%x (%s)\n", xTask, pcTaskName);
 }
@@ -159,10 +159,6 @@ static BLEUUID service_BATT_UUID(BLEUUID((uint16_t)0x180F));
 static BLEUUID char_BATT_UUID(BLEUUID((uint16_t)0x2A19));
 
 #if PUBLISH_BATTERY_LEVEL
-//static EventGroupHandle_t connection_event_group;
-//const int CONNECTED_EVENT = BIT0;
-//const int DISCONNECTED_EVENT = BIT1;
-
 class MyBLEClientCallBack : public BLEClientCallbacks
 {
   void onConnect(BLEClient *pClient)
@@ -173,9 +169,6 @@ class MyBLEClientCallBack : public BLEClientCallbacks
   {
     log_i(" >> onDisconnect callback");
     pClient->disconnect();
-    //log_i(" >> onDisconnect callback");
-    //xEventGroupSetBits(connection_event_group, DISCONNECTED_EVENT);
-    //log_i(" << onDisconnect callback");
   }
 };
 
@@ -306,8 +299,6 @@ bool batteryLevel(const char address[ADDRESS_STRING_SIZE], esp_ble_addr_type_t a
     while (client.isConnected())
       delay(100);
     log_i("Client disconnected.");
-    //EventBits_t bits = xEventGroupWaitBits(connection_event_group, DISCONNECTED_EVENT, true, true, portMAX_DELAY);
-    //log_i("wait for disconnection done: %d", bits);
   }
   else
   {
@@ -442,11 +433,7 @@ void setup()
 #endif
 
 #if USE_FHEM_LEPRESENCE_SERVER
-  FHEMLePresenceServer::Start();
-#endif
-
-#if PUBLISH_BATTERY_LEVEL
-  //connection_event_group = xEventGroupCreate();
+  FHEMLePresenceServer::initializeServer();
 #endif
 
   LOG_TO_FILE("BLETracker initialized");
@@ -543,6 +530,8 @@ void loop()
     }
 
     publishAvailabilityToMQTT();
+#elif USE_FHEM_LEPRESENCE_SERVER
+  FHEMLePresenceServer::loop();//Handle clients connections
 #endif
   }
   catch (std::exception &e)

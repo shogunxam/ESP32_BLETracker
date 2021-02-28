@@ -596,10 +596,10 @@ void WebServerWatchDogloop(void * param)
     {
         if (millis() > (WebServerWatchDogStartTime.load() + 10000))
         {
-            DEBUG_PRINTLN("INFO: WebServerWatchdog resart server");
-            LOG_TO_FILE_E("Error: WebServerWatchdog resart server");
             server->stop();
             server->begin();
+            DEBUG_PRINTLN("INFO: WebServerWatchdog resart server");
+            LOG_TO_FILE_E("Error: WebServerWatchdog resart server");
         }
         delay(1000);
     };
@@ -623,6 +623,12 @@ void WebServerLoop(void *param)
     {
       server->handleClient();
       WebServerWatchDogFeed();
+      if(restart)
+      {
+        restart = false;
+        server->stop();
+        server->begin();
+      }
       delay(100);
     }
     catch (std::exception &e)
@@ -636,13 +642,6 @@ void WebServerLoop(void *param)
       restart = true;
       DEBUG_PRINTLN("Error Unhandled exception trapped in webserver loop");
       LOG_TO_FILE_E("Error Unhandled exception trapped in webserver loop");
-    }
-
-    if(restart)
-    {
-      restart = false;
-      server->stop();
-      server->begin();
     }
   }
 }
