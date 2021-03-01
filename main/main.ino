@@ -475,6 +475,33 @@ void loop()
       esp_restart();
     }
 
+#if PROGRESSIVE_SCAN
+    static uint32_t elapsedScanTime = 0;
+    static uint32_t lastScanTime = 0;
+
+    bool continuePrevScan = elapsedScanTime > 0;
+    if(!continuePrevScan)//new scan
+    {
+      //Reset the states of discovered devices
+      for (auto &trackedDevice : BLETrackedDevices)
+      {
+        trackedDevice.advertised = false;
+        trackedDevice.rssiValue = -100;
+        trackedDevice.advertisementCounter = 0;
+      }
+    }
+    
+    lastScanTime = NTPTime::seconds();
+    pBLEScan->start(1, continuePrevScan);
+    pBLEScan->stop();
+    elapsedScanTime += NTPTime::seconds() - lastScanTime;
+    bool scanCompleted = elapsedScanTime > SettingsMngr.scanPeriod;
+    if(scanCompleted)
+    {
+      elapsedScanTime=0;
+      pBLEScan->clearResults();
+    }
+#else
     //Reset the states of discovered devices
     for (auto &trackedDevice : BLETrackedDevices)
     {
@@ -488,6 +515,7 @@ void loop()
     pBLEScan->stop();
     pBLEScan->clearResults();
     //DEBUG_PRINTF("\n*** Memory After scan: %u\n",xPortGetFreeHeapSize());
+#endif 
 
 #if USE_MQTT
     publishAvailabilityToMQTT();
@@ -503,7 +531,11 @@ void loop()
       }
     }
 
+
 #if PUBLISH_BATTERY_LEVEL
+#if PROGRESSIVE_SCAN
+  if(scanCompleted)
+#endif
     batteryTask();
 #endif
 

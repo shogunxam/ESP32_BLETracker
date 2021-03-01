@@ -9,7 +9,7 @@
 #include "utility.h"
 #include "SPIFFSLogger.h"
 #include "WiFiManager.h"
-
+#include "settings.h"
 namespace FHEMLePresenceServer
 {
   struct FHEMClient
@@ -136,8 +136,8 @@ namespace FHEMLePresenceServer
               char matchTimeout[10];
               ms.GetCapture(matchTimeout, 1);
               fhemClient.timeout = atoi(matchTimeout);
-              if (fhemClient.timeout <= BLE_SCANNING_PERIOD)
-                fhemClient.timeout = BLE_SCANNING_PERIOD + 1;
+              if (fhemClient.timeout <= SettingsMngr.scanPeriod)
+                fhemClient.timeout = SettingsMngr.scanPeriod + 1;
 
               NormalizeAddress(fhemClient.address, fhemClient.normalizedAddress);
               FastDiscovery[fhemClient.normalizedAddress] = false;
