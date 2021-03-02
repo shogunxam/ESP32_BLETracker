@@ -99,7 +99,7 @@ function validateMacDigit(elem) {
     }
     return mac;
   }
-  alert("Invalid mac address format, only uppercase exadecimal digits are allowed!");
+  alert("Invalid mac address format, only uppercase hexadecimal digits are allowed!");
   $('#addmac').disabled = true;
   return elem.value;
 }
@@ -110,7 +110,7 @@ function validateMac(mac) {
     $('#addMac').prop("disabled", false);
     return mac;
   }
-  alert("Invalid mac address format, only uppercase exadecimal digits are allowed!");
+  alert("Invalid mac address format, only uppercase hexadecimal digits are allowed!");
   $('#addMac').prop("disabled", true);
   return "";
 }
