@@ -45,6 +45,22 @@ unsigned long lastSySInfoTime = 0;
 OTAWebServer webserver;
 #endif
 
+extern "C"
+{
+  void vApplicationMallocFailedHook(void);
+  void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName);
+}
+
+void vApplicationMallocFailedHook(void)
+{
+  DEBUG_PRINTLN("---MallocFailed----");
+}
+
+void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName)
+{
+  DEBUG_PRINTF("StackOverflow:%x (%s)\n", xTask, pcTaskName);
+}
+
 ///////////////////////////////////////////////////////////////////////////
 //   BLUETOOTH
 ///////////////////////////////////////////////////////////////////////////
@@ -143,10 +159,6 @@ static BLEUUID service_BATT_UUID(BLEUUID((uint16_t)0x180F));
 static BLEUUID char_BATT_UUID(BLEUUID((uint16_t)0x2A19));
 
 #if PUBLISH_BATTERY_LEVEL
-//static EventGroupHandle_t connection_event_group;
-//const int CONNECTED_EVENT = BIT0;
-//const int DISCONNECTED_EVENT = BIT1;
-
 class MyBLEClientCallBack : public BLEClientCallbacks
 {
   void onConnect(BLEClient *pClient)
@@ -157,9 +169,6 @@ class MyBLEClientCallBack : public BLEClientCallbacks
   {
     log_i(" >> onDisconnect callback");
     pClient->disconnect();
-    //log_i(" >> onDisconnect callback");
-    //xEventGroupSetBits(connection_event_group, DISCONNECTED_EVENT);
-    //log_i(" << onDisconnect callback");
   }
 };
 
@@ -167,7 +176,7 @@ void ForceBatteryRead(const char *normalizedAddr)
 {
   for (auto &trackedDevice : BLETrackedDevices)
   {
-    if (strcmp(trackedDevice.address, normalizedAddr)==0)
+    if (strcmp(trackedDevice.address, normalizedAddr) == 0)
     {
       trackedDevice.forceBatteryRead = true;
       return;
@@ -181,7 +190,6 @@ void batteryTask()
 
   for (auto &trackedDevice : BLETrackedDevices)
   {
-
     if (!(SettingsMngr.InBatteryList(trackedDevice.address) || trackedDevice.forceBatteryRead))
       continue;
 
@@ -191,8 +199,8 @@ void batteryTask()
 
     if (trackedDevice.forceBatteryRead)
     {
-        trackedDevice.lastBattMeasureTime = 0;
-        trackedDevice.forceBatteryRead = false;
+      trackedDevice.lastBattMeasureTime = 0;
+      trackedDevice.forceBatteryRead = false;
     }
 
     //We need to connect to the device to read the battery value
@@ -291,8 +299,6 @@ bool batteryLevel(const char address[ADDRESS_STRING_SIZE], esp_ble_addr_type_t a
     while (client.isConnected())
       delay(100);
     log_i("Client disconnected.");
-    //EventBits_t bits = xEventGroupWaitBits(connection_event_group, DISCONNECTED_EVENT, true, true, portMAX_DELAY);
-    //log_i("wait for disconnection done: %d", bits);
   }
   else
   {
@@ -427,11 +433,7 @@ void setup()
 #endif
 
 #if USE_FHEM_LEPRESENCE_SERVER
-  FHEMLePresenceServer::Start();
-#endif
-
-#if PUBLISH_BATTERY_LEVEL
-  //connection_event_group = xEventGroupCreate();
+  FHEMLePresenceServer::initializeServer();
 #endif
 
   LOG_TO_FILE("BLETracker initialized");
@@ -456,14 +458,14 @@ void loop()
 #endif
 
 #if USE_FHEM_LEPRESENCE_SERVER
-  //Check and restore the wifi connection if it's loose
-  WiFiConnect(WIFI_SSID, WIFI_PASSWORD);
+    //Check and restore the wifi connection if it's loose
+    WiFiConnect(WIFI_SSID, WIFI_PASSWORD);
 #endif
 
     Watchdog::Feed();
 
     Serial.println("INFO: Running mainloop");
-    DEBUG_PRINTF("Free heap: %u\n", esp_get_free_heap_size());
+    DEBUG_PRINTF("Main loop Free heap: %u\n", xPortGetFreeHeapSize());
     DEBUG_PRINTF("Number device discovered: %d\n", BLETrackedDevices.size());
 
     if (BLETrackedDevices.size() == SettingsMngr.GetMaxNumOfTraceableDevices())
@@ -473,6 +475,33 @@ void loop()
       esp_restart();
     }
 
+#if PROGRESSIVE_SCAN
+    static uint32_t elapsedScanTime = 0;
+    static uint32_t lastScanTime = 0;
+
+    bool continuePrevScan = elapsedScanTime > 0;
+    if(!continuePrevScan)//new scan
+    {
+      //Reset the states of discovered devices
+      for (auto &trackedDevice : BLETrackedDevices)
+      {
+        trackedDevice.advertised = false;
+        trackedDevice.rssiValue = -100;
+        trackedDevice.advertisementCounter = 0;
+      }
+    }
+    
+    lastScanTime = NTPTime::seconds();
+    pBLEScan->start(1, continuePrevScan);
+    pBLEScan->stop();
+    elapsedScanTime += NTPTime::seconds() - lastScanTime;
+    bool scanCompleted = elapsedScanTime > SettingsMngr.scanPeriod;
+    if(scanCompleted)
+    {
+      elapsedScanTime=0;
+      pBLEScan->clearResults();
+    }
+#else
     //Reset the states of discovered devices
     for (auto &trackedDevice : BLETrackedDevices)
     {
@@ -486,6 +515,7 @@ void loop()
     pBLEScan->stop();
     pBLEScan->clearResults();
     //DEBUG_PRINTF("\n*** Memory After scan: %u\n",xPortGetFreeHeapSize());
+#endif 
 
 #if USE_MQTT
     publishAvailabilityToMQTT();
@@ -501,7 +531,11 @@ void loop()
       }
     }
 
+
 #if PUBLISH_BATTERY_LEVEL
+#if PROGRESSIVE_SCAN
+  if(scanCompleted)
+#endif
     batteryTask();
 #endif
 
@@ -528,6 +562,8 @@ void loop()
     }
 
     publishAvailabilityToMQTT();
+#elif USE_FHEM_LEPRESENCE_SERVER
+  FHEMLePresenceServer::loop();//Handle clients connections
 #endif
   }
   catch (std::exception &e)
@@ -540,4 +576,5 @@ void loop()
     DEBUG_PRINTLN("Error Unhandled exception trapped in main loop");
     LOG_TO_FILE_E("Error Unhandled exception trapped in main loop");
   }
+  delay(100);
 }
