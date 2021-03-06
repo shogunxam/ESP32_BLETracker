@@ -64,6 +64,11 @@
 #endif
 /////////////////////////
 
+#if USE_FHEM_LEPRESENCE_SERVER
+#define PROGRESSIVE_SCAN true
+#else
+#define PROGRESSIVE_SCAN false
+#endif
 
 #define ENABLE_OTA_WEBSERVER    true
 
