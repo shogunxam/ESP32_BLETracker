@@ -213,7 +213,7 @@ void OTAWebServer::postLogs()
     server.sendHeader(F("Connection"), F("close"));
     if (newSettings.Save())
     {
-      LOG_TO_FILE_I("New LogLevel configuration succesfully saved.");
+      LOG_TO_FILE_I("New LogLevel configuration successfully saved.");
       server.send(200, F("text/html"), "Ok");
     }
     else
@@ -400,7 +400,7 @@ void OTAWebServer::postUpdateConfig()
   server.sendHeader(F("Connection"), F("close"));
   if (newSettings.Save())
   {
-    LOG_TO_FILE_I("New configuration succesfully saved.");
+    LOG_TO_FILE_I("New configuration successfully saved.");
     server.send(200, F("text/html"), "Ok");
   }
   else

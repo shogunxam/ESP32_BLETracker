@@ -72,7 +72,7 @@ namespace FHEMLePresenceServer
     }
     catch (...)
     {
-      LOG_TO_FILE_E("Error: Cought exception sending message to FHEM client");
+      LOG_TO_FILE_E("Error: Caught exception sending message to FHEM client");
     }
   }
 
@@ -189,8 +189,8 @@ namespace FHEMLePresenceServer
     }
     catch (...)
     {
-      LOG_TO_FILE_E("Error: Cought exception handling FHEM client");
-      DEBUG_PRINTLN("Error: Cought exception handling FHEM client");
+      LOG_TO_FILE_E("Error: Caught exception handling FHEM client");
+      DEBUG_PRINTLN("Error: Caught exception handling FHEM client");
     }
   }
 
