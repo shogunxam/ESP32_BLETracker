@@ -9,7 +9,7 @@
 //Bluetooth scans can either be passive or active. 
 //When passively scanning, a device will only listen to Bluetooth devices, quietly collecting data about its surroundings.
 //Active scanners respond to every device they hear from, asking if they have more data to send.
-//Generally, passive scans are enought and use less power than active scans, so are the best option.
+//Generally, passive scans are enough and use less power than active scans, so are the best option.
 //Active scans are only necessary if you encounter strange issues i.e. the Tracker discovers devices when they are not present.
 #define ACTIVE_SCAN     false
 

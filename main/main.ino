@@ -215,8 +215,8 @@ void batteryTask()
          (trackedDevice.lastBattMeasureTime == 0)))
     {
       DEBUG_PRINTF("\nReading Battery level for %s: Retries: %d\n", trackedDevice.address, trackedDevice.connectionRetry);
-      bool connectionExtabilished = batteryLevel(trackedDevice.address, trackedDevice.addressType, trackedDevice.batteryLevel, trackedDevice.hasBatteryService);
-      if (connectionExtabilished || !trackedDevice.hasBatteryService)
+      bool connectionEstablished = batteryLevel(trackedDevice.address, trackedDevice.addressType, trackedDevice.batteryLevel, trackedDevice.hasBatteryService);
+      if (connectionEstablished || !trackedDevice.hasBatteryService)
       {
         log_i("Device %s has battery service: %s", trackedDevice.address, trackedDevice.hasBatteryService ? "YES" : "NO");
         trackedDevice.connectionRetry = 0;
@@ -288,7 +288,7 @@ bool batteryLevel(const char address[ADDRESS_STRING_SIZE], esp_ble_addr_type_t a
         hasBatteryService = true;
       }
     }
-    //Before disconnecting I need to pause the task to wait (I'don't know what), otherwhise we have an heap corruption
+    //Before disconnecting I need to pause the task to wait (I don't know what), otherwise we have an heap corruption
     //delay(200);
     if (client.isConnected())
     {
