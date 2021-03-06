@@ -8,39 +8,67 @@
 
 #include "utility.h"
 #include "SPIFFSLogger.h"
-
+#include "WiFiManager.h"
+#include "settings.h"
 namespace FHEMLePresenceServer
 {
-
-  void publishTag(WiFiClient *client, char address[ADDRESS_STRING_SIZE + 5], unsigned long timeout, const char *reason)
+  struct FHEMClient
   {
-    char normalizedAddress[ADDRESS_STRING_SIZE];
-    char msg[100] = "absence;rssi=unreachable;daemon=" GATEWAY_NAME " V" VERSION"\n";
+    FHEMClient()
+    {
+      Release();
+    }
 
-    NormalizeAddress(address, normalizedAddress);
+    void Release()
+    {
+      mAvailable = true;
+      mClient = WiFiClient(); // the following line is a workaround for a memory leak bug in arduino
+      address[0] = '\0';
+      normalizedAddress[0] = '\0';
+      timeout = MAX_NON_ADV_PERIOD;
+      lastreport = 0;
+    }
+
+    void AssignToClient(WiFiClient &client)
+    {
+      mClient = client;
+      mAvailable = false;
+    }
+
+    WiFiClient mClient;
+    bool mAvailable;
+    char address[ADDRESS_STRING_SIZE + 5];
+    char normalizedAddress[ADDRESS_STRING_SIZE];
+    unsigned long timeout;
+    unsigned long lastreport;
+  };
+
+  void publishTag(FHEMClient &fhemClient, const char *reason)
+  {
+    char msg[100] = "absence;rssi=unreachable;daemon=" GATEWAY_NAME " V" VERSION "\n";
 
     CRITICALSECTION_READSTART(trackedDevicesMutex)
     for (auto &trackedDevice : BLETrackedDevices)
     {
-      if (strcmp(normalizedAddress, trackedDevice.address) != 0)
+      if (strcmp(fhemClient.normalizedAddress, trackedDevice.address) != 0)
         continue;
 
-      if ((trackedDevice.lastDiscoveryTime + timeout) >= NTPTime::seconds())
+      if ((trackedDevice.lastDiscoveryTime + fhemClient.timeout) >= NTPTime::seconds())
       {
         if (PUBLISH_BATTERY_LEVEL && trackedDevice.batteryLevel > 0)
-          snprintf(msg, 100, "present;device_name=%s;rssi=%d;batteryPercent=%d;daemon=" GATEWAY_NAME " V" VERSION"\n", address, trackedDevice.rssiValue, trackedDevice.batteryLevel);
+          snprintf(msg, 100, "present;device_name=%s;rssi=%d;batteryPercent=%d;daemon=" GATEWAY_NAME " V" VERSION "\n", fhemClient.address, trackedDevice.rssiValue, trackedDevice.batteryLevel);
         else
-          snprintf(msg, 100, "present;device_name=%s;rssi=%d;daemon=" GATEWAY_NAME " V" VERSION"\n", address, trackedDevice.rssiValue);
+          snprintf(msg, 100, "present;device_name=%s;rssi=%d;daemon=" GATEWAY_NAME " V" VERSION "\n", fhemClient.address, trackedDevice.rssiValue);
       }
       break;
     }
     CRITICALSECTION_READEND
 
-    DEBUG_PRINTF("%s (%s): %s\n", reason, normalizedAddress, msg);
+    DEBUG_PRINTF("%s (%s): %s\n", reason, fhemClient.normalizedAddress, msg);
 
     try
     {
-      client->print(msg);
+      fhemClient.mClient.print(msg);
     }
     catch (...)
     {
@@ -48,13 +76,13 @@ namespace FHEMLePresenceServer
     }
   }
 
-  int readLine(WiFiClient *client, uint8_t* buff, size_t bufflen)
+  int readLine(WiFiClient *client, uint8_t *buff, size_t bufflen)
   {
     int byteRead = 0;
     uint8_t data;
     int res = 0;
 
-    while ( (res = client->read(&data, 1)) > 0 && (byteRead < (bufflen-1)) && (data != '\n'))
+    while ((res = client->read(&data, 1)) > 0 && (byteRead < (bufflen - 1)) && (data != '\n'))
     {
       buff[byteRead] = data;
       byteRead++;
@@ -63,70 +91,81 @@ namespace FHEMLePresenceServer
     return res > 0 ? byteRead : res;
   }
 
-  void handleClient(void *pvParameters)
+  const int maxNumberOfClients = 10;
+  FHEMClient FHEMClientPool[maxNumberOfClients];
+
+  void RelaseFHEMClient(FHEMClient *item)
   {
-    const uint16_t buffLen = 64;
-    uint8_t buf[buffLen];
-    char normalizedAddress[ADDRESS_STRING_SIZE];
-    char address[ADDRESS_STRING_SIZE + 5];
-    unsigned long timeout = MAX_NON_ADV_PERIOD;
-    unsigned long lastreport = 0;
-    address[0] = '\0';
-    normalizedAddress[0] = '\0';
+    item->Release();
+  }
 
-    WiFiClient *client = static_cast<WiFiClient *>(pvParameters);
+  FHEMClient *GetAvailabeFHEMClient()
+  {
+    FHEMClient *wlkrClnt = FHEMClientPool;
+    for (int i = 0; i < maxNumberOfClients; i++, wlkrClnt++)
+    {
+      if (wlkrClnt->mAvailable)
+        return wlkrClnt;
+    }
+    return nullptr;
+  }
 
+  void handleClient(FHEMClient &fhemClient)
+  {
     try
     {
-      while (client->connected())
+      if (fhemClient.mClient.connected())
       {
+        const uint16_t buffLen = 64;
+        uint8_t buf[buffLen];
+
         bool publish = false;
         bool fastDiscovery = false;
         char *reason = nullptr;
-        client->setTimeout(timeout);
-        if (client->available())
+        if (fhemClient.mClient.available())
         {
+          fhemClient.mClient.setTimeout(fhemClient.timeout);
           memset(buf, 0, buffLen);
-          if (readLine(client, buf, buffLen) > 0)
+          if (readLine(&(fhemClient.mClient), buf, buffLen) > 0)
           {
             DEBUG_PRINTLN((char *)buf);
             MatchState ms((char *)buf);
             if (ms.Match(R"(^%s*(%x%x:%x%x:%x%x:%x%x:%x%x:%x%x)%s*|%s*(%d+)%s*$)") == REGEXP_MATCHED)
             {
-              ms.GetCapture(address, 0);
+              ms.GetCapture(fhemClient.address, 0);
               char matchTimeout[10];
               ms.GetCapture(matchTimeout, 1);
-              timeout = atoi(matchTimeout);
-              if (timeout <= BLE_SCANNING_PERIOD)
-                timeout = BLE_SCANNING_PERIOD + 1;
+              fhemClient.timeout = atoi(matchTimeout);
+              if (fhemClient.timeout <= SettingsMngr.scanPeriod)
+                fhemClient.timeout = SettingsMngr.scanPeriod + 1;
 
-              NormalizeAddress(address, normalizedAddress);
-              FastDiscovery[normalizedAddress] = false;
+              NormalizeAddress(fhemClient.address, fhemClient.normalizedAddress);
+              FastDiscovery[fhemClient.normalizedAddress] = false;
               reason = "on request";
               publish = true;
-              client->print("command accepted\n");
+              fhemClient.mClient.print("command accepted\n");
             }
             else if (ms.Match(R"(^%s*now%s*$)") == REGEXP_MATCHED)
             {
               reason = "forced request";
               publish = true;
-              client->print("command accepted\n");
+              fhemClient.mClient.print("command accepted\n");
             }
             else
             {
-              client->print("command rejected\n");
+              fhemClient.mClient.print("command rejected\n");
             }
           }
         }
-        else if (address[0] != '\0')
+        else if (fhemClient.address[0] != '\0')
         {
-          fastDiscovery = (FastDiscovery.find(normalizedAddress) != FastDiscovery.end()) && FastDiscovery[normalizedAddress];
-          if ((lastreport + timeout) < NTPTime::seconds() || fastDiscovery)
+          fastDiscovery = (FastDiscovery.find(fhemClient.normalizedAddress) != FastDiscovery.end()) && FastDiscovery[fhemClient.normalizedAddress];
+          if ((fhemClient.lastreport + fhemClient.timeout) < NTPTime::seconds() || fastDiscovery)
           {
             publish = true;
             if (fastDiscovery)
             {
-              FastDiscovery[normalizedAddress] = false;
+              FastDiscovery[fhemClient.normalizedAddress] = false;
               reason = "fast discovery";
             }
             else
@@ -134,15 +173,18 @@ namespace FHEMLePresenceServer
           }
         }
 
-        if (address[0] != '\0' && publish)
+        if (fhemClient.address[0] != '\0' && publish)
         {
-          publishTag(client, address, timeout, reason);
-          lastreport = NTPTime::seconds();
-          if (fastDiscovery)
-            delay(1000);
+          publishTag(fhemClient, reason);
+          fhemClient.lastreport = NTPTime::seconds();
         }
-
-        delay(100);
+      }
+      else
+      {
+        DEBUG_PRINTF("Client Disconnect %s:%d for device %s\n", fhemClient.mClient.remoteIP().toString().c_str(), fhemClient.mClient.remotePort(), fhemClient.address);
+        fhemClient.mClient.flush();
+        fhemClient.mClient.stop();
+        RelaseFHEMClient(&fhemClient);
       }
     }
     catch (...)
@@ -150,61 +192,65 @@ namespace FHEMLePresenceServer
       LOG_TO_FILE_E("Error: Cought exception handling FHEM client");
       DEBUG_PRINTLN("Error: Cought exception handling FHEM client");
     }
-
-    DEBUG_PRINTLN("Client Disconnect");
-    client->stop();
-    delete client;
-    vTaskDelete(NULL);
   }
 
-  WiFiServer server(5333, 10); // Port, Maxclients
-  std::map<TaskHandle_t, std::string> tasks;
-  void wifiTask(void *pvParameters)
+  WiFiServer server(5333, maxNumberOfClients); // Port, Maxclients
+
+  void ListenForClientConnection()
+  {
+    WiFiClient client = server.available();
+    if (client)
+    {
+      FHEMClient *fhemClient = GetAvailabeFHEMClient();
+      if (fhemClient == nullptr)
+      {
+        DEBUG_PRINTLN("Warning: Reached the maximum number of clients\n");
+        LOG_TO_FILE_W("Warning: Reached the maximum number of clients");
+        client.stop();
+      }
+      else
+      {
+        if (client.available())
+          client.setNoDelay(true);
+
+        fhemClient->AssignToClient(client);
+        DEBUG_PRINTF("New connection from %s:%d\n", client.remoteIP().toString().c_str(), client.remotePort());
+        LOG_TO_FILE_D("New connection from %s:%d\n", client.remoteIP().toString().c_str(), client.remotePort());
+      }
+      client = WiFiClient(); // the following line is a workaround for a memory leak bug in arduino
+    }
+  }
+
+  void loop()
+  {
+    ListenForClientConnection();
+    for (int i = 0; i < maxNumberOfClients; i++)
+    {
+      if (!FHEMClientPool[i].mAvailable)
+      {
+        handleClient(FHEMClientPool[i]);
+      }
+    }
+  }
+
+  void initializeServer()
   {
     server.begin();
+  }
+
+  void serverTask(void *pvParameters)
+  {
+    DEBUG_PRINTLN("FHEM serverTask started...");
     for (;;)
     {
-      esp_task_wdt_reset();
-
-      WiFiClient client = server.available();
-      if (client)
-      {
-        WiFiClient *pClient = new WiFiClient(); //<-- Will be deleted when the client disconnects
-        *pClient = client;
-        char taskName[50];
-        snprintf(taskName, 50, "clientTask_%s:%d", pClient->remoteIP().toString().c_str(), pClient->remotePort());
-        DEBUG_PRINTF("New connection from %s\n", (taskName + 11));
-        LOG_TO_FILE_D("New connection from %s", (taskName + 11));
-
-        TaskHandle_t h_task;
-        xTaskCreate(handleClient, taskName, 3000, pClient, 2, &h_task);
-        tasks[h_task] = taskName;
-      }
-      else
-      {
-        delay(500);
-      }
+      loop();
+      delay(250);
     }
   }
 
-  void Start()
+  void startAsyncServer()
   {
-    TaskHandle_t h_task;
-    xTaskCreatePinnedToCore(wifiTask, "wifiTask", 3000, NULL, 1 | portPRIVILEGE_BIT, &h_task, 1);
-    tasks[h_task] = "wifiTask";
-  }
-
-  void RemoveCompletedTasks()
-  {
-    for (auto it = tasks.begin(); it != tasks.end();)
-    {
-      if (eTaskGetState(it->first) == eReady && it->second.substr(0, 6) == "client")
-        it = tasks.erase(it);
-      else
-      {
-        ++it;
-      }
-    }
+    xTaskCreatePinnedToCore(serverTask, "FHEMLePresenceServer::serverTask", 4096, NULL, 10, nullptr, 1);
   }
 
 } // namespace FHEMLePresenceServer

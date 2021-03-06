@@ -1,3 +1,15 @@
+# Table of Contents
+- [ESP32 BLETracker](#esp32-bletracker)
+  - [WEB Server](#web-server)
+  - [FHEM Support](#fhem-support)
+- [Arduino IDE Notes](#arduino-ide-notes)
+- [Have you found a crash? Help me to fix it.](#have-you-found-a-crash-help-me-to-fix-it)
+- [Tested BLE Devices](#tested-ble-devices)
+- [Home Assistant integration](#home-assistant-integration)
+- [Licence](#licence)
+- [Support my work](#support-my-work)
+<br><br>
+
 # ESP32 BLETracker
 A simple example describing how to track a Bluetooth Low Energy device with an ESP32, the MQTT protocol and Home Assistant. Please note that the targeted device can't have a changing BLE address (normally called random instead of public address).  
 
@@ -50,6 +62,43 @@ You can build this skatch using Arduino IDE (currently it's using arduino-esp32 
  The libray to replace should be located in the folder ~/.arduino15/packages/esp32/hardware/esp32/x.x.x/libraries/BLE for Unix users and in C:\Users\YourUserName\AppData\Local\Arduino15\packages\esp32\hardware\esp32\x.x.x\libraries\BLE for Windows users.<br>
 
 Build using the *Minimal SPIFFS* partition schema.
+
+# Have you found a crash? Help me to fix it.
+In order to understand the cause of the crash I need the backtrace returned by the firmware.
+- First you have to build the firmware in debug mode, if you are using PlatformIo you can switch to the proper Project environment clicking on the env:&lt;enviornemnt_name&gt; button placed on the PlatformIo status bar.
+- Flash the built firmware and open the console monitor.
+- Execute the procedure causing the crash.
+- When the crash occurs on the console you will see something like:
+```
+Backtrace: 0x4008505f:0x3ffbe350 0x401b9df5:0x3ffbe370 0x40019fb5:0x3ffbe390 0x40089692:0x3ffbe3c0 0x40088015:0x3ffbe400 0x40087d31:0x3ffbe420 0x4008a422:0x3ffbe440 0x4008b553:0x3ffbe460 0x400816e9:0x3ffbe480 0x401ba224:0x3ffe52a0 0x401ba7ed:0x3ffe52c0 0x4009008a:0x3ffe52f0
+```
+- Copy and paste this line in a file (i.e. backtrace.txt)
+- Open a terminal, if you are using PlatformIo simply select bash from the Terminal window
+- Run the `decoder.py` script you find in the project (it needs you have installed Python 3, if you are using PlatformIo you are fine). Refer to [EspArduinoExceptionDecoder](https://github.com/me21/EspArduinoExceptionDecoder) for more information on the tool.
+```
+usage: decoder.py [-h] [-p {ESP8266,ESP32}] [-t TOOL] -e ELF [-f] [-s] file
+
+decode ESP Stacktraces.
+
+positional arguments:
+  file                  The file to read the exception data from ('-' for STDIN)
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -p {ESP8266,ESP32}, --platform {ESP8266,ESP32}
+                        The platform to decode from
+  -t TOOL, --tool TOOL  Path to the xtensa toolchain
+  -e ELF, --elf ELF     path to elf file
+  -f, --full            Print full stack dump
+  -s, --stack_only      Decode only a stractrace
+```
+so you have to write something like:
+
+```
+./decoder.py -p ESP32 -t ~/.platformio/packages/toolchain-xtensa32 -e .pio/build/esp32dev-ble-debug/firmware.elf ./backtrace.txt 
+```
+- Open an issue giving as much as possible details you can and attach the output of the decoder.
+<br><br>
 
 # Tested BLE Devices
 | BLE Device | Discovery | Battery |
@@ -184,7 +233,7 @@ Alternatively you can use the single topic returning the state in the following 
      {% endif %}
 ```
 
-## Licence
+# Licence
 
 Permission is hereby granted, free of charge, to any person obtaining a copy<br>
 of this software and associated documentation files (the "Software"), to deal<br>

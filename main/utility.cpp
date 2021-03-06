@@ -14,7 +14,13 @@ void CanonicalAddress(const char address[ADDRESS_STRING_SIZE], char out[ADDRESS_
     }
   }
 }
+//Convert mac adddress to ABCEF1234567
+void NormalizeAddress(const uint8_t address[6], char out[ADDRESS_STRING_SIZE])
+{
+  snprintf(out, ADDRESS_STRING_SIZE,"%02X%02X%02X%02X%02X%02X", address[0], address[1], address[2], address[3], address[4], address[5]);
+}
 
+//Convert mac adddress from AB:CE:F1:23:45:67 or ab:ce:f1:23:45:67 to ABCEF1234567
 void NormalizeAddress(const char* in, char out[ADDRESS_STRING_SIZE])
 {
     char *outWlkr = out;
@@ -29,6 +35,7 @@ void NormalizeAddress(const char* in, char out[ADDRESS_STRING_SIZE])
     out[ADDRESS_STRING_SIZE - 1] = '\0';
 }
 
+//Convert mac adddress from AB:CE:F1:23:45:67 or ab:ce:f1:23:45:67 to ABCEF1234567
 void NormalizeAddress(const std::string &in, char out[ADDRESS_STRING_SIZE])
 {
   NormalizeAddress(in.c_str(),out);
