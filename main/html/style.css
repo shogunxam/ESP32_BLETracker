@@ -120,3 +120,14 @@ table.scroll-table td {
 .grid-label {
   font-weight: bold;
 }
+
+.blinking{
+    animation:blinkingText 1.2s infinite;
+}
+@keyframes blinkingText{
+  0%{color:#A22E37; background-color:#F4C430;}
+  49%{ color:#A22E37; background-color:#F4C430;}
+  60%{color:transparent; background-color:transparent;}
+  99%{color:transparent; background-color:transparent;}
+  100%{color:#A22E37; background-color:#F4C430;}
+}
