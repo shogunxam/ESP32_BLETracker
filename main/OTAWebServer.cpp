@@ -272,7 +272,7 @@ void OTAWebServer::getIndexData()
   server.client().setNoDelay(true);
   CRITICALSECTION_START(dataBuffMutex)
   StartChunkedContentTransfer("text/json");
-  SendChunkedContent(R"({"gateway":")" GATEWAY_NAME R"(","logs":)");
+  SendChunkedContent(R"({"gateway":")" GATEWAY_NAME R"(","ver":")" VERSION R"(","logs":)");
 #if ENABLE_FILE_LOG
   SendChunkedContent("true");
 #else
