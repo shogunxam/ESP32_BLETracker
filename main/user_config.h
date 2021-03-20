@@ -42,9 +42,7 @@
 
 //NTP Server configurations
 #define NTP_SERVER          "pool.ntp.org"
-//Time Offset in seconds from GMT i.e. TZ+1 = 3600, TZ-1 = -3600
-#define GMT_OFFSET_IN_SEC   3600 
-//Daylight saving time offset in seconds 
-#define DST_OFFSET_INSEC    3600
+//Get here your time zone https://remotemonitoringsystems.ca/time-zone-abbreviations.php
+#define TIME_ZONE "CET-1CEST-2,M3.5.0/02:00:00,M10.5.0/03:00:00"
 
 #endif
