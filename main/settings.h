@@ -25,6 +25,7 @@ public:
     String mqttServer;
     uint16_t mqttPort;
     uint32_t scanPeriod;
+    uint32_t maxNotAdvPeriod;
     uint8_t logLevel;
     bool mqttEnabled;
 
