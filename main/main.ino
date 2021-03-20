@@ -417,6 +417,12 @@ void setup()
 #endif
 
   BLETrackedDevices.reserve(SettingsMngr.GetMaxNumOfTraceableDevices());
+  for (const auto& mac : SettingsMngr.GetTrackWhiteList())
+  {
+    BLETrackedDevice trackedDevice;
+    memcpy(trackedDevice.address, mac.c_str(), ADDRESS_STRING_SIZE);
+    BLETrackedDevices.push_back(std::move(trackedDevice));
+  }
 
   Watchdog::Initialize();
 
