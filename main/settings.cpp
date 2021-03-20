@@ -248,3 +248,8 @@ void Settings::Load()
             file.read((uint8_t *)&maxNotAdvPeriod, sizeof(maxNotAdvPeriod));
     }
 }
+
+const std::vector<String>& Settings::GetTrackWhiteList()
+{
+    return trackWhiteList;
+}
