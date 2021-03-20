@@ -16,14 +16,14 @@
 //Scanning to discover devices is performed every BLE_SCANNING_PERIOD seconds
 #define BLE_SCANNING_PERIOD   10    /*10 s*/
 
-//If the device is not advertides for MAX_NON_ADV_PERIOD milliseconds it's considered away
+//If the device is not advertides for MAX_NON_ADV_PERIOD seconds it's considered away
 #define MAX_NON_ADV_PERIOD    120 /*2m -> 2m*60s*/
 
-//The device's battery is read every BATTERY_READ_PERIOD milliseconds
+//The device's battery is read every BATTERY_READ_PERIOD seconds
 //If the battery value's is not read after BATTERY_READ_PERIOD it becomes unknown
 #define BATTERY_READ_PERIOD    43200 /*12h -> 12h*60m*60s*/
 
-//In case of failure reading the battery's value we retry after BATTERY_RETRY_PERIOD milliseconds
+//In case of failure reading the battery's value we retry after BATTERY_RETRY_PERIOD seconds
 #define BATTERY_RETRY_PERIOD    3600 /*1h -> 60m*60s*/
 
 //Retries to read the battery level if connections fails before to give up until BATTERY_RETRY_PERIOD expires
