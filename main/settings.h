@@ -20,6 +20,7 @@ public:
     std::size_t GetMaxNumOfTraceableDevices();
     void EnableWhiteList(bool enable);
     void AddDeviceToWhiteList(const String &mac, bool checkBattery);
+    const std::vector<String>& GetTrackWhiteList();
     String mqttUser;
     String mqttPwd;
     String mqttServer;
