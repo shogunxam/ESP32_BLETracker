@@ -523,7 +523,7 @@ void loop()
 
     for (auto &trackedDevice : BLETrackedDevices)
     {
-      if (trackedDevice.isDiscovered && (trackedDevice.lastDiscoveryTime + MAX_NON_ADV_PERIOD) < NTPTime::seconds())
+      if (trackedDevice.isDiscovered && (trackedDevice.lastDiscoveryTime + SettingsMngr.maxNotAdvPeriod) < NTPTime::seconds())
       {
         trackedDevice.isDiscovered = false;
         FastDiscovery[trackedDevice.address] = false;

@@ -386,6 +386,8 @@ void OTAWebServer::postUpdateConfig()
       newSettings.mqttPwd = server.arg(i);
     else if (server.argName(i) == "scanperiod")
       newSettings.scanPeriod = server.arg(i).toInt();
+    else if (server.argName(i) == "maxNotAdvPeriod")
+      newSettings.maxNotAdvPeriod = server.arg(i).toInt();
     else if (server.argName(i) == "whiteList")
       newSettings.EnableWhiteList(server.arg(i) == "true");
     else //other are mac address with battery check in the form "AE13FCB45BAD":"true"

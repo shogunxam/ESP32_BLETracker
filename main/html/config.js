@@ -1,20 +1,21 @@
-$(document).ready(function() {
+$(document).ready(function () {
   now = new Date();
   factory = getUrlParameter('factory');
-  var url = "/getconfigdata?time="+now.getTime();
-  if(factory == "true"){
-    url+="&factory=true";
+  var url = "/getconfigdata?time=" + now.getTime();
+  if (factory == "true") {
+    url += "&factory=true";
   }
 
-  $.get(url,function(data) {
+  $.get(url, function (data) {
     console.log(data);
-    if(!data.mqtt_enabled)
+    if (!data.mqtt_enabled)
       $('#mqttbroker').hide()
     $('#mqttsrvr').val(data.mqtt_address);
     $('#mqttport').val(data.mqtt_port);
     $('#mqttusr').val(data.mqtt_usr);
     $('#mqttpwd').val(data.mqtt_pwd);
     $('#scanperiod').val(data.scanPeriod);
+    $('#maxNotAdvPeriod').val(data.maxNotAdvPeriod);
     $('#whiteList').prop("checked", data.whiteList);
     for (const property in data.trk_list) {
       addMac(`${property}`, data.trk_list[property]);
@@ -24,22 +25,22 @@ $(document).ready(function() {
 });
 
 function getUrlParameter(sParam) {
-    var sPageURL = window.location.search.substring(1),
-        sURLVariables = sPageURL.split('&'),
-        sParameterName,
-        i;
+  var sPageURL = window.location.search.substring(1),
+    sURLVariables = sPageURL.split('&'),
+    sParameterName,
+    i;
 
-    for (i = 0; i < sURLVariables.length; i++) {
-        sParameterName = sURLVariables[i].split('=');
+  for (i = 0; i < sURLVariables.length; i++) {
+    sParameterName = sURLVariables[i].split('=');
 
-        if (sParameterName[0] === sParam) {
-            return sParameterName[1] === undefined ? true : decodeURIComponent(sParameterName[1]);
-        }
+    if (sParameterName[0] === sParam) {
+      return sParameterName[1] === undefined ? true : decodeURIComponent(sParameterName[1]);
     }
+  }
 };
 
-$(function() {
-  $('#configure').click(function(e) {
+$(function () {
+  $('#configure').click(function (e) {
     var d = $('#form :input[name!="newmac"]').serialize({
       checkboxesAsBools: true
     });
@@ -48,26 +49,26 @@ $(function() {
       type: "POST",
       url: "/updateconfig",
       data: d,
-      success: function() {
+      success: function () {
         console.log('success!');
         window.location = '/restart';
       },
-      error: function() {
+      error: function () {
         console.log('error!');
         alert("WARNING: An error occurred saving the settings!");
       },
     });
     e.preventDefault();
   });
-  $('#factory').click(function(e) {
+  $('#factory').click(function (e) {
     window.location.href = '/config?factory=true';
     e.preventDefault();
   });
-  $('#undo').click(function(e) {
+  $('#undo').click(function (e) {
     window.location.href = '/config';
     e.preventDefault();
   });
-  $('#addMac').click(function() {
+  $('#addMac').click(function () {
     mac = $('#newmac').val();
     addMac(mac, false);
     $('#addMac').prop("disabled", true);
@@ -78,23 +79,23 @@ $(function() {
 
 function addMac(mac, whitelist) {
   container = $('#devList > tbody:last-child');
-  raw = '<tr id="rw_'+ mac + '">';
+  raw = '<tr id="rw_' + mac + '">';
   raw += '<td><input type="checkbox" id="' + mac + '"name="' + mac + '"style="width:auto;height:auto"></td>';
   raw += '<td>' + mac + '</td>';
-  raw += '<td><input type="button" id="rm_' + mac + '" value="Remove"style="width:auto;height:auto" class=dangerbtn onclick="$(\'#rw_'+mac+'\').remove()"></td>';
+  raw += '<td><input type="button" id="rm_' + mac + '" value="Remove"style="width:auto;height:auto" class=dangerbtn onclick="$(\'#rw_' + mac + '\').remove()"></td>';
   raw += '</tr>';
   container.append(raw);
   $('#' + mac).prop("checked", whitelist);
 }
 
 function validateMacDigit(elem) {
-  if (event.key.length > 1){
+  if (event.key.length > 1) {
     return elem.value;
   }
   mac = elem.value + event.key.toUpperCase();
   event.preventDefault();
   if (/^[0-9A-F]+$/.test(mac)) {
-    if (mac.length == 12){
+    if (mac.length == 12) {
       $('#addMac').prop("disabled", false);
     }
     return mac;
@@ -120,12 +121,12 @@ function isMacValid(mac) {
   return (/^[0-9A-F]+$/.test(mac));
 }
 
-(function($) {
-  $.fn.serialize = function(options) {
+(function ($) {
+  $.fn.serialize = function (options) {
     return $.param(this.serializeArray(options));
   };
 
-  $.fn.serializeArray = function(options) {
+  $.fn.serializeArray = function (options) {
     var o = $.extend({
       checkboxesAsBools: false
     }, options || {});
@@ -133,31 +134,31 @@ function isMacValid(mac) {
     var rselectTextarea = /select|textarea/i;
     var rinput = /text|hidden|password|search|number/i;
 
-    return this.map(function() {
-        return this.elements ? $.makeArray(this.elements) : this;
-      })
-      .filter(function() {
+    return this.map(function () {
+      return this.elements ? $.makeArray(this.elements) : this;
+    })
+      .filter(function () {
         return this.name && !this.disabled &&
           (this.checked ||
             (o.checkboxesAsBools && this.type === 'checkbox') ||
             rselectTextarea.test(this.nodeName) ||
             rinput.test(this.type));
       })
-      .map(function(i, elem) {
+      .map(function (i, elem) {
         var val = $(this).val();
         return val == null ?
           null :
           $.isArray(val) ?
-          $.map(val, function(val, i) {
-            return {
+            $.map(val, function (val, i) {
+              return {
+                name: elem.name,
+                value: val
+              };
+            }) : {
               name: elem.name,
-              value: val
+              value: (o.checkboxesAsBools && this.type === 'checkbox') ?
+                (this.checked ? true : false) : val
             };
-          }) : {
-            name: elem.name,
-            value: (o.checkboxesAsBools && this.type === 'checkbox') ?
-              (this.checked ? true : false) : val
-          };
       }).get();
   };
 })(jQuery);
