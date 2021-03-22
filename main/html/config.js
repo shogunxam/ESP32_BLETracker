@@ -5,8 +5,8 @@ $(document).ready(function () {
   if (factory == "true") {
     url += "&factory=true";
   }
-
-  $.get(url, function (data) {
+  data = { "version": 3, "mqtt_enabled": true, "mqtt_address": "192.168.1.7", "mqtt_port": 1883, "mqtt_usr": "xxxxxx", "mqtt_pwd": "xxxxxx", "scanPeriod": 10, "maxNotAdvPeriod": 120, "loglevel": 2, "whiteList": true, "trk_list": { "CA67347FD139": { "battery": true, "desc": "12345678901234567890" }, "D1667690EAA2": { "battery": false, "desc": "123" }, "EB3B442D6CCE": { "battery": false, "desc": "123" } } }
+  //$.get(url, function (data) {
     console.log(data);
     if (!data.mqtt_enabled)
       $('#mqttbroker').hide()
@@ -21,7 +21,7 @@ $(document).ready(function () {
       addMac(`${property}`, data.trk_list[property]);
       $('#addMac').prop("disabled", true);
     }
-  });
+  //});
 });
 
 function getUrlParameter(sParam) {
@@ -41,10 +41,33 @@ function getUrlParameter(sParam) {
 
 $(function () {
   $('#configure').click(function (e) {
-    var d = $('#form :input[name!="newmac"]').serialize({
-      checkboxesAsBools: true
+
+    const form = document.querySelector('#configform');
+    const data = new FormData(form);
+    var checkbox = $("#configform").find("input[type=checkbox]");
+    $.each(checkbox, function (key, val) {
+      data.append($(val).attr('name'), $(val).is(':checked'))
     });
-    console.log(d);
+
+    var d = Array.from(data).reduce((acc, e) => {
+      if(e[0] == "newmac")
+        return acc;
+      if( e[0].includes(":"))
+      {
+        [g, k, v] = [...e[0].split(':'), e[1]];
+        if (!acc[g])
+          acc[g] = {};
+        acc[g][k]=v;
+      }
+      else 
+      {
+        k = e[0]; v= e[1];
+        acc[k] = v;
+      }
+      return acc;
+    }, {}
+    );
+
     $.ajax({
       type: "POST",
       url: "/updateconfig",
@@ -77,15 +100,15 @@ $(function () {
   });
 });
 
-function addMac(mac, whitelist) {
+function addMac(mac, devProp) {
   container = $('#devList > tbody:last-child');
   raw = '<tr id="rw_' + mac + '">';
-  raw += '<td><input type="checkbox" id="' + mac + '"name="' + mac + '"style="width:auto;height:auto"></td>';
-  raw += '<td>' + mac + '</td>';
+  raw += '<td><input type="checkbox" id="'+ mac + '_batt" name="' + mac + ':batt" style="width:auto;height:auto"></td>';
+  raw += '<td>' + mac + '<input type="text" id="' + mac + '_desc" name="' + mac + ':desc" style="font-size:0.95em;text-align:center;width:15em;height:auto" value="' + devProp.desc +'"><br><hr></td>';
   raw += '<td><input type="button" id="rm_' + mac + '" value="Remove"style="width:auto;height:auto" class=dangerbtn onclick="$(\'#rw_' + mac + '\').remove()"></td>';
   raw += '</tr>';
   container.append(raw);
-  $('#' + mac).prop("checked", whitelist);
+  $('#' + mac +'_batt').prop("checked", devProp.battery);
 }
 
 function validateMacDigit(elem) {
@@ -121,44 +144,3 @@ function isMacValid(mac) {
   return (/^[0-9A-F]+$/.test(mac));
 }
 
-(function ($) {
-  $.fn.serialize = function (options) {
-    return $.param(this.serializeArray(options));
-  };
-
-  $.fn.serializeArray = function (options) {
-    var o = $.extend({
-      checkboxesAsBools: false
-    }, options || {});
-
-    var rselectTextarea = /select|textarea/i;
-    var rinput = /text|hidden|password|search|number/i;
-
-    return this.map(function () {
-      return this.elements ? $.makeArray(this.elements) : this;
-    })
-      .filter(function () {
-        return this.name && !this.disabled &&
-          (this.checked ||
-            (o.checkboxesAsBools && this.type === 'checkbox') ||
-            rselectTextarea.test(this.nodeName) ||
-            rinput.test(this.type));
-      })
-      .map(function (i, elem) {
-        var val = $(this).val();
-        return val == null ?
-          null :
-          $.isArray(val) ?
-            $.map(val, function (val, i) {
-              return {
-                name: elem.name,
-                value: val
-              };
-            }) : {
-              name: elem.name,
-              value: (o.checkboxesAsBools && this.type === 'checkbox') ?
-                (this.checked ? true : false) : val
-            };
-      }).get();
-  };
-})(jQuery);

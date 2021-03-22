@@ -15,6 +15,7 @@
 #include "OTAWebServer.h"
 #include "macro_utility.h"
 #include "settings.h"
+#include <Regexp.h>
 
 #include "SPIFFSLogger.h"
 
@@ -376,6 +377,10 @@ void OTAWebServer::postUpdateConfig()
   Settings newSettings(SettingsMngr.GetSettingsFile(), true);
   for (int i = 0; i < server.args(); i++)
   {
+
+    DEBUG_PRINTLN(server.argName(i));
+    DEBUG_PRINTLN(server.arg(i));
+
     if (server.argName(i) == "mqttsrvr")
       newSettings.mqttServer = server.arg(i);
     else if (server.argName(i) == "mqttport")
@@ -392,8 +397,43 @@ void OTAWebServer::postUpdateConfig()
       newSettings.EnableWhiteList(server.arg(i) == "true");
     else //other are mac address with battery check in the form "AE13FCB45BAD":"true"
     {
-      bool batteryCheck = server.arg(i) == "true";
-      newSettings.AddDeviceToWhiteList(server.argName(i), batteryCheck);
+        MatchState ms((char *)server.argName(i).c_str());
+        if (ms.Match(R"(^(%w*)\[%w\]")") == REGEXP_MATCHED)
+        {
+          Settings::KnownDevice device;
+          bool sameDevice = false;
+          ms.GetCapture(device.address, 0);
+          sameDevice = true;
+
+          while (sameDevice)
+          {
+            char addr[ADDRESS_STRING_SIZE];
+            MatchState ms((char *)server.argName(i).c_str());
+            if (ms.Match(R"(^(%w*)\[batt\])") == REGEXP_MATCHED)
+            {
+              ms.GetCapture(addr, 0);
+              sameDevice = strcmp(addr, device.address) == 0;
+              if(sameDevice)
+              {
+                  device.readBattery = server.arg(i) == "true";
+                  i++;
+              }
+            }
+
+            if (ms.Match(R"(^(%w*)\[desc\])") == REGEXP_MATCHED)
+            {
+              ms.GetCapture(addr, 0);
+              sameDevice = strcmp(addr, device.address) == 0;
+              if(sameDevice)
+              {
+                  snprintf(device.description, DESCRIPTION_STRING_SIZE,"%s",server.arg(i));
+                  i++;
+              }
+            }
+          }
+          i--;
+          newSettings.AddDeviceToList(device);
+        }
     }
   }
 
@@ -410,7 +450,9 @@ void OTAWebServer::postUpdateConfig()
     LOG_TO_FILE_E("Error saving the new configuration.");
     server.send(500, F("text/html"), "Error saving settings");
   }
+
 }
+
 
 void OTAWebServer::getSysInfoData()
 {
