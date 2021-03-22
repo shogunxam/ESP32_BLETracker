@@ -32,12 +32,12 @@ struct BLETrackedDevice
     lastBattMeasureTime = 0;
     batteryLevel = -1;
     advertised = false;
-    hasBatteryService = false;
+    hasBatteryService = true;
     connectionRetry = 0;
     rssiValue = -100;
     addressType = BLE_ADDR_TYPE_PUBLIC;
     advertisementCounter = 0;
-    forceBatteryRead = false;
+    forceBatteryRead = true;
   }
 };
 
