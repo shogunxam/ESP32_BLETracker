@@ -377,10 +377,6 @@ void OTAWebServer::postUpdateConfig()
   Settings newSettings(SettingsMngr.GetSettingsFile(), true);
   for (int i = 0; i < server.args(); i++)
   {
-
-    DEBUG_PRINTLN(server.argName(i));
-    DEBUG_PRINTLN(server.arg(i));
-
     if (server.argName(i) == "mqttsrvr")
       newSettings.mqttServer = server.arg(i);
     else if (server.argName(i) == "mqttport")
@@ -398,41 +394,25 @@ void OTAWebServer::postUpdateConfig()
     else //other are mac address with battery check in the form "AE13FCB45BAD":"true"
     {
         MatchState ms((char *)server.argName(i).c_str());
-        if (ms.Match(R"(^(%w*)\[%w\]")") == REGEXP_MATCHED)
+        if (ms.Match(R"((%w+)%[(%w+)%])") == REGEXP_MATCHED)
         {
-          Settings::KnownDevice device;
-          bool sameDevice = false;
-          ms.GetCapture(device.address, 0);
-          sameDevice = true;
-
-          while (sameDevice)
+          DEBUG_PRINTF("Match %s\n", server.argName(i).c_str())
+          char buff[ADDRESS_STRING_SIZE];
+          ms.GetCapture(buff, 0);
+          Settings::KnownDevice* device = newSettings.GetDevice(buff);
+          if(device == nullptr)
           {
-            char addr[ADDRESS_STRING_SIZE];
-            MatchState ms((char *)server.argName(i).c_str());
-            if (ms.Match(R"(^(%w*)\[batt\])") == REGEXP_MATCHED)
-            {
-              ms.GetCapture(addr, 0);
-              sameDevice = strcmp(addr, device.address) == 0;
-              if(sameDevice)
-              {
-                  device.readBattery = server.arg(i) == "true";
-                  i++;
-              }
-            }
-
-            if (ms.Match(R"(^(%w*)\[desc\])") == REGEXP_MATCHED)
-            {
-              ms.GetCapture(addr, 0);
-              sameDevice = strcmp(addr, device.address) == 0;
-              if(sameDevice)
-              {
-                  snprintf(device.description, DESCRIPTION_STRING_SIZE,"%s",server.arg(i));
-                  i++;
-              }
-            }
+              Settings::KnownDevice tDev;
+              snprintf(tDev.address, ADDRESS_STRING_SIZE, "%s", buff);
+              newSettings.AddDeviceToList(tDev);
+              device = newSettings.GetDevice(buff);
           }
-          i--;
-          newSettings.AddDeviceToList(device);
+          DEBUG_PRINTF("Match value %s\n", server.arg(i).c_str())
+          ms.GetCapture(buff, 1);
+          if(strcmp(buff,"batt") == 0)
+            device->readBattery = server.arg(i) == "true";
+          else if (strcmp(buff,"desc") == 0)
+            snprintf(device->description, DESCRIPTION_STRING_SIZE,"%s",server.arg(i));
         }
     }
   }

@@ -5,8 +5,8 @@ $(document).ready(function () {
   if (factory == "true") {
     url += "&factory=true";
   }
-  data = { "version": 3, "mqtt_enabled": true, "mqtt_address": "192.168.1.7", "mqtt_port": 1883, "mqtt_usr": "xxxxxx", "mqtt_pwd": "xxxxxx", "scanPeriod": 10, "maxNotAdvPeriod": 120, "loglevel": 2, "whiteList": true, "trk_list": { "CA67347FD139": { "battery": true, "desc": "12345678901234567890" }, "D1667690EAA2": { "battery": false, "desc": "123" }, "EB3B442D6CCE": { "battery": false, "desc": "123" } } }
-  //$.get(url, function (data) {
+  
+  $.get(url, function (data) {
     console.log(data);
     if (!data.mqtt_enabled)
       $('#mqttbroker').hide()
@@ -21,7 +21,7 @@ $(document).ready(function () {
       addMac(`${property}`, data.trk_list[property]);
       $('#addMac').prop("disabled", true);
     }
-  //});
+  });
 });
 
 function getUrlParameter(sParam) {
