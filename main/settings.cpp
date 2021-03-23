@@ -186,7 +186,7 @@ String Settings::toJSON()
 bool Settings::IsTraceable(const String &value)
 {
     if (enableWhiteList)
-        return IsPropertyForDeviceEnabled(value, DeviceProperty::eReadBattery);
+        return IsPropertyForDeviceEnabled(value, DeviceProperty::eTraceable);
     else
         return true;
 }
@@ -194,7 +194,7 @@ bool Settings::IsTraceable(const String &value)
 bool Settings::InBatteryList(const String &value)
 {
 #if PUBLISH_BATTERY_LEVEL
-    return IsPropertyForDeviceEnabled(value, DeviceProperty::eTraceable);
+    return IsPropertyForDeviceEnabled(value, DeviceProperty::eReadBattery);
 #else
     return false;
 #endif
