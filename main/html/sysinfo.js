@@ -51,7 +51,7 @@ function loadData() {
       div = '<div style="align-content: center;">'
         + '<p style="display : inline-block; width: fit-content; height: fit-content;">' + item.battery + '</p>'
         + '<input type="button" value="Refresh" id="rbtn_' + item.mac + '" class=btn onclick="readbBattery(\'' + item.mac + '\')"style="font-size : 0.8em; padding: 5px; display : inline-block; width: fit-content; width: -moz-fit-content;height: fit-content;float: right;">'
-        + '<p style="margin-top: 0px; font-size : 0.8em;">last reading at:</br>' + (item.bttime ? timeConverter(item.bttime) : '-- --- ---- -- : -- : --') + '</p>'
+        + '<p style="margin-top: 0px; font-size : 0.8em;">' + (item.bttime ? timeConverter(item.bttime) : '') + '</p>'
         + '</div>';
       tbtr.append(div);
     }

@@ -197,12 +197,6 @@ void batteryTask()
     publishAvailabilityToMQTT();
 #endif
 
-    if (trackedDevice.forceBatteryRead)
-    {
-      trackedDevice.lastBattMeasureTime = 0;
-      trackedDevice.forceBatteryRead = false;
-    }
-
     //We need to connect to the device to read the battery value
     //So that we check only the device really advertised by the scan
     unsigned long BatteryReadTimeout = trackedDevice.lastBattMeasureTime + BATTERY_READ_PERIOD;
@@ -212,7 +206,7 @@ void batteryTask()
     if (trackedDevice.advertised && trackedDevice.hasBatteryService && trackedDevice.rssiValue > -90 &&
         ((batterySet && (BatteryReadTimeout < now)) ||
          (!batterySet && (BatteryRetryTimeout < now)) ||
-         (trackedDevice.lastBattMeasureTime == 0)))
+         trackedDevice.forceBatteryRead))
     {
       DEBUG_PRINTF("\nReading Battery level for %s: Retries: %d\n", trackedDevice.address, trackedDevice.connectionRetry);
       bool connectionEstablished = batteryLevel(trackedDevice.address, trackedDevice.addressType, trackedDevice.batteryLevel, trackedDevice.hasBatteryService);
@@ -220,7 +214,7 @@ void batteryTask()
       {
         log_i("Device %s has battery service: %s", trackedDevice.address, trackedDevice.hasBatteryService ? "YES" : "NO");
         trackedDevice.connectionRetry = 0;
-        trackedDevice.lastBattMeasureTime = now;
+        trackedDevice.lastBattMeasureTime = now;        
       }
       else
       {
@@ -238,6 +232,7 @@ void batteryTask()
       //when the device will be advertised again
       trackedDevice.batteryLevel = -1;
     }
+    trackedDevice.forceBatteryRead = false;
     Watchdog::Feed();
   }
   //DEBUG_PRINTF("\n*** Memory after battery scan: %u\n",xPortGetFreeHeapSize());
