@@ -20,6 +20,13 @@ namespace NTPTime
         ::getLocalTime(&timeinfo);
     }
 
+    time_t getTimeStamp()
+    {
+        struct tm timeinfo;
+        getLocalTime(timeinfo);
+        return mktime(&timeinfo);
+    }
+    
     void strftime(const char* format, const tm &timeInfo, String &out)
     {
         char buff[255];

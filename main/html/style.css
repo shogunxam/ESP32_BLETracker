@@ -65,6 +65,15 @@ form {
   text-align:center
 }
 
+#indexform {
+  background:#fff;
+  max-width:380px;
+  margin:75px auto;
+  padding:30px;
+  border-radius:5px;
+  text-align:center
+}
+
 .btn, 
 .fatbtn {
   background: #3498db;
@@ -88,7 +97,7 @@ form {
 .table-wrapper {
   overflow-x: auto;
   overflow-y: scroll;
-  height: 150px;
+  height: 250px;
 }
 .table-wrapper th {
   position: sticky;

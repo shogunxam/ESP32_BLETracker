@@ -207,7 +207,7 @@ void batteryTask()
     //So that we check only the device really advertised by the scan
     unsigned long BatteryReadTimeout = trackedDevice.lastBattMeasureTime + BATTERY_READ_PERIOD;
     unsigned long BatteryRetryTimeout = trackedDevice.lastBattMeasureTime + BATTERY_RETRY_PERIOD;
-    unsigned long now = NTPTime::seconds();
+    unsigned long now = NTPTime::getTimeStamp();
     bool batterySet = trackedDevice.batteryLevel > 0;
     if (trackedDevice.advertised && trackedDevice.hasBatteryService && trackedDevice.rssiValue > -90 &&
         ((batterySet && (BatteryReadTimeout < now)) ||

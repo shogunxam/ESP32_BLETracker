@@ -489,6 +489,13 @@ void OTAWebServer::getSysInfoData()
     itoa(trackedDevice.batteryLevel, strbuff, 10);
     SendChunkedContent(strbuff);
     SendChunkedContent(R"(,)");
+    if(trackedDevice.lastBattMeasureTime > 0)
+    {
+      SendChunkedContent(R"("bttime":)");
+      itoa(trackedDevice.lastBattMeasureTime, strbuff, 10);
+      SendChunkedContent(strbuff);
+      SendChunkedContent(R"(,)");
+    }
 #endif
     SendChunkedContent(R"("state":")");
     SendChunkedContent(trackedDevice.isDiscovered ? "On" : "Off");
