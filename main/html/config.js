@@ -5,7 +5,7 @@ $(document).ready(function () {
   if (factory == "true") {
     url += "&factory=true";
   }
-
+  
   $.get(url, function (data) {
     console.log(data);
     if (!data.mqtt_enabled)
@@ -41,10 +41,33 @@ function getUrlParameter(sParam) {
 
 $(function () {
   $('#configure').click(function (e) {
-    var d = $('#form :input[name!="newmac"]').serialize({
-      checkboxesAsBools: true
+
+    const form = document.querySelector('#configform');
+    const data = new FormData(form);
+    var checkbox = $("#configform").find("input[type=checkbox]");
+    $.each(checkbox, function (key, val) {
+      data.append($(val).attr('name'), $(val).is(':checked'))
     });
-    console.log(d);
+
+    var d = Array.from(data).reduce((acc, e) => {
+      if(e[0] == "newmac")
+        return acc;
+      if( e[0].includes(":"))
+      {
+        [g, k, v] = [...e[0].split(':'), e[1]];
+        if (!acc[g])
+          acc[g] = {};
+        acc[g][k]=v;
+      }
+      else 
+      {
+        k = e[0]; v= e[1];
+        acc[k] = v;
+      }
+      return acc;
+    }, {}
+    );
+
     $.ajax({
       type: "POST",
       url: "/updateconfig",
@@ -77,15 +100,15 @@ $(function () {
   });
 });
 
-function addMac(mac, whitelist) {
+function addMac(mac, devProp) {
   container = $('#devList > tbody:last-child');
   raw = '<tr id="rw_' + mac + '">';
-  raw += '<td><input type="checkbox" id="' + mac + '"name="' + mac + '"style="width:auto;height:auto"></td>';
-  raw += '<td>' + mac + '</td>';
+  raw += '<td><input type="checkbox" id="'+ mac + '_batt" name="' + mac + ':batt" style="width:auto;height:auto"></td>';
+  raw += '<td>' + mac + '<input type="text" placeholder="Insert a friendly name here" id="' + mac + '_desc" name="' + mac + ':desc" style="font-size:0.95em;text-align:center;width:15em;height:auto" value="' + (devProp.desc ? devProp.desc : "")  +'"><br><hr></td>';
   raw += '<td><input type="button" id="rm_' + mac + '" value="Remove"style="width:auto;height:auto" class=dangerbtn onclick="$(\'#rw_' + mac + '\').remove()"></td>';
   raw += '</tr>';
   container.append(raw);
-  $('#' + mac).prop("checked", whitelist);
+  $('#' + mac +'_batt').prop("checked", devProp.battery);
 }
 
 function validateMacDigit(elem) {
@@ -121,44 +144,3 @@ function isMacValid(mac) {
   return (/^[0-9A-F]+$/.test(mac));
 }
 
-(function ($) {
-  $.fn.serialize = function (options) {
-    return $.param(this.serializeArray(options));
-  };
-
-  $.fn.serializeArray = function (options) {
-    var o = $.extend({
-      checkboxesAsBools: false
-    }, options || {});
-
-    var rselectTextarea = /select|textarea/i;
-    var rinput = /text|hidden|password|search|number/i;
-
-    return this.map(function () {
-      return this.elements ? $.makeArray(this.elements) : this;
-    })
-      .filter(function () {
-        return this.name && !this.disabled &&
-          (this.checked ||
-            (o.checkboxesAsBools && this.type === 'checkbox') ||
-            rselectTextarea.test(this.nodeName) ||
-            rinput.test(this.type));
-      })
-      .map(function (i, elem) {
-        var val = $(this).val();
-        return val == null ?
-          null :
-          $.isArray(val) ?
-            $.map(val, function (val, i) {
-              return {
-                name: elem.name,
-                value: val
-              };
-            }) : {
-              name: elem.name,
-              value: (o.checkboxesAsBools && this.type === 'checkbox') ?
-                (this.checked ? true : false) : val
-            };
-      }).get();
-  };
-})(jQuery);

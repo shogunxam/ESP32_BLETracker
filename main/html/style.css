@@ -47,9 +47,18 @@ form {
   text-align: center;
 }
 
-#logform{
+#logform {
   background:#fff;
   max-width:600px;
+  margin:75px auto;
+  padding:30px;
+  border-radius:5px;
+  text-align:center
+}
+
+#configform {
+  background:#fff;
+  max-width:420px;
   margin:75px auto;
   padding:30px;
   border-radius:5px;

@@ -30,19 +30,15 @@
 //Set to true if you want track only the devices in the white list
 #define ENABLE_BLE_TRACKER_WHITELIST true
 
-//List of devices you want track
-//Replace using correct MAC Address values or undef/comment to track all the advertised devices
-//Mac Addresses are in the form "A6B5C4D3E2F1" (uppercase and no separator) and coma separated
-//#define BLE_TRACKER_WHITELIST  "A6B5C4D3E2F1","F6E5D4C3B2A1","54FA8BC0467C"
-
-//List of devices for which you want to know the battery level.
-//Replace using correct MAC Address values or undef/comment to read the battery level of all the tracked devices
-//Mac Addresses are in the form "A6B5C4D3E2F1" (uppercase and no separator) and coma separated
-#define BLE_BATTERY_WHITELIST  "A6B5C4D3E2F1","F6E5D4C3B2A1"
+//List of known devices you want track
+//Each entry is in the format {"MAC-ADDRESS", read-battery, "Description"} i.e.{"A6B5C4D3E2F1", true, "My iTag"}
+//Mac Addresses are in the form "A6B5C4D3E2F1" (uppercase and no separator)
+//Each block is coma separated
+#define BLE_KNOWN_DEVICES_LIST  {"AABBCCDDEEFF", true, "Nut"}, {"A1B2C3D4E5F6", false, "iTag"}, {"1A2B3C4D5E6F", false, ""}
 
 //NTP Server configurations
 #define NTP_SERVER          "pool.ntp.org"
-//Get here your time zone https://remotemonitoringsystems.ca/time-zone-abbreviations.php
+//Get here your time zone https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
 #define TIME_ZONE "CET-1CEST-2,M3.5.0/02:00:00,M10.5.0/03:00:00"
 
 #endif

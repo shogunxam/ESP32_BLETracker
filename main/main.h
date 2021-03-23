@@ -8,11 +8,12 @@
 #include "firmwarever.h"
 #include "myRWMutex.h"
 #define ADDRESS_STRING_SIZE 13
+#define DESCRIPTION_STRING_SIZE 21
 
 struct BLETrackedDevice
 {
   char address[ADDRESS_STRING_SIZE];
-  bool isDiscovered; //Until it's TRUE the device is considered Online, if it's not dcosvered for a period it become FALSE
+  bool isDiscovered; //Until it's TRUE the device is considered Online, if it's not discovered for a period it become FALSE
   long lastDiscoveryTime;
   long lastBattMeasureTime;
   int8_t batteryLevel;

@@ -15,7 +15,6 @@
 #include "OTAWebServer.h"
 #include "macro_utility.h"
 #include "settings.h"
-
 #include "SPIFFSLogger.h"
 
 extern std::vector<BLETrackedDevice> BLETrackedDevices;
@@ -390,10 +389,39 @@ void OTAWebServer::postUpdateConfig()
       newSettings.maxNotAdvPeriod = server.arg(i).toInt();
     else if (server.argName(i) == "whiteList")
       newSettings.EnableWhiteList(server.arg(i) == "true");
-    else //other are mac address with battery check in the form "AE13FCB45BAD":"true"
+    else //other are mac address with properties in the form "MACADDRESS[property]":"value"
     {
-      bool batteryCheck = server.arg(i) == "true";
-      newSettings.AddDeviceToWhiteList(server.argName(i), batteryCheck);
+      char argName[20]; //MacAddress size (12 chars) + 2 square brackets + property name size (5 chars) + terminator
+      strncpy(argName, server.argName(i).c_str(), 20);
+      char seps[] = "[]";
+      char *token = strtok(argName, seps);
+      if (token != nullptr)
+      {
+        //First token is the Mac Address
+        DEBUG_PRINTF("Device: '%s'\n", token);
+        Settings::KnownDevice *device = newSettings.GetDevice(token);
+        if (nullptr == device)
+        {
+          Settings::KnownDevice tDev;
+          strncpy(tDev.address, token, ADDRESS_STRING_SIZE);
+          newSettings.AddDeviceToList(tDev);
+          device = newSettings.GetDevice(token);
+        }
+
+        if (nullptr != device)
+        {
+          token = strtok(nullptr, seps);
+          if (token != nullptr)
+          {
+            //Second token is the property name
+            DEBUG_PRINTF("Match: '%s' has value '%s' \n", token, server.arg(i).c_str());
+            if (strcmp(token, "batt") == 0)
+              device->readBattery = server.arg(i) == "true";
+            else if (strcmp(token, "desc") == 0)
+              strncpy(device->description, server.arg(i).c_str(), DESCRIPTION_STRING_SIZE);
+          }
+        }
+      }
     }
   }
 
@@ -446,7 +474,11 @@ void OTAWebServer::getSysInfoData()
     else
       SendChunkedContent(",");
     SendChunkedContent(R"({"mac":")");
-    SendChunkedContent(trackedDevice.address);
+    Settings::KnownDevice *device = SettingsMngr.GetDevice(trackedDevice.address);
+    if (device != nullptr && device->description[0] != '\0')
+      SendChunkedContent(device->description);
+    else
+      SendChunkedContent(trackedDevice.address);
     SendChunkedContent(R"(",)");
     SendChunkedContent(R"("rssi":)");
     itoa(trackedDevice.rssiValue, strbuff, 10);
@@ -590,26 +622,26 @@ void OTAWebServer::setup(const String &hN, const String &_ssid_, const String &_
 }
 
 static std::atomic_ulong WebServerWatchDogStartTime(0);
-void WebServerWatchDogloop(void * param)
+void WebServerWatchDogloop(void *param)
 {
-    WebServer *server = (WebServer *)param;
-    WebServerWatchDogStartTime.store(millis());
-    while (true)
+  WebServer *server = (WebServer *)param;
+  WebServerWatchDogStartTime.store(millis());
+  while (true)
+  {
+    if (millis() > (WebServerWatchDogStartTime.load() + 10000))
     {
-        if (millis() > (WebServerWatchDogStartTime.load() + 10000))
-        {
-            server->stop();
-            server->begin();
-            DEBUG_PRINTLN("INFO: WebServerWatchdog resart server");
-            LOG_TO_FILE_E("Error: WebServerWatchdog resart server");
-        }
-        delay(1000);
-    };
+      server->stop();
+      server->begin();
+      DEBUG_PRINTLN("INFO: WebServerWatchdog resart server");
+      LOG_TO_FILE_E("Error: WebServerWatchdog resart server");
+    }
+    delay(1000);
+  };
 }
 
 void WebServerWatchDogFeed()
 {
-    WebServerWatchDogStartTime.store(millis());
+  WebServerWatchDogStartTime.store(millis());
 }
 
 void WebServerLoop(void *param)
@@ -625,7 +657,7 @@ void WebServerLoop(void *param)
     {
       server->handleClient();
       WebServerWatchDogFeed();
-      if(restart)
+      if (restart)
       {
         restart = false;
         server->stop();
@@ -662,10 +694,10 @@ void OTAWebServer::begin(void)
   xTaskCreatePinnedToCore(
       WebServerWatchDogloop,   /* Function to implement the task */
       "WebServerWatchDogloop", /* Name of the task */
-      3072,           /* Stack size in words */
-      (void *)&server, /* Task input parameter */
-      10,             /* Priority of the task */
-      NULL,           /* Task handle. */
+      3072,                    /* Stack size in words */
+      (void *)&server,         /* Task input parameter */
+      10,                      /* Priority of the task */
+      NULL,                    /* Task handle. */
       1);
 }
 #endif /*ENABLE_OTA_WEBSERVER*/
