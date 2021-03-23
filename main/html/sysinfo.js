@@ -3,19 +3,30 @@ $(document).ready(function () {
   setInterval(loadData, 5000);
 });
 
-function readbBattery(mac)
-{
+function readBattery(mac) {
   now = new Date();
   var url = "/updatebattery";
-  $.get(url, {mac: mac})
-  .done(function (data) {
-  });
+  $.get(url, { mac: mac })
+    .done(function (data) {
+    });
+}
+
+function timeConverter(UNIX_timestamp) {
+  var a = new Date(UNIX_timestamp * 1000);
+  var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  var year = a.getFullYear();
+  var month = months[a.getMonth()];
+  var date = a.getDate();
+  var hour = a.getHours();
+  var min = a.getMinutes();
+  var sec = a.getSeconds();
+  var time = ("00" + date).slice(-2) + ' ' + month + ' ' + year + ' ' + ("00" + hour).slice(-2) + ':' + ("00" + min).slice(-2) + ':' + ("00" + sec).slice(-2);
+  return time;
 }
 
 function loadData() {
   now = new Date();
-  var url = "/getsysinfodata?time=" + now.getTime();
-  //data = JSON.parse('{"gateway":"BLETracker2","firmware":"2.1R","build":"2021-01-19T21:50:24","memory":"23560 bytes","uptime":"0.02:48:15","ssid":"HURRICANE1","battery":true,"devices":[{"mac":"CA67347FD139","rssi":-100,"battery":100,"state":"On"},{"mac":"D1667690EAA2","rssi":-100,"battery":-1,"state":"Off"},{"mac":"EB3B442D6CCE","rssi":-100,"battery":-1,"state":"Off"}]}');
+  var url = "/getsysinfodata?time=" + now.getTime(); 
   $.get(url, function (data) {
   $('#gateway').text(data.gateway);
   $('#firmware').text(data.firmware);
@@ -33,13 +44,15 @@ function loadData() {
   table.append($("<tbody/>"));
 
   data.devices.forEach(function (item, index) {
-    tmac = $("<td/>").text(item.mac);
+    tmac = $("<td/>").text(item.name ? item.name : item.mac);
     trssi = $("<td/>").text(item.rssi);
     if (data.battery) {
       tbtr = $("<td/>");
-      div = '<div>' +
-       '<p style="display : inline-block; width: fit-content; height: fit-content;float: left;">'+ item.battery +'</p>'+
-        '<input type="button" value="Refresh" id="rbtn_' + item.mac + '" class=btn onclick="readbBattery(\'' + item.mac + '\')"style="font-size : 0.8em; padding : 5px; display : inline-block; width: fit-content; width: -moz-fit-content;height: fit-content;float: right;">';  
+      div = '<div style="align-content: center;">'
+        + '<p style="display : inline-block; width: fit-content; height: fit-content;">' + item.battery + '</p>'
+        + '<input type="button" value="Refresh" id="rbtn_' + item.mac + '" class=btn onclick="readBattery(\'' + item.mac + '\')"style="font-size : 0.8em; padding: 5px; display : inline-block; width: fit-content; width: -moz-fit-content;height: fit-content;float: right;">'
+        + '<p style="margin-top: 0px; font-size : 0.8em;">' + (item.bttime ? timeConverter(item.bttime) : '') + '</p>'
+        + '</div>';
       tbtr.append(div);
     }
     tstate = $("<td/>").text(item.state);

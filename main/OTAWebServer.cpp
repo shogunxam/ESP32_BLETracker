@@ -474,12 +474,16 @@ void OTAWebServer::getSysInfoData()
     else
       SendChunkedContent(",");
     SendChunkedContent(R"({"mac":")");
+    SendChunkedContent(trackedDevice.address);
+    SendChunkedContent(R"(",)");
     Settings::KnownDevice *device = SettingsMngr.GetDevice(trackedDevice.address);
     if (device != nullptr && device->description[0] != '\0')
+    {
+      SendChunkedContent(R"("name":")");
       SendChunkedContent(device->description);
-    else
-      SendChunkedContent(trackedDevice.address);
-    SendChunkedContent(R"(",)");
+      SendChunkedContent(R"(",)");
+    }
+
     SendChunkedContent(R"("rssi":)");
     itoa(trackedDevice.rssiValue, strbuff, 10);
     SendChunkedContent(strbuff);
@@ -489,6 +493,13 @@ void OTAWebServer::getSysInfoData()
     itoa(trackedDevice.batteryLevel, strbuff, 10);
     SendChunkedContent(strbuff);
     SendChunkedContent(R"(,)");
+    if (trackedDevice.lastBattMeasureTime > 0)
+    {
+      SendChunkedContent(R"("bttime":)");
+      itoa(trackedDevice.lastBattMeasureTime, strbuff, 10);
+      SendChunkedContent(strbuff);
+      SendChunkedContent(R"(,)");
+    }
 #endif
     SendChunkedContent(R"("state":")");
     SendChunkedContent(trackedDevice.isDiscovered ? "On" : "Off");
