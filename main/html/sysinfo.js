@@ -3,7 +3,7 @@ $(document).ready(function () {
   setInterval(loadData, 5000);
 });
 
-function readbBattery(mac) {
+function readBattery(mac) {
   now = new Date();
   var url = "/updatebattery";
   $.get(url, { mac: mac })
@@ -44,13 +44,13 @@ function loadData() {
   table.append($("<tbody/>"));
 
   data.devices.forEach(function (item, index) {
-    tmac = $("<td/>").text(item.mac);
+    tmac = $("<td/>").text(item.name ? item.name : item.mac);
     trssi = $("<td/>").text(item.rssi);
     if (data.battery) {
       tbtr = $("<td/>");
       div = '<div style="align-content: center;">'
         + '<p style="display : inline-block; width: fit-content; height: fit-content;">' + item.battery + '</p>'
-        + '<input type="button" value="Refresh" id="rbtn_' + item.mac + '" class=btn onclick="readbBattery(\'' + item.mac + '\')"style="font-size : 0.8em; padding: 5px; display : inline-block; width: fit-content; width: -moz-fit-content;height: fit-content;float: right;">'
+        + '<input type="button" value="Refresh" id="rbtn_' + item.mac + '" class=btn onclick="readBattery(\'' + item.mac + '\')"style="font-size : 0.8em; padding: 5px; display : inline-block; width: fit-content; width: -moz-fit-content;height: fit-content;float: right;">'
         + '<p style="margin-top: 0px; font-size : 0.8em;">' + (item.bttime ? timeConverter(item.bttime) : '') + '</p>'
         + '</div>';
       tbtr.append(div);

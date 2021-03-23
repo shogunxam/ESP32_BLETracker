@@ -416,6 +416,7 @@ void setup()
   {
     BLETrackedDevice trackedDevice;
     memcpy(trackedDevice.address, dev.address, ADDRESS_STRING_SIZE);
+    trackedDevice.forceBatteryRead = dev.readBattery;
     BLETrackedDevices.push_back(std::move(trackedDevice));
   }
 
