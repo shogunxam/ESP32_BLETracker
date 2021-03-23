@@ -13,8 +13,8 @@ Settings::KnownDevice::KnownDevice(const KnownDevice &dev)
 
 Settings::KnownDevice::KnownDevice(const char *mac, bool batt, const char *desc)
 {
-    snprintf(address, ADDRESS_STRING_SIZE, "%s", mac);
-    snprintf(description, DESCRIPTION_STRING_SIZE, "%s", desc);
+    strncpy(address, mac, ADDRESS_STRING_SIZE);
+    strncpy(description, desc, DESCRIPTION_STRING_SIZE);
     readBattery = batt;
 }
 
@@ -118,7 +118,7 @@ Settings::KnownDevice *Settings::GetDevice(const String &value)
     {
         if (value == knownDevices[j].address)
         {
-            return &knownDevices[j];
+            return &(knownDevices[j]);
         }
     }
 
@@ -264,7 +264,7 @@ void Settings::LoadKnownDevices(File file, uint16_t version)
             KnownDevice dev;
             dev.readBattery = false;
             dev.description[0] = '\0';
-            snprintf(dev.address, ADDRESS_STRING_SIZE, "%s", mac.c_str());
+            strncpy(dev.address, mac.c_str(), ADDRESS_STRING_SIZE);
             for (const auto &macBatt : batteryWhiteList)
             {
                 if (mac == macBatt)

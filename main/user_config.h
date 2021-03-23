@@ -34,7 +34,7 @@
 //Each entry is in the format {"MAC-ADDRESS", read-battery, "Description"} i.e.{"A6B5C4D3E2F1", true, "My iTag"}
 //Mac Addresses are in the form "A6B5C4D3E2F1" (uppercase and no separator)
 //Each block is coma separated
-#define BLE_KNOWN_DEVICES_LIST  {"AABBCCDDEEFF", true, "Nut"}, {"A1B2C3D4E5F6", false, "iTag"}, {"112233445566", false, ""}
+#define BLE_KNOWN_DEVICES_LIST  {"AABBCCDDEEFF", true, "Nut"}, {"A1B2C3D4E5F6", false, "iTag"}, {"1A2B3C4D5E6F", false, ""}
 
 //NTP Server configurations
 #define NTP_SERVER          "pool.ntp.org"

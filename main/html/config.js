@@ -104,7 +104,7 @@ function addMac(mac, devProp) {
   container = $('#devList > tbody:last-child');
   raw = '<tr id="rw_' + mac + '">';
   raw += '<td><input type="checkbox" id="'+ mac + '_batt" name="' + mac + ':batt" style="width:auto;height:auto"></td>';
-  raw += '<td>' + mac + '<input type="text" id="' + mac + '_desc" name="' + mac + ':desc" style="font-size:0.95em;text-align:center;width:15em;height:auto" value="' + devProp.desc +'"><br><hr></td>';
+  raw += '<td>' + mac + '<input type="text" placeholder="Insert a friendly name here" id="' + mac + '_desc" name="' + mac + ':desc" style="font-size:0.95em;text-align:center;width:15em;height:auto" value="' + (devProp.desc ? devProp.desc : "")  +'"><br><hr></td>';
   raw += '<td><input type="button" id="rm_' + mac + '" value="Remove"style="width:auto;height:auto" class=dangerbtn onclick="$(\'#rw_' + mac + '\').remove()"></td>';
   raw += '</tr>';
   container.append(raw);

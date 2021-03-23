@@ -8,11 +8,12 @@
 class Settings
 {
 public:
-    struct KnownDevice{
-        KnownDevice(const KnownDevice& dev);
-        KnownDevice(const char* mac, bool batt, const char* desc);
+    struct KnownDevice
+    {
+        KnownDevice(const KnownDevice &dev);
+        KnownDevice(const char *mac, bool batt, const char *desc);
         KnownDevice();
-        KnownDevice& operator=(const KnownDevice& dev);
+        KnownDevice &operator=(const KnownDevice &dev);
         char address[ADDRESS_STRING_SIZE];
         bool readBattery;
         char description[DESCRIPTION_STRING_SIZE];
@@ -30,10 +31,10 @@ public:
     bool InBatteryList(const String &value);
     std::size_t GetMaxNumOfTraceableDevices();
     void EnableWhiteList(bool enable);
-    KnownDevice* GetDevice(const String &value);    
-    void AddDeviceToList(const KnownDevice& device);
-    void AddDeviceToList(const char mac[ADDRESS_STRING_SIZE], bool checkBattery, const char description[DESCRIPTION_STRING_SIZE]={'\0'});
-    const std::vector<KnownDevice>& GetKnownDevicesList();
+    KnownDevice *GetDevice(const String &value);
+    void AddDeviceToList(const KnownDevice &device);
+    void AddDeviceToList(const char mac[ADDRESS_STRING_SIZE], bool checkBattery, const char description[DESCRIPTION_STRING_SIZE] = {'\0'});
+    const std::vector<KnownDevice> &GetKnownDevicesList();
     String mqttUser;
     String mqttPwd;
     String mqttServer;
