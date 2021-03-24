@@ -2,9 +2,35 @@
 #include "config.h"
 #include "DebugPrint.h"
 
-#define CURRENT_SETTING_VERSION 3
+#define CURRENT_SETTING_VERSION 5
 
 Settings SettingsMngr;
+
+Settings::KnownDevice::KnownDevice(const KnownDevice &dev)
+{
+    *this = dev;
+}
+
+Settings::KnownDevice::KnownDevice(const char *mac, bool batt, const char *desc)
+{
+    strncpy(address, mac, ADDRESS_STRING_SIZE);
+    strncpy(description, desc, DESCRIPTION_STRING_SIZE);
+    readBattery = batt;
+}
+
+Settings::KnownDevice::KnownDevice()
+{
+    address[0] = '\0';
+    description[0] = '\0';
+    readBattery = false;
+}
+
+Settings::KnownDevice &Settings::KnownDevice::operator=(const KnownDevice &dev)
+{
+    memcpy(address, dev.address, ADDRESS_STRING_SIZE);
+    memcpy(description, dev.description, DESCRIPTION_STRING_SIZE);
+    readBattery = dev.readBattery;
+}
 
 String Settings::ArrayToStringList(const std::vector<String> &whiteList)
 {
@@ -57,20 +83,14 @@ Settings::Settings(const String &fileName, bool emptyLists) : settingsFile(fileN
 
 void Settings::FactoryReset(bool emptyLists)
 {
+    KnownDevice d = {"CA67347FD139", true, "Nut Mario"};
     if (emptyLists)
     {
-        trackWhiteList.clear();
-        batteryWhiteList.clear();
+        knownDevices.clear();
     }
     else
     {
-#ifdef BLE_TRACKER_WHITELIST
-        trackWhiteList = {BLE_TRACKER_WHITELIST};
-#endif
-
-#ifdef BLE_BATTERY_WHITELIST
-        batteryWhiteList = {BLE_BATTERY_WHITELIST};
-#endif
+        knownDevices = {BLE_KNOWN_DEVICES_LIST};
     }
 
     enableWhiteList = ENABLE_BLE_TRACKER_WHITELIST;
@@ -82,24 +102,44 @@ void Settings::FactoryReset(bool emptyLists)
     mqttPort = MQTT_SERVER_PORT;
     scanPeriod = BLE_SCANNING_PERIOD;
     logLevel = DEFAULT_FILE_LOG_LEVEL;
+    maxNotAdvPeriod = MAX_NON_ADV_PERIOD;
 }
 
 std::size_t Settings::GetMaxNumOfTraceableDevices()
 {
     const std::size_t absoluteMaxNumOfTraceableDevices = 90;
-    const std::size_t minNumOfTraceableDevices = std::min(trackWhiteList.size() + 1,absoluteMaxNumOfTraceableDevices);
+    const std::size_t minNumOfTraceableDevices = std::min(knownDevices.size() + 1, absoluteMaxNumOfTraceableDevices);
     return enableWhiteList ? minNumOfTraceableDevices : absoluteMaxNumOfTraceableDevices;
 }
 
-void Settings::AddDeviceToWhiteList(const String &mac, bool checkBattery)
+Settings::KnownDevice *Settings::GetDevice(const String &value)
 {
-    if (!InWhiteList(mac, trackWhiteList))
-        trackWhiteList.push_back(mac);
-
-    if (checkBattery)
+    for (uint8_t j = 0; j < knownDevices.size(); j++)
     {
-        if (!InWhiteList(mac, batteryWhiteList))
-            batteryWhiteList.push_back(mac);
+        if (value == knownDevices[j].address)
+        {
+            return &(knownDevices[j]);
+        }
+    }
+
+    return nullptr;
+}
+
+void Settings::AddDeviceToList(const Settings::KnownDevice &device)
+{
+    if (!IsPropertyForDeviceEnabled(device.address, DeviceProperty::eTraceable))
+        knownDevices.push_back(device);
+}
+
+void Settings::AddDeviceToList(const char mac[ADDRESS_STRING_SIZE], bool checkBattery, const char description[DESCRIPTION_STRING_SIZE])
+{
+    if (!IsPropertyForDeviceEnabled(mac, DeviceProperty::eTraceable))
+    {
+        KnownDevice device;
+        memcpy(&device.address, mac, sizeof(device.address));
+        memcpy(&device.description, description, sizeof(device.description));
+        device.readBattery = checkBattery;
+        knownDevices.push_back(std::move(device));
     }
 }
 
@@ -120,19 +160,23 @@ String Settings::toJSON()
     data += R"("mqtt_usr":")" + mqttUser + R"(",)";
     data += R"("mqtt_pwd":")" + mqttPwd + R"(",)";
     data += R"("scanPeriod":)" + String(scanPeriod) + ",";
-    data += R"("loglevel":)"+ String(logLevel) + ",";
+    data += R"("maxNotAdvPeriod":)" + String(maxNotAdvPeriod) + ",";
+    data += R"("loglevel":)" + String(logLevel) + ",";
     data += R"("whiteList":)";
     data += (enableWhiteList ? "true" : "false");
     data += R"(,)";
     data += R"("trk_list":{)";
     bool first = true;
-    for (auto &mac : trackWhiteList)
+    for (auto &device : knownDevices)
     {
         if (!first)
             data += ",";
         else
             first = false;
-        data += R"(")" + mac + R"(":)" + (InBatteryList(mac) ? "true" : "false");
+        data += R"(")" + String(device.address) + R"(":{)";
+        data += R"("battery":)";
+        data += (device.readBattery ? "true" : "false");
+        data += R"(,"desc":")" + String(device.description) + R"("})";
     }
     data += "}";
     data += "}";
@@ -142,7 +186,7 @@ String Settings::toJSON()
 bool Settings::IsTraceable(const String &value)
 {
     if (enableWhiteList)
-        return InWhiteList(value, trackWhiteList);
+        return IsPropertyForDeviceEnabled(value, DeviceProperty::eTraceable);
     else
         return true;
 }
@@ -150,22 +194,31 @@ bool Settings::IsTraceable(const String &value)
 bool Settings::InBatteryList(const String &value)
 {
 #if PUBLISH_BATTERY_LEVEL
-    return InWhiteList(value, batteryWhiteList);
+    return IsPropertyForDeviceEnabled(value, DeviceProperty::eReadBattery);
 #else
     return false;
 #endif
 }
 
-bool Settings::InWhiteList(const String &value, const std::vector<String> &whiteList)
+bool Settings::IsPropertyForDeviceEnabled(const String &value, DeviceProperty property)
 {
-    bool inWhiteList = false;
-    for (uint8_t j = 0; j < whiteList.size(); j++)
-        if (value == whiteList[j])
+    KnownDevice *device = GetDevice(value);
+
+    if (device != nullptr)
+    {
+        switch (property)
         {
-            inWhiteList = true;
+        case DeviceProperty::eTraceable:
+            return true;
             break;
+        case DeviceProperty::eReadBattery:
+            return device->readBattery;
+        default:
+            return false;
         }
-    return inWhiteList;
+    }
+
+    return false;
 }
 
 void Settings::SaveString(File file, const String &str)
@@ -175,13 +228,54 @@ void Settings::SaveString(File file, const String &str)
     file.write((uint8_t *)str.c_str(), strLen + 1);
 }
 
-void Settings::SaveStringArray(File file, const std::vector<String> &vstr)
+void Settings::SaveKnownDevices(File file)
 {
     size_t vstrLen;
-    vstrLen = vstr.size();
+    vstrLen = knownDevices.size();
     file.write((uint8_t *)&vstrLen, sizeof(vstrLen));
-    for (auto &str : vstr)
-        SaveString(file, str);
+    for (auto &device : knownDevices)
+    {
+        file.write((uint8_t *)&device, sizeof(KnownDevice));
+    }
+}
+
+void Settings::LoadKnownDevices(File file, uint16_t version)
+{
+    knownDevices.clear();
+    if (version > 4)
+    {
+        size_t vstrLen;
+        file.read((uint8_t *)&vstrLen, sizeof(vstrLen));
+        for (size_t i = 0; i < vstrLen; i++)
+        {
+            KnownDevice device;
+            file.read((uint8_t *)&device, sizeof(KnownDevice));
+            knownDevices.push_back(device);
+        }
+    }
+    else //Build KnowDevices from 2 arrays
+    {
+        std::vector<String> batteryWhiteList;
+        std::vector<String> trackWhiteList;
+        LoadStringArray(file, batteryWhiteList);
+        LoadStringArray(file, trackWhiteList);
+        for (const auto &mac : trackWhiteList)
+        {
+            KnownDevice dev;
+            dev.readBattery = false;
+            dev.description[0] = '\0';
+            strncpy(dev.address, mac.c_str(), ADDRESS_STRING_SIZE);
+            for (const auto &macBatt : batteryWhiteList)
+            {
+                if (mac == macBatt)
+                {
+                    dev.readBattery = true;
+                    break;
+                }
+            }
+            knownDevices.push_back(dev);
+        }
+    }
 }
 
 void Settings::LoadString(File file, String &str)
@@ -211,10 +305,10 @@ bool Settings::Save()
         SaveString(file, mqttUser);
         SaveString(file, mqttPwd);
         file.write((uint8_t *)&enableWhiteList, sizeof(enableWhiteList));
-        SaveStringArray(file, batteryWhiteList);
-        SaveStringArray(file, trackWhiteList);
+        SaveKnownDevices(file);
         file.write((uint8_t *)&scanPeriod, sizeof(scanPeriod));
         file.write((uint8_t *)&logLevel, sizeof(logLevel));
+        file.write((uint8_t *)&maxNotAdvPeriod, sizeof(maxNotAdvPeriod));
         file.flush();
         file.close();
         return true;
@@ -235,12 +329,17 @@ void Settings::Load()
         LoadString(file, mqttUser);
         LoadString(file, mqttPwd);
         file.read((uint8_t *)&enableWhiteList, sizeof(enableWhiteList));
-        LoadStringArray(file, batteryWhiteList);
-        LoadStringArray(file, trackWhiteList);
+        LoadKnownDevices(file, currVer);
         if (currVer > 1)
             file.read((uint8_t *)&scanPeriod, sizeof(scanPeriod));
         if (currVer > 2)
             file.read((uint8_t *)&logLevel, sizeof(logLevel));
+        if (currVer > 3)
+            file.read((uint8_t *)&maxNotAdvPeriod, sizeof(maxNotAdvPeriod));
     }
+}
 
+const std::vector<Settings::KnownDevice> &Settings::GetKnownDevicesList()
+{
+    return knownDevices;
 }

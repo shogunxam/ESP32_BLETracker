@@ -47,9 +47,27 @@ form {
   text-align: center;
 }
 
-#logform{
+#logform {
   background:#fff;
   max-width:600px;
+  margin:75px auto;
+  padding:30px;
+  border-radius:5px;
+  text-align:center
+}
+
+#configform {
+  background:#fff;
+  max-width:420px;
+  margin:75px auto;
+  padding:30px;
+  border-radius:5px;
+  text-align:center
+}
+
+#indexform {
+  background:#fff;
+  max-width:380px;
   margin:75px auto;
   padding:30px;
   border-radius:5px;
@@ -79,7 +97,7 @@ form {
 .table-wrapper {
   overflow-x: auto;
   overflow-y: scroll;
-  height: 150px;
+  height: 250px;
 }
 .table-wrapper th {
   position: sticky;

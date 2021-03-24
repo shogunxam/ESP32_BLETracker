@@ -25,7 +25,7 @@ namespace FHEMLePresenceServer
       mClient = WiFiClient(); // the following line is a workaround for a memory leak bug in arduino
       address[0] = '\0';
       normalizedAddress[0] = '\0';
-      timeout = MAX_NON_ADV_PERIOD;
+      timeout = SettingsMngr.maxNotAdvPeriod;
       lastreport = 0;
     }
 
