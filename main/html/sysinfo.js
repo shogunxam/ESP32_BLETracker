@@ -48,11 +48,11 @@ function loadData() {
     trssi = $("<td/>").text(item.rssi);
     if (data.battery) {
       tbtr = $("<td/>");
-      div = '<div style="align-content: center;">'
-        + '<p style="display : inline-block; width: fit-content; height: fit-content;">' + item.battery + '</p>'
-        + '<input type="button" value="Refresh" id="rbtn_' + item.mac + '" class=btn onclick="readBattery(\'' + item.mac + '\')"style="font-size : 0.8em; padding: 5px; display : inline-block; width: fit-content; width: -moz-fit-content;height: fit-content;float: right;">'
-        + '<p style="margin-top: 0px; font-size : 0.8em;">' + (item.bttime ? timeConverter(item.bttime) : '') + '</p>'
-        + '</div>';
+      div = '<div>'
+      + '<p style="display : inline-block; width: fit-content; height: fit-content;">' + item.battery + '</p>'
+      + '<input type="button" value="Refresh" id="rbtn_' + item.mac + '" class=btn onclick="readBattery(\'' + item.mac + '\')"style="font-size : 0.8em; padding: 5px; display : inline-block; width: fit-content; width: -moz-fit-content;height: fit-content;float: right;">'
+      + '</br><p style="text-align: center; margin-top:4%;font-size : 0.8em;">' + (item.bttime ? timeConverter(item.bttime) : '') + '</p>'
+      + '</div>';
       tbtr.append(div);
     }
     tstate = $("<td/>").text(item.state);
