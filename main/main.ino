@@ -223,6 +223,15 @@ void batteryTask()
         {
           trackedDevice.connectionRetry = 0;
           trackedDevice.lastBattMeasureTime = now;
+          //Report the error only one time if Log level info is set
+          LOG_TO_FILE_E("Error: Connection to device %s failed", trackedDevice.address);
+          DEBUG_PRINTF("Error: Connection to device %s failed", trackedDevice.address);
+        } 
+        else
+        {
+          //Report the error every time if Log level debug or verbose is set
+          LOG_TO_FILE_D("Error: Connection to device %s failed", trackedDevice.address);
+          DEBUG_PRINTF("Error: Connection to device %s failed", trackedDevice.address);
         }
       }
     }
@@ -300,8 +309,6 @@ bool batteryLevel(const char address[ADDRESS_STRING_SIZE], esp_ble_addr_type_t a
     //We fail to connect and we have to be sure the PeerDevice is removed before delete it
     BLEDevice::removePeerDevice(client.m_appId, true);
     log_i("-------------------Not connected!!!--------------------");
-    LOG_TO_FILE_E("Error: Connection to device %s failed", address);
-    DEBUG_PRINTF("Error: Connection to device %s failed", address);
   }
 
   log_i("<< ------------------batteryLevel----------------- ");
