@@ -82,7 +82,7 @@ void OTAWebServer::StartChunkedContentTransfer(const char *contentType, bool zip
   server.sendHeader(F("Cache-Control"), F("no-cache, no-store, must-revalidate"));
   server.sendHeader(F("Pragma"), F("no-cache"));
   server.sendHeader(F("Expires"), F("-1"));
-  server.sendHeader(F("Transfer-Encoding"), F("chunked"));
+  //Header "Transfer-Encoding:chunked" is automatically added when content length is set to unknown
   if (zipped)
     server.sendHeader(F("Content-Encoding"), F("gzip"));
   server.setContentLength(CONTENT_LENGTH_UNKNOWN);
