@@ -136,7 +136,7 @@ void publishAvailabilityToMQTT()
   }
 }
 
-void publishBLEState(const char address[ADDRESS_STRING_SIZE], const char state[4], int8_t rssi, int8_t batteryLevel, uint32_t nodeId )
+void publishBLEState(const char address[ADDRESS_STRING_SIZE], const char state[4], int8_t rssi, int8_t batteryLevel)
 {
   constexpr uint16_t maxTopicLen = sizeof(MQTT_BASE_SENSOR_TOPIC) + 22;
   char topic[maxTopicLen];
@@ -159,9 +159,9 @@ void publishBLEState(const char address[ADDRESS_STRING_SIZE], const char state[4
   snprintf(topic, maxTopicLen, "%s/%s", MQTT_BASE_SENSOR_TOPIC, address);
   const uint16_t maxPayloadLen = 66; /*uint32_t nodeId size is max 10 chars*/
   char payload[maxPayloadLen];
-  snprintf(payload, maxPayloadLen, R"({"nodeid":"%u","state":"%s","rssi":%d,"battery":%d})", nodeId, state, rssi, batteryLevel);
+  snprintf(payload, maxPayloadLen, R"({"state":"%s","rssi":%d,"battery":%d})", state, rssi, batteryLevel);
 #if PUBLISH_BATTERY_LEVEL
-  snprintf(payload, maxPayloadLen, R"({"nodeid":"%u","state":"%s","rssi":%d,"battery":%d})", nodeId, state, rssi, batteryLevel);
+  snprintf(payload, maxPayloadLen, R"({"state":"%s","rssi":%d,"battery":%d})", state, rssi, batteryLevel);
 #else
   snprintf(payload, maxPayloadLen, R"({"state":"%s","rssi":%d})", state, rssi);
 #endif

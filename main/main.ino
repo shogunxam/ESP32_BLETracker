@@ -6,12 +6,7 @@
 
 #include "config.h"
 
-#if USE_MESH
-#include <painlessMesh.h>
-#include "mesh_network.h"
-#else
 #include <TaskScheduler.h>
-#endif
 
 #define CONFIG_ESP32_DEBUG_OCDAWARE 1
 
@@ -42,60 +37,51 @@
 
 #include "bletasks.h"
 
-void mainTaskCallback();
-void publishAvailability(void);
+void TaskCallback_BleScan();
+void TaskCallBack_PublishAvailability(void);
 
 MyRWMutex trackedDevicesMutex;
 std::vector<BLETrackedDevice> BLETrackedDevices;
 std::map<std::string, bool> FastDiscovery;
-Task mainTask(TASK_IMMEDIATE, TASK_FOREVER, &mainTaskCallback);
-Task mqttAvailabilityTask(5000, TASK_FOREVER, &publishAvailability); //Publish every 5 seconds
+
+//MainTask is splitted in several callback to allow other tasks to be executed
+Task mainTask(TASK_IMMEDIATE, TASK_FOREVER, &TaskCallback_BleScan);//<--TaskCallback_BleScan is the entry point of the task chain
+Task mqttAvailabilityTask(5000, TASK_FOREVER, &TaskCallBack_PublishAvailability); //Publish every 5 seconds
+
 #define ScheduleMainTask()            \
   scheduler::get().addTask(mainTask); \
   mainTask.enable();
+
+#if USE_MQTT
 #define ScheduleMqttAvailabilityTask()            \
   scheduler::get().addTask(mqttAvailabilityTask); \
   mqttAvailabilityTask.enable();
+#else
+#define ScheduleMqttAvailabilityTask()
+#endif
 
 #define SYS_INFORMATION_DELAY 120000 /*2 minutes*/
 unsigned long lastSySInfoTime = 0;
 
 #if ENABLE_OTA_WEBSERVER
-void webservertaskCallback();
-Task webserverTask(TASK_IMMEDIATE, TASK_FOREVER, &webservertaskCallback);
+void TaskCallback_WebServerHandleClient();
+Task webserverTask(TASK_IMMEDIATE, TASK_FOREVER, &TaskCallback_WebServerHandleClient);
 #define ScheduleWebServerTask()            \
   scheduler::get().addTask(webserverTask); \
   webserverTask.enable();
-#endif
-
-#if USE_MESH
-#if MESH_BRIDGE_NODE
-void publishNodeIdCallback();
-Task publishNodeIdTask(30000, TASK_FOREVER, &publishNodeIdCallback); //Notify every 30 seconds
-#define SchedulePublishNodeIdTask()            \
-  scheduler::get().addTask(publishNodeIdTask); \
-  publishNodeIdTask.enable();
-#endif
-void meshUpdateCallback();
-Task meshUpdateTask(TASK_IMMEDIATE, TASK_FOREVER, &meshUpdateCallback);
-#define ScheduleMeshUpdateTask()            \
-  scheduler::get().addTask(meshUpdateTask); \
-  meshUpdateTask.enable();
-#define NetworkAvailable meshNetwork::hasIP()
 #else
-#define NetworkAvailable true
-#endif
-
-#ifndef ScheduleWebServerTask
 #define ScheduleWebServerTask()
 #endif
 
-#ifndef ScheduleMeshUpdateTask
-#define ScheduleMeshUpdateTask()
-#endif
 
-#ifndef SchedulePublishNodeIdTask
-#define SchedulePublishNodeIdTask()
+#if USE_FHEM_LEPRESENCE_SERVER
+void TaskCallback_HandleFHEMClientsConnections();
+Task FHEMServerTask(TASK_IMMEDIATE, TASK_FOREVER, &TaskCallback_HandleFHEMClientsConnections);
+#define ScheduleFHEMServerTask()            \
+  scheduler::get().addTask(FHEMServerTask); \
+  FHEMServerTask.enable();
+#else
+#define ScheduleFHEMServerTask()
 #endif
 
 extern "C"
@@ -169,56 +155,50 @@ char *formatMillis(unsigned long milliseconds, char outstr[20])
   return outstr;
 }
 
-void publishAvailability(void)
+void TaskCallBack_PublishAvailability(void)
 {
 #if USE_MQTT
-  if (NetworkAvailable)
     publishAvailabilityToMQTT();
 #endif
 }
-#if USE_MESH
-void publishNodeIdCallback()
-{
-  meshNetwork::publishNodeId();
-}
-
-void meshUpdateCallback()
-{
-  meshNetwork::meshUpdate();
-}
-#endif
 
 #if ENABLE_OTA_WEBSERVER
-void webservertaskCallback()
+void TaskCallback_WebServerHandleClient()
 {
-  DEBUG_PRINTLN("Executing webservertaskCallback");
-  for (int i = 0; i < 100; i++)
-    webserver.handleClient();
+  DEBUG_PRINTLN("Executing TaskCallback_WebServerHandleClient");
+  webserver.handleClient();
 }
 #endif
 
-void publishDevicesInfoCallback()
+
+#if USE_FHEM_LEPRESENCE_SERVER
+void TaskCallback_HandleFHEMClientsConnections()
 {
-  DEBUG_PRINTLN("Executing publishDevicesInfoCallback");
+  DEBUG_PRINTLN("Executing HandleFHEMClientsConnections");
+  if (BLETask::ScanCompleted())
+  {
+    FHEMLePresenceServer::loop(); //Handle clients connections
+  }
+}
+#endif 
+
+void TaskCallback_PublishDevicesInfo()
+{
+  DEBUG_PRINTLN("Executing PublishDevicesInfoCallback");
   if (BLETask::ScanCompleted())
   {
 #if USE_MQTT
-    if (NetworkAvailable)
-    {
       publishAvailabilityToMQTT();
-      uint32_t nodeId = 0;
-#if USE_MESH
-      nodeId = meshNetwork::getNodeId();
-#endif
+
       for (auto &trackedDevice : BLETrackedDevices)
       {
         if (trackedDevice.isDiscovered)
         {
-          publishBLEState(trackedDevice.address, MQTT_PAYLOAD_ON, trackedDevice.rssiValue, trackedDevice.batteryLevel, nodeId);
+          publishBLEState(trackedDevice.address, MQTT_PAYLOAD_ON, trackedDevice.rssiValue, trackedDevice.batteryLevel);
         }
         else
         {
-          publishBLEState(trackedDevice.address, MQTT_PAYLOAD_OFF, -100, trackedDevice.batteryLevel, nodeId);
+          publishBLEState(trackedDevice.address, MQTT_PAYLOAD_OFF, -100, trackedDevice.batteryLevel);
         }
       }
 
@@ -228,33 +208,26 @@ void publishDevicesInfoCallback()
         publishSySInfo();
         lastSySInfoTime = NTPTime::seconds();
       }
-
-      //publishAvailabilityToMQTT();
-    }
-
-#elif USE_MESH
-    meshNetwork::publish();
 #elif USE_FHEM_LEPRESENCE_SERVER
     FHEMLePresenceServer::loop(); //Handle clients connections
 #endif
   }
+
   Watchdog::Feed();
-  mainTask.setCallback(&mainTaskCallback);
+  mainTask.setCallback(&TaskCallback_BleScan);
 }
 
-void ReadBatteryForDecivesCallback()
+void TaskCallback_ReadBatteryForDecives()
 {
-  #if !(USE_MESH && MESH_BRIDGE_NODE)
-  DEBUG_PRINTLN("Executing ReadBatteryForDecivesCallback");
-  BLETask::ReadBatteryForDevices(publishAvailability, true);
+  DEBUG_PRINTLN("Executing TaskCallback_ReadBatteryForDecives");
+  BLETask::ReadBatteryForDevices(TaskCallBack_PublishAvailability, true);
   Watchdog::Feed();
-  #endif
-  mainTask.setCallback(&publishDevicesInfoCallback);
+  mainTask.setCallback(&TaskCallback_PublishDevicesInfo);
 }
 
-void mainTaskUpdateDeviceStateCallback()
+void TaskCallback_UpdateDevicesState()
 {
-  DEBUG_PRINTLN("Executing mainTaskUpdateDeviceStateCallback");
+  DEBUG_PRINTLN("Executing TaskCallback_UpdateDevicesState");
   for (auto &trackedDevice : BLETrackedDevices)
   {
     if (trackedDevice.isDiscovered && (trackedDevice.lastDiscoveryTime + SettingsMngr.maxNotAdvPeriod) < NTPTime::seconds())
@@ -267,15 +240,15 @@ void mainTaskUpdateDeviceStateCallback()
 
   Watchdog::Feed();
 #if PUBLISH_BATTERY_LEVEL
-  mainTask.setCallback(&ReadBatteryForDecivesCallback);
+  mainTask.setCallback(&TaskCallback_ReadBatteryForDecives);
 #else
-  mainTask.setCallback(&publishDevicesInfoCallback);
+  mainTask.setCallback(&TaskCallback_PublishDevicesInfo);
 #endif
 }
 
-void mainTaskCallback()
+void TaskCallback_BleScan()
 {
-  DEBUG_PRINTLN("Executing mainTaskCallback");
+  DEBUG_PRINTLN("Executing TaskCallback_BleScan");
 #if USE_FHEM_LEPRESENCE_SERVER
   //Check and restore the wifi connection if it's loose
   WiFiConnect(WIFI_SSID, WIFI_PASSWORD);
@@ -290,12 +263,10 @@ void mainTaskCallback()
     esp_restart();
   }
 
-#if !(USE_MESH && MESH_BRIDGE_NODE)
   BLETask::Scan();
-#endif
 
   Watchdog::Feed();
-  mainTask.setCallback(&mainTaskUpdateDeviceStateCallback);
+  mainTask.setCallback(&TaskCallback_UpdateDevicesState);
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -341,11 +312,7 @@ void setup()
   SPIFFSLogger.setLogLevel(SPIFFSLoggerClass::LogLevel(SettingsMngr.logLevel));
 #endif
 
-#if USE_MESH
-  meshNetwork::setup();
-#else
   WiFiConnect(WIFI_SSID, WIFI_PASSWORD);
-#endif
 
   LogResetReason();
 
@@ -375,9 +342,7 @@ void setup()
 
 #if USE_MQTT
   initializeMQTT();
-
-  if (NetworkAvailable)
-    connectToMQTT();
+  connectToMQTT();
 #endif
 
 #if USE_FHEM_LEPRESENCE_SERVER
@@ -385,16 +350,14 @@ void setup()
 #endif
 
   ////////////TASK SCHEDULING////////////
-  ScheduleMeshUpdateTask();
+  //Order metter
   ScheduleWebServerTask();
   ScheduleMainTask();
-  ScheduleMeshUpdateTask();
   ScheduleWebServerTask();
-  SchedulePublishNodeIdTask();
-  ScheduleMeshUpdateTask();
+  ScheduleFHEMServerTask();
   ScheduleWebServerTask();
+  ScheduleFHEMServerTask();
   ScheduleMqttAvailabilityTask();
-  ScheduleMeshUpdateTask();
   ScheduleWebServerTask();
   /////////////////////////////////////////
 
@@ -410,8 +373,7 @@ void loop()
 #endif
   DEBUG_PRINTF("Main loop Free heap: %u\n", xPortGetFreeHeapSize());
 */
-  if (NetworkAvailable)
-  {
+
     NTPTime::initialize();
 #if ENABLE_OTA_WEBSERVER
     webserverTask.enable();
@@ -423,20 +385,6 @@ void loop()
     publishNodeIdTask.enable();
 #endif
     mainTask.enable();
-  }
-  else
-  {
-#if ENABLE_OTA_WEBSERVER
-    webserverTask.disable();
-#endif
-#if USE_MQTT
-    mqttAvailabilityTask.disable();
-#endif
-#if USE_MESH && MESH_BRIDGE_NODE
-    publishNodeIdTask.disable();
-#endif
-    mainTask.disable();
-  }
 
   scheduler::get().execute();
 

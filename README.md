@@ -53,7 +53,8 @@ The values of *presence_timeout* and *absence_timeout* stored in the collectord.
 # Arduino IDE Notes
 You can build this sketch using Arduino IDE (currently it's using arduino-esp32 v1.0.4), but be sure to install the required dependencies:<br>
 * You have to install the esp32 Board in Arduino IDE. You can find a tutorial following this [link]( https://randomnerdtutorials.com/installing-the-esp32-board-in-arduino-ide-windows-instructions/)
-* You have to install the library PubSubClient v2.8 (not needed if you want enable FHEM support)
+* You have to install the library [PubSubClient](https://www.arduino.cc/reference/en/libraries/pubsubclient/) v2.8 (not needed if you want enable FHEM support)
+* You have to install the library [TaskScheduler](https://www.arduino.cc/reference/en/libraries/taskscheduler/) v3.2.2
 * To enable the FHEM support you have to:
     * install the Regexp library (https://www.arduino.cc/reference/en/libraries/regexp/)
     * set USE_MQTT to false and USE_FHEM_LEPRESENCE_SERVER to true in the config.h

@@ -547,10 +547,10 @@ void OTAWebServer::setup(const String &hN, const String &_ssid_, const String &_
   password = _password_;
 
   DEBUG_PRINTLN("WebServer Setup");
-  #if !USE_MESH
+#if !USE_MESH
   WiFiConnect(ssid, password);
-  #endif
-  
+#endif
+
   /*use mdns for host name resolution*/
   if (!MDNS.begin(hostName.c_str()))
   { //http://bletracker
@@ -560,168 +560,122 @@ void OTAWebServer::setup(const String &hN, const String &_ssid_, const String &_
     DEBUG_PRINTLN("mDNS responder started");
 
   /*return index page which is stored in serverIndex */
-  server.on(F("/"), HTTP_GET, [&]() { getIndex(); });
+  server.on(F("/"), HTTP_GET, [&]()
+            { getIndex(); });
 
-  server.on(F("/index.js"), HTTP_GET, [&]() { getIndexJs(); });
+  server.on(F("/index.js"), HTTP_GET, [&]()
+            { getIndexJs(); });
 
-  server.on(F("/style.css"), HTTP_GET, [&]() { getStyle(); });
+  server.on(F("/style.css"), HTTP_GET, [&]()
+            { getStyle(); });
 
-  server.on(F("/getindexdata"), HTTP_GET, [&]() { getIndexData(); });
+  server.on(F("/getindexdata"), HTTP_GET, [&]()
+            { getIndexData(); });
 
-  server.on(F("/config"), HTTP_GET, [&]() { getConfig(); });
+  server.on(F("/config"), HTTP_GET, [&]()
+            { getConfig(); });
 
-  server.on(F("/config.js"), HTTP_GET, [&]() { getConfigJs(); });
+  server.on(F("/config.js"), HTTP_GET, [&]()
+            { getConfigJs(); });
 
-  server.on(F("/getconfigdata"), HTTP_GET, [&]() { getConfigData(); });
+  server.on(F("/getconfigdata"), HTTP_GET, [&]()
+            { getConfigData(); });
 
-  server.on(F("/updatebattery"), HTTP_GET, [&]() { getUpdateBattery(); });
+  server.on(F("/updatebattery"), HTTP_GET, [&]()
+            { getUpdateBattery(); });
 
-  server.on(F("/updateconfig"), HTTP_POST, [&]() { postUpdateConfig(); });
+  server.on(F("/updateconfig"), HTTP_POST, [&]()
+            { postUpdateConfig(); });
 
-  server.on(F("/sysinfo"), HTTP_GET, [&]() { getSysInfo(); });
+  server.on(F("/sysinfo"), HTTP_GET, [&]()
+            { getSysInfo(); });
 
-  server.on(F("/sysinfo.js"), HTTP_GET, [&]() { getSysInfoJs(); });
+  server.on(F("/sysinfo.js"), HTTP_GET, [&]()
+            { getSysInfoJs(); });
 
-  server.on(F("/getsysinfodata"), HTTP_GET, [&]() { getSysInfoData(); });
+  server.on(F("/getsysinfodata"), HTTP_GET, [&]()
+            { getSysInfoData(); });
 
-  server.on(F("/restart"), HTTP_GET, [&]() { resetESP32Page(); });
+  server.on(F("/restart"), HTTP_GET, [&]()
+            { resetESP32Page(); });
 
 #if ENABLE_FILE_LOG
-  server.on(F("/logs"), HTTP_GET, [&] { getLogs(); });
+  server.on(F("/logs"), HTTP_GET, [&]
+            { getLogs(); });
 
-  server.on(F("/logs"), HTTP_POST, [&] { postLogs(); });
+  server.on(F("/logs"), HTTP_POST, [&]
+            { postLogs(); });
 
-  server.on(F("/logs.js"), HTTP_GET, [&] { getLogsJs(); });
+  server.on(F("/logs.js"), HTTP_GET, [&]
+            { getLogsJs(); });
 
-  server.on(F("/eraselogs"), HTTP_GET, [&] { eraseLogs(); });
+  server.on(F("/eraselogs"), HTTP_GET, [&]
+            { eraseLogs(); });
 
-  server.on(F("/getlogsdata"), HTTP_GET, [&] { getLogsData(); });
+  server.on(F("/getlogsdata"), HTTP_GET, [&]
+            { getLogsData(); });
 #endif
 
-  server.on(F("/otaupdate"), HTTP_GET, [&]() { getOTAUpdate(); });
-  server.on(F("/otaupdate.js"), HTTP_GET, [&]() { getOTAUpdateJs(); });
+  server.on(F("/otaupdate"), HTTP_GET, [&]()
+            { getOTAUpdate(); });
+  server.on(F("/otaupdate.js"), HTTP_GET, [&]()
+            { getOTAUpdateJs(); });
 
   /*handling uploading firmware file */
   server.on(
-      F("/update"), HTTP_POST, [&]() {
-    server.sendHeader(F("Connection"), F("close"));
-    server.send(200, F("text/plain"), (Update.hasError()) ? F("FAIL") : F("OK"));
-    ESP.restart(); }, [&]() {
+      F("/update"), HTTP_POST, [&]()
+      {
+        server.sendHeader(F("Connection"), F("close"));
+        server.send(200, F("text/plain"), (Update.hasError()) ? F("FAIL") : F("OK"));
+        ESP.restart();
+      },
+      [&]()
+      {
 #if ENABLE_FILE_LOG
-      if(SPIFFSLogger.isEnabled())
+        if (SPIFFSLogger.isEnabled())
         {
           LOG_TO_FILE_I("OTA Update started...");
           SPIFFSLogger.enabled(false);
           SPIFFS.end();
         }
 #endif
-    HTTPUpload& upload = server.upload();
-    if (upload.status == UPLOAD_FILE_START) {
-      DEBUG_PRINTF("Update: %s\n", upload.filename.c_str());
-      if (!Update.begin(UPDATE_SIZE_UNKNOWN)) { //start with max available size
-        Update.printError(Serial);
-      }
-    } else if (upload.status == UPLOAD_FILE_WRITE) {
-      /* flashing firmware to ESP*/
-      if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
-        Update.printError(Serial);
-      }
-    } else if (upload.status == UPLOAD_FILE_END) {
-      if (Update.end(true)) { //true to set the size to the current progress
-        DEBUG_PRINTF("Update Success: %u\nRebooting...\n", upload.totalSize);
-      } else {
-        Update.printError(Serial);
-      }
-    } });
+        HTTPUpload &upload = server.upload();
+        if (upload.status == UPLOAD_FILE_START)
+        {
+          DEBUG_PRINTF("Update: %s\n", upload.filename.c_str());
+          if (!Update.begin(UPDATE_SIZE_UNKNOWN))
+          { //start with max available size
+            Update.printError(Serial);
+          }
+        }
+        else if (upload.status == UPLOAD_FILE_WRITE)
+        {
+          /* flashing firmware to ESP*/
+          if (Update.write(upload.buf, upload.currentSize) != upload.currentSize)
+          {
+            Update.printError(Serial);
+          }
+        }
+        else if (upload.status == UPLOAD_FILE_END)
+        {
+          if (Update.end(true))
+          { //true to set the size to the current progress
+            DEBUG_PRINTF("Update Success: %u\nRebooting...\n", upload.totalSize);
+          }
+          else
+          {
+            Update.printError(Serial);
+          }
+        }
+      });
 
   server.begin();
 }
 
-static std::atomic_ulong WebServerWatchDogStartTime(0);
-void WebServerWatchDogloop(void *param)
-{
-  WebServer *server = (WebServer *)param;
-  WebServerWatchDogStartTime.store(millis());
-  while (true)
-  {
-    if (millis() > (WebServerWatchDogStartTime.load() + 10000))
-    {
-      server->stop();
-      server->begin();
-      DEBUG_PRINTLN("INFO: WebServerWatchdog resart server");
-      LOG_TO_FILE_E("Error: WebServerWatchdog resart server");
-    }
-    delay(1000);
-  };
-}
-
-void WebServerWatchDogFeed()
-{
-  WebServerWatchDogStartTime.store(millis());
-}
-
-void WebServerLoop(void *param)
-{
-  bool restart = false;
-  if (param == NULL)
-    return;
-
-  WebServer *server = (WebServer *)param;
-  while (true)
-  {
-    try
-    {
-      server->handleClient();
-      WebServerWatchDogFeed();
-      if (restart)
-      {
-        restart = false;
-        server->stop();
-        server->begin();
-      }
-      delay(100);
-    }
-    catch (std::exception &e)
-    {
-      restart = true;
-      DEBUG_PRINTF("Error Caught Exception %s", e.what());
-      LOG_TO_FILE_E("Error Caught Exception %s", e.what());
-    }
-    catch (...)
-    {
-      restart = true;
-      DEBUG_PRINTLN("Error Unhandled exception trapped in webserver loop");
-      LOG_TO_FILE_E("Error Unhandled exception trapped in webserver loop");
-    }
-  }
-}
-
 void OTAWebServer::handleClient()
 {
-  server.handleClient();
-  WebServerWatchDogFeed();
+    server.handleClient();
 }
 
 OTAWebServer webserver;
-
-void OTAWebServer::begin(void)
-{
-  xTaskCreatePinnedToCore(
-      WebServerLoop,   /* Function to implement the task */
-      "WebServerLoop", /* Name of the task */
-      4096,            /* Stack size in words */
-      (void *)&server, /* Task input parameter */
-      10,              /* Priority of the task */
-      NULL,            /* Task handle. */
-      1);
-
-  xTaskCreatePinnedToCore(
-      WebServerWatchDogloop,   /* Function to implement the task */
-      "WebServerWatchDogloop", /* Name of the task */
-      3072,                    /* Stack size in words */
-      (void *)&server,         /* Task input parameter */
-      10,                      /* Priority of the task */
-      NULL,                    /* Task handle. */
-      1);
-}
 #endif /*ENABLE_OTA_WEBSERVER*/

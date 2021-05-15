@@ -5,7 +5,7 @@
 void initializeMQTT();
 bool connectToMQTT(uint8_t maxRetry = 3);
 void mqttLoop();
-void publishBLEState(const char address[ADDRESS_STRING_SIZE], const char state[4], int8_t rssi, int8_t batteryLevel, uint32_t nodeId=0);
+void publishBLEState(const char address[ADDRESS_STRING_SIZE], const char state[4], int8_t rssi, int8_t batteryLevel);
 void publishToMQTT(const char *topic, const char *payload, bool retain);
 void publishAvailabilityToMQTT();
 void publishSySInfo();
