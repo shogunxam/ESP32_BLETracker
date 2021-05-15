@@ -6,6 +6,8 @@
 #include "WiFiManager.h"
 #include "watchdog.h"
 #include "settings.h"
+#include "NetworkSync.h"
+#include <WiFiClient.h>
 
 // MQTT_KEEPALIVE : keepAlive interval in Seconds
 // Keepalive timeout for default MQTT Broker is 10s
@@ -19,8 +21,8 @@
 #endif
 
 #include <PubSubClient.h> // https://github.com/knolleary/pubsubclient
-
-PubSubClient mqttClient(wifiClient);
+static WiFiClient wifiClient;
+static PubSubClient mqttClient(wifiClient);
 
 ///////////////////////////////////////////////////////////////////////////
 //   MQTT
@@ -54,11 +56,13 @@ void initializeMQTT()
     mqttClient.setServer(SettingsMngr.mqttServer.c_str(), SettingsMngr.mqttPort);
 }
 
-bool connectToMQTT()
+bool connectToMQTT(uint8_t maxRetry)
 {
+  NetworkAcquire();
+  #if !USE_MESH
   WiFiConnect(WIFI_SSID, WIFI_PASSWORD);
+  #endif
 
-  uint8_t maxRetry = 3;
   while (!mqttClient.connected())
   {
     DEBUG_PRINTF("INFO: Connecting to MQTT broker: %s\n", SettingsMngr.mqttServer.c_str());
@@ -106,6 +110,7 @@ bool connectToMQTT()
       return false;
   }
   firstTimeMQTTConnection = false;
+  NetworkRelease();
   return true;
 }
 
@@ -113,9 +118,12 @@ void publishToMQTT(const char *topic, const char *payload, bool retain)
 {
   if (connectToMQTT())
   {
+    NetworkAcquire();
     _publishToMQTT(topic, payload, retain);
     delay(100);
+    NetworkRelease();
   }
+
 }
 
 void publishAvailabilityToMQTT()
@@ -128,7 +136,7 @@ void publishAvailabilityToMQTT()
   }
 }
 
-void publishBLEState(const char address[ADDRESS_STRING_SIZE], const char state[4], int8_t rssi, int8_t batteryLevel)
+void publishBLEState(const char address[ADDRESS_STRING_SIZE], const char state[4], int8_t rssi, int8_t batteryLevel, uint32_t nodeId )
 {
   constexpr uint16_t maxTopicLen = sizeof(MQTT_BASE_SENSOR_TOPIC) + 22;
   char topic[maxTopicLen];
@@ -149,11 +157,11 @@ void publishBLEState(const char address[ADDRESS_STRING_SIZE], const char state[4
 
 #if PUBLISH_SIMPLE_JSON
   snprintf(topic, maxTopicLen, "%s/%s", MQTT_BASE_SENSOR_TOPIC, address);
-  const uint16_t maxPayloadLen = 45;
+  const uint16_t maxPayloadLen = 66; /*uint32_t nodeId size is max 10 chars*/
   char payload[maxPayloadLen];
-  snprintf(payload, maxPayloadLen, R"({"state":"%s","rssi":%d,"battery":%d})", state, rssi, batteryLevel);
+  snprintf(payload, maxPayloadLen, R"({"nodeid":"%u","state":"%s","rssi":%d,"battery":%d})", nodeId, state, rssi, batteryLevel);
 #if PUBLISH_BATTERY_LEVEL
-  snprintf(payload, maxPayloadLen, R"({"state":"%s","rssi":%d,"battery":%d})", state, rssi, batteryLevel);
+  snprintf(payload, maxPayloadLen, R"({"nodeid":"%u","state":"%s","rssi":%d,"battery":%d})", nodeId, state, rssi, batteryLevel);
 #else
   snprintf(payload, maxPayloadLen, R"({"state":"%s","rssi":%d})", state, rssi);
 #endif
@@ -176,6 +184,8 @@ void publishSySInfo()
 
 void mqttLoop()
 {
+    NetworkAcquire();
     mqttClient.loop();
+    NetworkRelease();
 }
 #endif /*USE_MQTT*/

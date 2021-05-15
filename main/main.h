@@ -43,7 +43,6 @@ struct BLETrackedDevice
 };
 
 char *formatMillis(unsigned long milliseconds, char outStr[20]);
-void ForceBatteryRead(const char *normalizedmac);
 extern MyRWMutex trackedDevicesMutex;
 extern std::vector<BLETrackedDevice> BLETrackedDevices;
 extern std::map<std::string, bool> FastDiscovery;

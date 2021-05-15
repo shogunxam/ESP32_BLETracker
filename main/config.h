@@ -4,7 +4,7 @@
 //  CONFIGURATION - SOFTWARE
 ///////////////////////////////////////////////////////////////////////////
 
-#include "user_config.h"
+#include "user_config_custom.h"
 
 //Bluetooth scans can either be passive or active. 
 //When passively scanning, a device will only listen to Bluetooth devices, quietly collecting data about its surroundings.
@@ -64,12 +64,6 @@
 #endif
 /////////////////////////
 
-#if USE_FHEM_LEPRESENCE_SERVER
-#define PROGRESSIVE_SCAN true
-#else
-#define PROGRESSIVE_SCAN false
-#endif
-
 #define ENABLE_OTA_WEBSERVER    true
 
 #define WIFI_CONNECTION_TIME_OUT  30 /*30 seconds*/
@@ -91,8 +85,32 @@
 //to consider the device as discovered
 #define NUM_OF_ADVERTISEMENT_IN_SCAN 1
 
+#ifndef USE_MESH
+#define   USE_MESH          false
+#endif 
+#ifndef MESH_BRIDGE_NODE
+#define   MESH_BRIDGE_NODE  true
+#endif 
+#define   MESH_PREFIX       "whateverYouLike"
+#define   MESH_PASSWORD     "somethingSneaky"
+#define   MESH_PORT         5555
+
+#if USE_MESH /*auto-configure for MESH support*/
+#define USE_MQTT                MESH_BRIDGE_NODE
+#define ENABLE_OTA_WEBSERVER    false
+#define ENABLE_FILE_LOG         false
+#endif
 
 #if USE_MQTT && USE_FHEM_LEPRESENCE_SERVER
 #error MQTT and FHEM LE Presence Server are mutally exclusive
 #endif
+
+#if USE_FHEM_LEPRESENCE_SERVER || USE_MESH
+#define PROGRESSIVE_SCAN true
+#else
+#define PROGRESSIVE_SCAN true
+#endif
+
 #endif /*CONFIG_ESP32_BLETRACKER*/
+
+

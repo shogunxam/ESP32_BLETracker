@@ -9,6 +9,7 @@ public:
     OTAWebServer();
     void setup(const String &hostName, const String &ssid, const String &password);
     void begin(void);
+    void handleClient();
 
 private:
     void resetESP32Page();
@@ -48,4 +49,6 @@ private:
     bool serverRunning;
     MyMutex dataBuffMutex;
 };
+
+extern OTAWebServer webserver;
 #endif /*OTA_WEB_SERVER*/

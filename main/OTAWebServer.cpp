@@ -1,7 +1,10 @@
 #include "main.h"
 #include "config.h"
 
+#include "bletasks.h"
+
 #if ENABLE_OTA_WEBSERVER
+
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <WebServer.h>
@@ -356,7 +359,7 @@ void OTAWebServer::getUpdateBattery()
   if (server.hasArg("mac"))
   {
     DEBUG_PRINTF("Force Battery Update for: %s\n", server.arg("mac").c_str());
-    ForceBatteryRead(server.arg("mac").c_str());
+    BLETask::ForceBatteryRead(server.arg("mac").c_str());
   }
 
   server.client().setNoDelay(true);
@@ -544,8 +547,10 @@ void OTAWebServer::setup(const String &hN, const String &_ssid_, const String &_
   password = _password_;
 
   DEBUG_PRINTLN("WebServer Setup");
+  #if !USE_MESH
   WiFiConnect(ssid, password);
-
+  #endif
+  
   /*use mdns for host name resolution*/
   if (!MDNS.begin(hostName.c_str()))
   { //http://bletracker
@@ -690,6 +695,14 @@ void WebServerLoop(void *param)
     }
   }
 }
+
+void OTAWebServer::handleClient()
+{
+  server.handleClient();
+  WebServerWatchDogFeed();
+}
+
+OTAWebServer webserver;
 
 void OTAWebServer::begin(void)
 {

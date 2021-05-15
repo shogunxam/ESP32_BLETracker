@@ -1,3 +1,4 @@
+#include <Arduino.h>
 #include <mutex>
 #include "config.h"
 #include "NTPTime.h"

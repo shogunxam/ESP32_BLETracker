@@ -4,5 +4,4 @@
 
 void WiFiConnect(const String& _ssid_, const String& _password_) ;
 
-extern WiFiClient wifiClient;
 #endif /*_WIFI_MANAGER_H_*/

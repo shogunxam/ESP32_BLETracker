@@ -5,12 +5,17 @@
 namespace NTPTime
 {
     static bool NPTIMEInitializing = false;
+    static bool NPTIMEInitialized = false;
     void initialize()
     {
+        if(NPTIMEInitialized)
+            return;
+            
         NPTIMEInitializing = true;
         ::configTzTime(TIME_ZONE, NTP_SERVER);
         delay(500); //Wait for NTP server response
         NPTIMEInitializing = false;
+        NPTIMEInitialized = true;
     }
 
     void getLocalTime(struct tm &timeinfo)

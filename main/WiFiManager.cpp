@@ -11,8 +11,6 @@ extern "C" {
 #include "NTPTime.h"
 #include "SPIFFSLogger.h"
 
-WiFiClient wifiClient;
-
 void WiFiConnect(const String &_ssid_, const String &_password_)
 {
   if (WiFi.status() != WL_CONNECTED)
