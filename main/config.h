@@ -4,7 +4,7 @@
 //  CONFIGURATION - SOFTWARE
 ///////////////////////////////////////////////////////////////////////////
 
-#include "user_config_custom.h"
+#include "user_config.h"
 
 //Bluetooth scans can either be passive or active. 
 //When passively scanning, a device will only listen to Bluetooth devices, quietly collecting data about its surroundings.
