@@ -2,7 +2,7 @@
 - [ESP32 BLETracker](#esp32-bletracker)
   - [WEB Server](#web-server)
   - [FHEM Support](#fhem-support)
-- [Arduino IDE Notes](#arduino-ide-notes)
+- [Arduino IDE Notes (outdated)](#arduino-ide-notes-outdated)
 - [Have you found a crash? Help me to fix it.](#have-you-found-a-crash-help-me-to-fix-it)
 - [Tested BLE Devices](#tested-ble-devices)
 - [Home Assistant integration](#home-assistant-integration)
