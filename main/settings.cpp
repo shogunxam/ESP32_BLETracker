@@ -12,7 +12,7 @@ Settings::KnownDevice::KnownDevice(const KnownDevice &dev)
 }
 
 Settings::KnownDevice::KnownDevice(const char *mac, bool batt, const char *desc)
-{
+{   
     strncpy(address, mac, ADDRESS_STRING_SIZE);
     strncpy(description, desc, DESCRIPTION_STRING_SIZE);
     readBattery = batt;
@@ -27,9 +27,10 @@ Settings::KnownDevice::KnownDevice()
 
 Settings::KnownDevice &Settings::KnownDevice::operator=(const KnownDevice &dev)
 {
+    readBattery = dev.readBattery;
     memcpy(address, dev.address, ADDRESS_STRING_SIZE);
     memcpy(description, dev.description, DESCRIPTION_STRING_SIZE);
-    readBattery = dev.readBattery;
+    return *this;
 }
 
 String Settings::ArrayToStringList(const std::vector<String> &whiteList)
