@@ -33,7 +33,7 @@ public:
     void EnableWhiteList(bool enable);
     KnownDevice *GetDevice(const String &value);
     void AddDeviceToList(const KnownDevice &device);
-    void AddDeviceToList(const char mac[ADDRESS_STRING_SIZE], bool checkBattery, const char description[DESCRIPTION_STRING_SIZE] = {'\0'});
+    void AddDeviceToList(const char mac[ADDRESS_STRING_SIZE], bool checkBattery, const char description[DESCRIPTION_STRING_SIZE] = "");
     const std::vector<KnownDevice> &GetKnownDevicesList();
     String mqttUser;
     String mqttPwd;
