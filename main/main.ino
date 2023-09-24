@@ -194,7 +194,10 @@ void batteryTask()
       continue;
 
 #if USE_MQTT
-    publishAvailabilityToMQTT();
+    if(!IsAccessPointModeOn())
+    {
+        publishAvailabilityToMQTT();
+    }
 #endif
 
     //We need to connect to the device to read the battery value
@@ -402,7 +405,14 @@ void setup()
   SPIFFSLogger.setLogLevel(SPIFFSLoggerClass::LogLevel(SettingsMngr.logLevel));
 #endif
 
-  WiFiConnect(WIFI_SSID, WIFI_PASSWORD);
+  if(SettingsMngr.wifiSSID.isEmpty())
+  {
+    StartAccessPointMode();
+  }
+  else
+  {
+    WiFiConnect(SettingsMngr.wifiSSID, SettingsMngr.wifiPwd);
+  }
 
   LogResetReason();
 
@@ -414,7 +424,7 @@ void setup()
 #endif
 
 #if ENABLE_OTA_WEBSERVER
-  webserver.setup(GATEWAY_NAME, WIFI_SSID, WIFI_PASSWORD);
+  webserver.setup(SettingsMngr.gateway, SettingsMngr.wifiSSID, SettingsMngr.wifiPwd);
   webserver.begin();
 #endif
 
@@ -429,21 +439,24 @@ void setup()
 
   Watchdog::Initialize();
 
-  BLEDevice::init(GATEWAY_NAME);
-  pBLEScan = BLEDevice::getScan();
-  pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks(), NUM_OF_ADVERTISEMENT_IN_SCAN > 1);
-  pBLEScan->setActiveScan(ACTIVE_SCAN);
-  pBLEScan->setInterval(50);
-  pBLEScan->setWindow(50);
+  if(!IsAccessPointModeOn())
+  {
+    BLEDevice::init(SettingsMngr.gateway.c_str());
+    pBLEScan = BLEDevice::getScan();
+    pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks(), NUM_OF_ADVERTISEMENT_IN_SCAN > 1);
+    pBLEScan->setActiveScan(ACTIVE_SCAN);
+    pBLEScan->setInterval(50);
+    pBLEScan->setWindow(50);
 
 #if USE_MQTT
-  initializeMQTT();
-  connectToMQTT();
+    initializeMQTT();
+    connectToMQTT();
 #endif
 
 #if USE_FHEM_LEPRESENCE_SERVER
-  FHEMLePresenceServer::initializeServer();
+    FHEMLePresenceServer::initializeServer();
 #endif
+  }
 
   LOG_TO_FILE("BLETracker initialized");
 }
@@ -463,12 +476,18 @@ void loop()
   try
   {
 #if USE_MQTT
-    mqttLoop();
+  if(!IsAccessPointModeOn())
+  {
+      mqttLoop();
+  }
 #endif
 
 #if USE_FHEM_LEPRESENCE_SERVER
     //Check and restore the wifi connection if it's loose
-    WiFiConnect(WIFI_SSID, WIFI_PASSWORD);
+    if(!SettingsMngr.wifiSSID.isEmpty())
+    {
+      WiFiConnect(SettingsMngr.wifiSSID, SettingsMngr.wifiPwd);
+    }
 #endif
 
     Watchdog::Feed();
@@ -483,107 +502,112 @@ void loop()
       LOG_TO_FILE("Restarting: reached the max number of traceable devices");
       esp_restart();
     }
-
-#if PROGRESSIVE_SCAN
-    static uint32_t elapsedScanTime = 0;
-    static uint32_t lastScanTime = 0;
-
-    bool continuePrevScan = elapsedScanTime > 0;
-    if(!continuePrevScan)//new scan
+  
+    if(!IsAccessPointModeOn())
     {
-      //Reset the states of discovered devices
-      for (auto &trackedDevice : BLETrackedDevices)
-      {
-        trackedDevice.advertised = false;
-        trackedDevice.rssiValue = -100;
-        trackedDevice.advertisementCounter = 0;
+    #if PROGRESSIVE_SCAN
+        static uint32_t elapsedScanTime = 0;
+        static uint32_t lastScanTime = 0;
+
+        bool continuePrevScan = elapsedScanTime > 0;
+        if(!continuePrevScan)//new scan
+        {
+          //Reset the states of discovered devices
+          for (auto &trackedDevice : BLETrackedDevices)
+          {
+            trackedDevice.advertised = false;
+            trackedDevice.rssiValue = -100;
+            trackedDevice.advertisementCounter = 0;
+          }
+        }
+        
+        lastScanTime = NTPTime::seconds();
+        pBLEScan->start(1, continuePrevScan);
+        pBLEScan->stop();
+        elapsedScanTime += NTPTime::seconds() - lastScanTime;
+        bool scanCompleted = elapsedScanTime > SettingsMngr.scanPeriod;
+        if(scanCompleted)
+        {
+          elapsedScanTime=0;
+          pBLEScan->clearResults();
+        }
+    #else
+        //Reset the states of discovered devices
+        for (auto &trackedDevice : BLETrackedDevices)
+        {
+          trackedDevice.advertised = false;
+          trackedDevice.rssiValue = -100;
+          trackedDevice.advertisementCounter = 0;
+        }
+
+        //DEBUG_PRINTF("\n*** Memory Before scan: %u\n",xPortGetFreeHeapSize());
+        pBLEScan->start(SettingsMngr.scanPeriod);
+        pBLEScan->stop();
+        pBLEScan->clearResults();
+        //DEBUG_PRINTF("\n*** Memory After scan: %u\n",xPortGetFreeHeapSize());
+    #endif 
+
+    #if USE_MQTT
+          publishAvailabilityToMQTT();
+    #endif
+
+        for (auto &trackedDevice : BLETrackedDevices)
+        {
+          if (trackedDevice.isDiscovered && (trackedDevice.lastDiscoveryTime + SettingsMngr.maxNotAdvPeriod) < NTPTime::seconds())
+          {
+            trackedDevice.isDiscovered = false;
+            FastDiscovery[trackedDevice.address] = false;
+            LOG_TO_FILE_D("Devices %s is gone out of range", trackedDevice.address);
+          }
+        }
+
+
+    #if PUBLISH_BATTERY_LEVEL
+    #if PROGRESSIVE_SCAN
+      if(scanCompleted)
+    #endif
+        batteryTask();
+    #endif
+
+    #if USE_MQTT
+        publishAvailabilityToMQTT();
+
+        for (auto &trackedDevice : BLETrackedDevices)
+        {
+          if (trackedDevice.isDiscovered)
+          {
+            publishBLEState(trackedDevice.address, MQTT_PAYLOAD_ON, trackedDevice.rssiValue, trackedDevice.batteryLevel);
+          }
+          else
+          {
+            publishBLEState(trackedDevice.address, MQTT_PAYLOAD_OFF, -100, trackedDevice.batteryLevel);
+          }
+        }
+
+        //System Information
+        if (((lastSySInfoTime + SYS_INFORMATION_DELAY) < NTPTime::seconds()) || (lastSySInfoTime == 0))
+        {
+          publishSySInfo();
+          lastSySInfoTime = NTPTime::seconds();
+        }
+
+        publishAvailabilityToMQTT();
+
+    #elif USE_FHEM_LEPRESENCE_SERVER
+        FHEMLePresenceServer::loop();//Handle clients connections
+    #endif
       }
     }
-    
-    lastScanTime = NTPTime::seconds();
-    pBLEScan->start(1, continuePrevScan);
-    pBLEScan->stop();
-    elapsedScanTime += NTPTime::seconds() - lastScanTime;
-    bool scanCompleted = elapsedScanTime > SettingsMngr.scanPeriod;
-    if(scanCompleted)
+    catch (std::exception &e)
     {
-      elapsedScanTime=0;
-      pBLEScan->clearResults();
+      DEBUG_PRINTF("Error Caught Exception %s", e.what());
+      LOG_TO_FILE_E("Error Caught Exception %s", e.what());
     }
-#else
-    //Reset the states of discovered devices
-    for (auto &trackedDevice : BLETrackedDevices)
+    catch (...)
     {
-      trackedDevice.advertised = false;
-      trackedDevice.rssiValue = -100;
-      trackedDevice.advertisementCounter = 0;
+      DEBUG_PRINTLN("Error Unhandled exception trapped in main loop");
+      LOG_TO_FILE_E("Error Unhandled exception trapped in main loop");
     }
 
-    //DEBUG_PRINTF("\n*** Memory Before scan: %u\n",xPortGetFreeHeapSize());
-    pBLEScan->start(SettingsMngr.scanPeriod);
-    pBLEScan->stop();
-    pBLEScan->clearResults();
-    //DEBUG_PRINTF("\n*** Memory After scan: %u\n",xPortGetFreeHeapSize());
-#endif 
-
-#if USE_MQTT
-    publishAvailabilityToMQTT();
-#endif
-
-    for (auto &trackedDevice : BLETrackedDevices)
-    {
-      if (trackedDevice.isDiscovered && (trackedDevice.lastDiscoveryTime + SettingsMngr.maxNotAdvPeriod) < NTPTime::seconds())
-      {
-        trackedDevice.isDiscovered = false;
-        FastDiscovery[trackedDevice.address] = false;
-        LOG_TO_FILE_D("Devices %s is gone out of range", trackedDevice.address);
-      }
-    }
-
-
-#if PUBLISH_BATTERY_LEVEL
-#if PROGRESSIVE_SCAN
-  if(scanCompleted)
-#endif
-    batteryTask();
-#endif
-
-#if USE_MQTT
-    publishAvailabilityToMQTT();
-
-    for (auto &trackedDevice : BLETrackedDevices)
-    {
-      if (trackedDevice.isDiscovered)
-      {
-        publishBLEState(trackedDevice.address, MQTT_PAYLOAD_ON, trackedDevice.rssiValue, trackedDevice.batteryLevel);
-      }
-      else
-      {
-        publishBLEState(trackedDevice.address, MQTT_PAYLOAD_OFF, -100, trackedDevice.batteryLevel);
-      }
-    }
-
-    //System Information
-    if (((lastSySInfoTime + SYS_INFORMATION_DELAY) < NTPTime::seconds()) || (lastSySInfoTime == 0))
-    {
-      publishSySInfo();
-      lastSySInfoTime = NTPTime::seconds();
-    }
-
-    publishAvailabilityToMQTT();
-#elif USE_FHEM_LEPRESENCE_SERVER
-  FHEMLePresenceServer::loop();//Handle clients connections
-#endif
-  }
-  catch (std::exception &e)
-  {
-    DEBUG_PRINTF("Error Caught Exception %s", e.what());
-    LOG_TO_FILE_E("Error Caught Exception %s", e.what());
-  }
-  catch (...)
-  {
-    DEBUG_PRINTLN("Error Unhandled exception trapped in main loop");
-    LOG_TO_FILE_E("Error Unhandled exception trapped in main loop");
-  }
   delay(100);
 }

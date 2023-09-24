@@ -8,6 +8,26 @@
 
 <body>
 	<form id="configform" name="config" action="">
+		<div id="wifi">
+			<fieldset>
+				<legend>WiFi Network</legend>
+				<table>
+					<tr>
+						<td><label for="ssid">SSID:</label></td>
+						<td><input type="text" id="ssid" name="ssid"></td>
+					</tr>
+					<tr>
+						<td><label for="wifipwd">Password:</label></td>
+						<td><input type="password" id="wifipwd" name="wifipwd"> </td>
+            			<td><input class="eyebtn" type="button" id="togglewifipwd" margin=30 value="&#x1F441"></td>
+					</tr>
+					<tr>
+						<td><label for="gateway">Tracker ID:</label></td>
+						<td><input type="text" id="gateway" name="gateway"></td>
+					</tr>
+				</table>
+			</fieldset>
+		</div>
 		<div id="mqttbroker">
 			<fieldset>
 				<legend>MQTT Broker:</legend>
@@ -27,6 +47,7 @@
 					<tr>
 						<td><label for="mqttpwd">Password:</label></td>
 						<td><input type="password" id="mqttpwd" name="mqttpwd"></td>
+			           <td><input class="eyebtn" type="button" id="togglemqttpwd" margin=30 value="&#x1F441"></td>
 					</tr>
 				</table>
 			</fieldset>
@@ -34,7 +55,7 @@
 		<fieldset>
 			<legend>Devices to track</legend>
 			<label for="scanperiod" style="width:auto height:auto">Scan period:</label>
-			<input type="number" id="scanperiod" name="scanperiod" min="0" max="999" style="width:5em;height:auto"> 
+			<input type="number" id="scanperiod" name="scanperiod" min="0" max="999" style="width:5em;height:auto">
 			<label for="maxNotAdvPeriod" style="width:auto height:auto">OFF after:</label>
 			<input type="number" id="maxNotAdvPeriod" name="maxNotAdvPeriod" min="0" max="999" style="width:5em;height:auto"><br>
 			<input type="checkbox" id="whiteList" name="whiteList" style="width:auto;height:auto">

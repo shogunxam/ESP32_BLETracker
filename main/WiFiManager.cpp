@@ -12,13 +12,40 @@ extern "C" {
 #include "SPIFFSLogger.h"
 
 WiFiClient wifiClient;
+static WiFiMode gWiFiMode = WiFiMode::Initializing;
+
+bool IsAccessPointModeOn()
+{
+  return gWiFiMode == WiFiMode::AcessPoint;
+}
+
+WiFiMode GetWifiMode()
+{
+  return gWiFiMode;
+}
+
+void StartAccessPointMode()
+{
+    // Enable Access Point Mode
+    DEBUG_PRINT("Starting AccessPoint Mode...");
+    IPAddress local_ip(192,168,0,1);
+    IPAddress gateway(192,168,0,1);
+    IPAddress subnet(255,255,255,0);
+    WiFi.mode(WIFI_AP);
+    WiFi.softAPConfig(local_ip, gateway, subnet);
+    WiFi.softAP("ESP32_BLETRACKER", nullptr);
+    gWiFiMode = WiFiMode::AcessPoint;
+    DEBUG_PRINT("AccessPoint Mode enabled.");
+}
 
 void WiFiConnect(const String &_ssid_, const String &_password_)
 {
-  if (WiFi.status() != WL_CONNECTED)
+  if (WiFi.status() != WL_CONNECTED && !_ssid_.isEmpty() && gWiFiMode != WiFiMode::AcessPoint)
   {
+    DEBUG_PRINTF("Connecting to WiFi %s...", _ssid_.c_str());
     esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
     // Connect to WiFi network
+     WiFi.enableAP(false);
     WiFi.mode(WIFI_STA);
     WiFi.disconnect(true);
     
@@ -39,20 +66,25 @@ void WiFiConnect(const String &_ssid_, const String &_password_)
     WiFi.begin(_ssid_.c_str(), _password_.c_str());
     DEBUG_PRINTLN("");
 
-    unsigned long timeout = NTPTime::seconds() + WIFI_CONNECTION_TIME_OUT;
+    unsigned long timeout = NTPTime::seconds() + (WIFI_CONNECTION_TIME_OUT * (gWiFiMode == WiFiMode::Initializing) ? 3 : 1);
     // Wait for connection
     while (WiFi.status() != WL_CONNECTED)
     {
       delay(500);
-      DEBUG_PRINT(".");
+      DEBUG_PRINTLN(".");
 
       if (NTPTime::seconds() > timeout)
       {
         DEBUG_PRINTLN("Failed connecting to the network: timeout error!!!");
-        LOG_TO_FILE_E("Restart because failing to connect to %s.",_ssid_.c_str());
-        esp_restart();
+        LOG_TO_FILE_E("Start AccessPoint: failed to connect to %s.",_ssid_.c_str());
+        WiFi.enableAP(true);
+        StartAccessPointMode();
+        return;
+        //esp_restart();
       }
     }
+
+    gWiFiMode = WiFiMode::Station;
 
     //Initialize the time getting it from the WEB We do it after we have WifFi connection
     NTPTime::initialize();

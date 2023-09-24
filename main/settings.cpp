@@ -2,7 +2,7 @@
 #include "config.h"
 #include "DebugPrint.h"
 
-#define CURRENT_SETTING_VERSION 5
+#define CURRENT_SETTING_VERSION 6
 
 Settings SettingsMngr;
 
@@ -84,7 +84,6 @@ Settings::Settings(const String &fileName, bool emptyLists) : settingsFile(fileN
 
 void Settings::FactoryReset(bool emptyLists)
 {
-    KnownDevice d = {"CA67347FD139", true, "Nut Mario"};
     if (emptyLists)
     {
         knownDevices.clear();
@@ -104,6 +103,10 @@ void Settings::FactoryReset(bool emptyLists)
     scanPeriod = BLE_SCANNING_PERIOD;
     logLevel = DEFAULT_FILE_LOG_LEVEL;
     maxNotAdvPeriod = MAX_NON_ADV_PERIOD;
+    gateway = GATEWAY_NAME;
+    wifiSSID.clear();
+    wifiPwd.clear();
+
 }
 
 std::size_t Settings::GetMaxNumOfTraceableDevices()
@@ -156,6 +159,9 @@ String Settings::toJSON()
     data += R"("mqtt_enabled":)";
     data += mqttEnabled ? "true" : "false";
     data += R"(,)";
+    data += R"("wifi_ssid":")" + wifiSSID + R"(",)";
+    data += R"("wifi_pwd":")" + wifiPwd + R"(",)";
+    data += R"("gateway":")" + gateway + R"(",)";
     data += R"("mqtt_address":")" + mqttServer + R"(",)";
     data += R"("mqtt_port":)" + String(mqttPort) + ",";
     data += R"("mqtt_usr":")" + mqttUser + R"(",)";
@@ -306,10 +312,17 @@ bool Settings::Save()
         SaveString(file, mqttUser);
         SaveString(file, mqttPwd);
         file.write((uint8_t *)&enableWhiteList, sizeof(enableWhiteList));
-        SaveKnownDevices(file);
+        SaveKnownDevices(file); //Since Version 5 the format is changed
+        //Since Version 2
         file.write((uint8_t *)&scanPeriod, sizeof(scanPeriod));
+        //Since Version 3
         file.write((uint8_t *)&logLevel, sizeof(logLevel));
+        //Since version 4
         file.write((uint8_t *)&maxNotAdvPeriod, sizeof(maxNotAdvPeriod));
+        //Since version 6
+        SaveString(file, wifiSSID);
+        SaveString(file, wifiPwd);
+        SaveString(file, gateway);
         file.flush();
         file.close();
         return true;
@@ -332,11 +345,23 @@ void Settings::Load()
         file.read((uint8_t *)&enableWhiteList, sizeof(enableWhiteList));
         LoadKnownDevices(file, currVer);
         if (currVer > 1)
-            file.read((uint8_t *)&scanPeriod, sizeof(scanPeriod));
+        {
+                file.read((uint8_t *)&scanPeriod, sizeof(scanPeriod));
+        }
         if (currVer > 2)
-            file.read((uint8_t *)&logLevel, sizeof(logLevel));
+        {
+                file.read((uint8_t *)&logLevel, sizeof(logLevel));
+        }
         if (currVer > 3)
-            file.read((uint8_t *)&maxNotAdvPeriod, sizeof(maxNotAdvPeriod));
+        {
+               file.read((uint8_t *)&maxNotAdvPeriod, sizeof(maxNotAdvPeriod));
+        }
+        if (currVer > 5)
+        {   
+            LoadString(file, wifiSSID);
+            LoadString(file, wifiPwd);
+            LoadString(file, gateway);
+        }
     }
 }
 

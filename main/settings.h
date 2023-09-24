@@ -43,6 +43,9 @@ public:
     uint32_t maxNotAdvPeriod;
     uint8_t logLevel;
     bool mqttEnabled;
+    String wifiSSID;
+    String wifiPwd;
+    String gateway;
 
 private:
     enum class DeviceProperty

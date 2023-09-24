@@ -4,7 +4,7 @@
 //  CONFIGURATION - SOFTWARE
 ///////////////////////////////////////////////////////////////////////////
 
-#include "user_config.h"
+#include "user_config_custom.h"
 
 //Bluetooth scans can either be passive or active. 
 //When passively scanning, a device will only listen to Bluetooth devices, quietly collecting data about its surroundings.
@@ -44,8 +44,8 @@
 #define MQTT_CONNECTION_TIME_OUT 5 // [seconds]
 
 // MQTT availability: available/unavailable
-#define MQTT_BASE_SENSOR_TOPIC     LOCATION "/" GATEWAY_NAME
-#define MQTT_AVAILABILITY_TOPIC    MQTT_BASE_SENSOR_TOPIC "/LWT"
+//#define MQTT_BASE_SENSOR_TOPIC     LOCATION "/" GATEWAY_NAME
+//#define MQTT_AVAILABILITY_TOPIC    MQTT_BASE_SENSOR_TOPIC "/LWT"
 
 #define MQTT_PAYLOAD_ON   "on"
 #define MQTT_PAYLOAD_OFF  "off"

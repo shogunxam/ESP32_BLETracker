@@ -33,6 +33,37 @@ static bool firstTimeMQTTConnection = true;
 static bool MQTTConnectionErrorSignaled = false;
 static uint32_t MQTTErrorCounter = 0;
 
+const char* getMQTTBaseSensorTopic()
+{
+  static char MQTT_BASE_SENSOR_TOPIC[50] = "";
+  if( MQTT_BASE_SENSOR_TOPIC[0] == 0)
+  {
+    snprintf(MQTT_BASE_SENSOR_TOPIC,50,"%s/%s", LOCATION, SettingsMngr.gateway);
+  }
+
+  return MQTT_BASE_SENSOR_TOPIC;
+}
+
+const char* getMQTTAvailabilityTopic()
+{
+  static char MQTT_AVAILABILITY_TOPIC[60] = "";
+  if(MQTT_AVAILABILITY_TOPIC[0] == 0)
+  {
+     snprintf(MQTT_AVAILABILITY_TOPIC,60,"%s/LWT", getMQTTBaseSensorTopic());
+  }
+  return MQTT_AVAILABILITY_TOPIC;
+}
+
+const char* getMQTTSysInfoTopic()
+{
+  static char MQTT_SYSINFO_TOPIC[60] = "";
+  if(MQTT_SYSINFO_TOPIC[0] == 0)
+  {
+     snprintf(MQTT_SYSINFO_TOPIC,60,"%s/sysinfo", getMQTTBaseSensorTopic());
+  }
+  return MQTT_SYSINFO_TOPIC;
+}
+
 /*
   Function called to publish to a MQTT topic with the given payload
 */
@@ -56,7 +87,7 @@ void initializeMQTT()
 
 bool connectToMQTT()
 {
-  WiFiConnect(WIFI_SSID, WIFI_PASSWORD);
+  WiFiConnect(SettingsMngr.wifiSSID, SettingsMngr.wifiPwd);
 
   uint8_t maxRetry = 3;
   while (!mqttClient.connected())
@@ -65,12 +96,12 @@ bool connectToMQTT()
     if (!firstTimeMQTTConnection && !MQTTConnectionErrorSignaled)
       LOG_TO_FILE_E("Error: MQTT broker disconnected, connecting...");
     DEBUG_PRINTLN(F("Error: MQTT broker disconnected, connecting..."));
-    if (mqttClient.connect(GATEWAY_NAME, SettingsMngr.mqttUser.c_str(), SettingsMngr.mqttPwd.c_str(), MQTT_AVAILABILITY_TOPIC, 1, true, MQTT_PAYLOAD_UNAVAILABLE))
+    if (mqttClient.connect(GATEWAY_NAME, SettingsMngr.mqttUser.c_str(), SettingsMngr.mqttPwd.c_str(), getMQTTAvailabilityTopic(), 1, true, MQTT_PAYLOAD_UNAVAILABLE))
     {
       DEBUG_PRINTLN(F("INFO: The client is successfully connected to the MQTT broker"));
       LOG_TO_FILE_I("MQTT broker connected!");
       MQTTConnectionErrorSignaled = false;
-      _publishToMQTT(MQTT_AVAILABILITY_TOPIC, MQTT_PAYLOAD_AVAILABLE, true);
+      _publishToMQTT(getMQTTAvailabilityTopic(), MQTT_PAYLOAD_AVAILABLE, true);
     }
     else
     {
@@ -123,32 +154,32 @@ void publishAvailabilityToMQTT()
   if (NTPTime::seconds() > lastMQTTConnection)
   {
     lastMQTTConnection = NTPTime::seconds() + MQTT_CONNECTION_TIME_OUT;
-    DEBUG_PRINTF("INFO: MQTT availability topic: %s\n", MQTT_AVAILABILITY_TOPIC);
-    publishToMQTT(MQTT_AVAILABILITY_TOPIC, MQTT_PAYLOAD_AVAILABLE, true);
+    DEBUG_PRINTF("INFO: MQTT availability topic: %s\n", getMQTTAvailabilityTopic());
+    publishToMQTT(getMQTTAvailabilityTopic(), MQTT_PAYLOAD_AVAILABLE, true);
   }
 }
 
 void publishBLEState(const char address[ADDRESS_STRING_SIZE], const char state[4], int8_t rssi, int8_t batteryLevel)
 {
-  constexpr uint16_t maxTopicLen = sizeof(MQTT_BASE_SENSOR_TOPIC) + 22;
+  const uint16_t maxTopicLen = strlen(getMQTTBaseSensorTopic()) + 22;
   char topic[maxTopicLen];
   char strbuff[5];
 
 #if PUBLISH_SEPARATED_TOPICS
-  snprintf(topic, maxTopicLen, "%s/%s/state", MQTT_BASE_SENSOR_TOPIC, address);
+  snprintf(topic, maxTopicLen, "%s/%s/state", getMQTTBaseSensorTopic(), address);
   publishToMQTT(topic, state, false);
-  snprintf(topic, maxTopicLen, "%s/%s/rssi", MQTT_BASE_SENSOR_TOPIC, address);
+  snprintf(topic, maxTopicLen, "%s/%s/rssi", getMQTTBaseSensorTopic(), address);
   itoa(rssi, strbuff, 10);
   publishToMQTT(topic, strbuff, false);
 #if PUBLISH_BATTERY_LEVEL
-  snprintf(topic, maxTopicLen, "%s/%s/battery", MQTT_BASE_SENSOR_TOPIC, address);
+  snprintf(topic, maxTopicLen, "%s/%s/battery", getMQTTBaseSensorTopic(), address);
   itoa(batteryLevel, strbuff, 10);
   publishToMQTT(topic, strbuff, false);
 #endif
 #endif
 
 #if PUBLISH_SIMPLE_JSON
-  snprintf(topic, maxTopicLen, "%s/%s", MQTT_BASE_SENSOR_TOPIC, address);
+  snprintf(topic, maxTopicLen, "%s/%s", getMQTTBaseSensorTopic(), address);
   const uint16_t maxPayloadLen = 45;
   char payload[maxPayloadLen];
   snprintf(payload, maxPayloadLen, R"({"state":"%s","rssi":%d,"battery":%d})", state, rssi, batteryLevel);
@@ -161,7 +192,7 @@ void publishBLEState(const char address[ADDRESS_STRING_SIZE], const char state[4
 #endif
 }
 
-#define SYS_TOPIC MQTT_BASE_SENSOR_TOPIC "/sysinfo"
+
 void publishSySInfo()
 {
   constexpr uint16_t maxSysPayloadLen = 83 + sizeof(VERSION) + sizeof(WIFI_SSID);
@@ -171,7 +202,7 @@ void publishSySInfo()
   IP = WiFi.localIP().toString();
   char strmilli[20];
   snprintf(sysPayload, maxSysPayloadLen, R"({"uptime":"%s","version":"%s","SSID":"%s","IP":"%s"})", formatMillis(millis(), strmilli), VERSION, WIFI_SSID, IP.c_str());
-  publishToMQTT(SYS_TOPIC, sysPayload, false);
+  publishToMQTT(getMQTTSysInfoTopic(), sysPayload, false);
 }
 
 void mqttLoop()
