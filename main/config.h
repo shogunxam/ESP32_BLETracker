@@ -93,6 +93,6 @@
 
 
 #if USE_MQTT && USE_FHEM_LEPRESENCE_SERVER
-#error MQTT and FHEM LE Presence Server are mutally exclusive
+#error MQTT and FHEM LE Presence Server are mutually exclusive
 #endif
 #endif /*CONFIG_ESP32_BLETRACKER*/
