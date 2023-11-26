@@ -5,8 +5,9 @@
 #define GATEWAY_NAME "BLETracker"
 
 // Wi-Fi credentials
-#define WIFI_SSID     "YOUR_WIFI_SSID"
-#define WIFI_PASSWORD "YOUR_WIFI_PASSWORD"
+// NOTE: If you set them the WiFi credential AcessPoint Mode will not work and BLETracker will connect always to this WiFi
+#define WIFI_SSID     ""
+#define WIFI_PASSWORD ""
 
 /*Set to false to assign manually an IP to the BLETracker*/
 #define USE_DHCP true

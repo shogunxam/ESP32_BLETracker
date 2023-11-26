@@ -4,7 +4,7 @@
 #include <WString.h>
 namespace NTPTime
 {
-    void initialize();
+    void initialize(const char* timezone);
     void getLocalTime(tm& timeinfo);
     time_t getTimeStamp();
     void strftime(const char* format, const tm& timeInfo, String &out);

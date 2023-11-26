@@ -10,6 +10,7 @@ extern "C" {
 }
 #include "NTPTime.h"
 #include "SPIFFSLogger.h"
+#include "settings.h"
 
 WiFiClient wifiClient;
 static WiFiMode gWiFiMode = WiFiMode::Initializing;
@@ -28,8 +29,8 @@ void StartAccessPointMode()
 {
     // Enable Access Point Mode
     DEBUG_PRINT("Starting AccessPoint Mode...");
-    IPAddress local_ip(192,168,0,1);
-    IPAddress gateway(192,168,0,1);
+    IPAddress local_ip(192,168,2,1);
+    IPAddress gateway(192,168,2,1);
     IPAddress subnet(255,255,255,0);
     WiFi.mode(WIFI_AP);
     WiFi.softAPConfig(local_ip, gateway, subnet);
@@ -87,7 +88,7 @@ void WiFiConnect(const String &_ssid_, const String &_password_)
     gWiFiMode = WiFiMode::Station;
 
     //Initialize the time getting it from the WEB We do it after we have WifFi connection
-    NTPTime::initialize();
+    NTPTime::initialize(SettingsMngr.wbsTimeZone.c_str());
 
     DEBUG_PRINTLN("--------------------");
     DEBUG_PRINTF("Connected to %s\n",_ssid_.c_str());

@@ -104,9 +104,11 @@ void Settings::FactoryReset(bool emptyLists)
     logLevel = DEFAULT_FILE_LOG_LEVEL;
     maxNotAdvPeriod = MAX_NON_ADV_PERIOD;
     gateway = GATEWAY_NAME;
-    wifiSSID.clear();
-    wifiPwd.clear();
-
+    wifiSSID = WIFI_SSID;
+    wifiPwd = WIFI_PASSWORD;
+    wbsUser = WEBSERVER_USER;
+    wbsPwd = WEBSERVER_PASSWORD;
+    wbsTimeZone = TIME_ZONE;
 }
 
 std::size_t Settings::GetMaxNumOfTraceableDevices()
@@ -161,6 +163,9 @@ String Settings::toJSON()
     data += R"(,)";
     data += R"("wifi_ssid":")" + wifiSSID + R"(",)";
     data += R"("wifi_pwd":")" + wifiPwd + R"(",)";
+    data += R"("wbs_user":")" + wbsUser + R"(",)";
+    data += R"("wbs_pwd":")" + wbsPwd + R"(",)";
+    data += R"("tz:")" + wbsTimeZone + R"(",)";
     data += R"("gateway":")" + gateway + R"(",)";
     data += R"("mqtt_address":")" + mqttServer + R"(",)";
     data += R"("mqtt_port":)" + String(mqttPort) + ",";
@@ -323,6 +328,8 @@ bool Settings::Save()
         SaveString(file, wifiSSID);
         SaveString(file, wifiPwd);
         SaveString(file, gateway);
+        SaveString(file, wbsTimeZone);
+        DEBUG_PRINTF("saved TZ %s",wbsTimeZone.c_str());
         file.flush();
         file.close();
         return true;
@@ -361,6 +368,8 @@ void Settings::Load()
             LoadString(file, wifiSSID);
             LoadString(file, wifiPwd);
             LoadString(file, gateway);
+            LoadString(file, wbsTimeZone);
+             DEBUG_PRINTF("loaded TZ %s",wbsTimeZone.c_str());
         }
     }
 }

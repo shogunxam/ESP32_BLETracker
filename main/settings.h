@@ -46,6 +46,9 @@ public:
     String wifiSSID;
     String wifiPwd;
     String gateway;
+    String wbsUser;
+    String wbsPwd;
+    String wbsTimeZone;
 
 private:
     enum class DeviceProperty

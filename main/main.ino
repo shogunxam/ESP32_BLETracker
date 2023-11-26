@@ -609,5 +609,5 @@ void loop()
       LOG_TO_FILE_E("Error Unhandled exception trapped in main loop");
     }
 
-  delay(100);
+  delay(IsAccessPointModeOn() ? 5000 : 100);
 }
