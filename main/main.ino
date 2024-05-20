@@ -484,6 +484,8 @@ void loop()
       esp_restart();
     }
 
+if (SettingsMngr.IsManualScanOn() || !SettingsMngr.IsManualScanEnabled())
+{
 #if PROGRESSIVE_SCAN
     static uint32_t elapsedScanTime = 0;
     static uint32_t lastScanTime = 0;
@@ -525,6 +527,7 @@ void loop()
     pBLEScan->clearResults();
     //DEBUG_PRINTF("\n*** Memory After scan: %u\n",xPortGetFreeHeapSize());
 #endif 
+}
 
 #if USE_MQTT
     publishAvailabilityToMQTT();
