@@ -149,6 +149,22 @@ void Settings::EnableWhiteList(bool enable)
     enableWhiteList = enable;
 }
 
+void Settings::EnableManualScan(bool enable)
+{
+    if(enable)
+    {
+        if(manualScan==eManualSCanMode::eManualSCanModeDisabled)
+        {
+            manualScan = eManualSCanMode::eManualSCanModeOff;
+        }
+    }
+    else
+    {
+        manualScan = eManualSCanMode::eManualSCanModeDisabled;
+    }
+}
+
+
 bool Settings::IsManualScanEnabled()
 {
     return manualScan != eManualSCanMode::eManualSCanModeDisabled;
@@ -173,7 +189,9 @@ String Settings::toJSON()
     data += R"("scanPeriod":)" + String(scanPeriod) + ",";
     data += R"("maxNotAdvPeriod":)" + String(maxNotAdvPeriod) + ",";
     data += R"("loglevel":)" + String(logLevel) + ",";
-    data += R"("manualscan":)" + String(manualScan) + ",";
+    data += R"("manualscan":)";
+    data += (manualScan & 0x02)? "true" : + "false";
+    data += R"(,)";
     data += R"("whiteList":)";
     data += (enableWhiteList ? "true" : "false");
     data += R"(,)";

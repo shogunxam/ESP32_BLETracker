@@ -389,6 +389,8 @@ void OTAWebServer::postUpdateConfig()
       newSettings.maxNotAdvPeriod = server.arg(i).toInt();
     else if (server.argName(i) == "whiteList")
       newSettings.EnableWhiteList(server.arg(i) == "true");
+    else if (server.argName(i) == "manualscan")
+        newSettings.EnableManualScan(server.arg(i) == "true");
     else //other are mac address with properties in the form "MACADDRESS[property]":"value"
     {
       char argName[20]; //MacAddress size (12 chars) + 2 square brackets + property name size (5 chars) + terminator

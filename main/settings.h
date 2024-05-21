@@ -7,7 +7,7 @@
 
 enum eManualSCanMode
 {
-    eManualSCanModeDisabled = 1,
+    eManualSCanModeDisabled = 0,
     eManualSCanModeOff = 2,
     eManualSCanModeOn = 3
 };
@@ -42,6 +42,7 @@ public:
     void AddDeviceToList(const KnownDevice &device);
     void AddDeviceToList(const char mac[ADDRESS_STRING_SIZE], bool checkBattery, const char description[DESCRIPTION_STRING_SIZE] = "");
     const std::vector<KnownDevice> &GetKnownDevicesList();
+    void EnableManualScan(bool enable);
     bool IsManualScanEnabled();
     bool IsManualScanOn();
     String mqttUser;
