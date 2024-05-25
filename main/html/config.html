@@ -37,8 +37,11 @@
 			<input type="number" id="scanperiod" name="scanperiod" min="0" max="999" style="width:5em;height:auto"> 
 			<label for="maxNotAdvPeriod" style="width:auto height:auto">OFF after:</label>
 			<input type="number" id="maxNotAdvPeriod" name="maxNotAdvPeriod" min="0" max="999" style="width:5em;height:auto"><br>
-			<input type="checkbox" id="whiteList" name="whiteList" style="width:auto;height:auto">
-			<label for="whiteList">Track only listed devices</label><br>
+      <input type="checkbox" id="manualscan" name="manualscan" style="width:auto;height:auto">
+			<label for="manualscan">Manual Scan</label>
+      &nbsp;&nbsp;&nbsp;&nbsp; 
+		  <input type="checkbox" id="whiteList" name="whiteList" style="width:auto;height:auto">
+			<label for="whiteList">Track only listed devices</label>     
 			<div id="devListContainer" name="devListContainer" class="table-wrapper">
 				<table id="devList" style="margin-left: auto; margin-right: auto;" class="scroll-table">
 					<thead>

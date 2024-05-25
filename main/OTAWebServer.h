@@ -34,6 +34,7 @@ private:
     void getLogsJs();
     void getLogsData();
 #endif
+    void getManualScan();
     void StartChunkedContentTransfer(const char *contentType, bool zipped = false);
     void SendChunkedContent(const uint8_t *content, size_t size);
     void SendChunkedContent(const char *content);

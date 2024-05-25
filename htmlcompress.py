@@ -50,6 +50,7 @@ def bin2c(filename, outfilename):
             result_file.write(b'0x%02X' % b)
         result_file.write(b'\n};')
 
+print('Compressing HTML...')
 with os.scandir('./main/html') as it :
     for entry in it:
         if entry.is_file() and entry.name.endswith('.html') or  entry.name.endswith('.css') or entry.name.endswith('.js'):
