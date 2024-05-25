@@ -2,7 +2,7 @@
 #include "config.h"
 #include "DebugPrint.h"
 
-#define CURRENT_SETTING_VERSION 5
+#define CURRENT_SETTING_VERSION 6
 
 Settings SettingsMngr;
 
@@ -84,7 +84,6 @@ Settings::Settings(const String &fileName, bool emptyLists) : settingsFile(fileN
 
 void Settings::FactoryReset(bool emptyLists)
 {
-    KnownDevice d = {"CA67347FD139", true, "Nut Mario"};
     if (emptyLists)
     {
         knownDevices.clear();
@@ -104,6 +103,7 @@ void Settings::FactoryReset(bool emptyLists)
     scanPeriod = BLE_SCANNING_PERIOD;
     logLevel = DEFAULT_FILE_LOG_LEVEL;
     maxNotAdvPeriod = MAX_NON_ADV_PERIOD;
+    manualScan = eManualSCanMode::eManualSCanModeDisabled;
 }
 
 std::size_t Settings::GetMaxNumOfTraceableDevices()
@@ -149,6 +149,32 @@ void Settings::EnableWhiteList(bool enable)
     enableWhiteList = enable;
 }
 
+void Settings::EnableManualScan(bool enable)
+{
+    if(enable)
+    {
+        if(manualScan==eManualSCanMode::eManualSCanModeDisabled)
+        {
+            manualScan = eManualSCanMode::eManualSCanModeOff;
+        }
+    }
+    else
+    {
+        manualScan = eManualSCanMode::eManualSCanModeDisabled;
+    }
+}
+
+
+bool Settings::IsManualScanEnabled()
+{
+    return manualScan != eManualSCanMode::eManualSCanModeDisabled;
+}
+
+bool Settings::IsManualScanOn()
+{
+    return manualScan == eManualSCanMode::eManualSCanModeOn;
+}
+
 String Settings::toJSON()
 {
     String data = "{";
@@ -163,6 +189,9 @@ String Settings::toJSON()
     data += R"("scanPeriod":)" + String(scanPeriod) + ",";
     data += R"("maxNotAdvPeriod":)" + String(maxNotAdvPeriod) + ",";
     data += R"("loglevel":)" + String(logLevel) + ",";
+    data += R"("manualscan":)";
+    data += (manualScan & 0x02)? "true" : + "false";
+    data += R"(,)";
     data += R"("whiteList":)";
     data += (enableWhiteList ? "true" : "false");
     data += R"(,)";
@@ -310,6 +339,7 @@ bool Settings::Save()
         file.write((uint8_t *)&scanPeriod, sizeof(scanPeriod));
         file.write((uint8_t *)&logLevel, sizeof(logLevel));
         file.write((uint8_t *)&maxNotAdvPeriod, sizeof(maxNotAdvPeriod));
+        file.write((uint8_t *)&manualScan, sizeof(manualScan));
         file.flush();
         file.close();
         return true;
@@ -337,6 +367,8 @@ void Settings::Load()
             file.read((uint8_t *)&logLevel, sizeof(logLevel));
         if (currVer > 3)
             file.read((uint8_t *)&maxNotAdvPeriod, sizeof(maxNotAdvPeriod));
+        if (currVer > 5)
+            file.read((uint8_t *)&manualScan, sizeof(manualScan));
     }
 }
 

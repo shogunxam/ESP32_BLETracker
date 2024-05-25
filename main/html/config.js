@@ -16,6 +16,7 @@ $(document).ready(function () {
     $('#mqttpwd').val(data.mqtt_pwd);
     $('#scanperiod').val(data.scanPeriod);
     $('#maxNotAdvPeriod').val(data.maxNotAdvPeriod);
+    $('#manualscan').prop("checked", data.manualscan);
     $('#whiteList').prop("checked", data.whiteList);
     for (const property in data.trk_list) {
       addMac(`${property}`, data.trk_list[property]);

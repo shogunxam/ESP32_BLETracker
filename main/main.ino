@@ -38,7 +38,7 @@ std::map<std::string, bool> FastDiscovery;
 
 BLEScan *pBLEScan;
 
-#define SYS_INFORMATION_DELAY 120000 /*2 minutes*/
+#define SYS_INFORMATION_DELAY 120 /*2 minutes*/
 unsigned long lastSySInfoTime = 0;
 
 #if ENABLE_OTA_WEBSERVER
@@ -484,6 +484,10 @@ void loop()
       esp_restart();
     }
 
+bool scanEnabled = SettingsMngr.IsManualScanOn() || !SettingsMngr.IsManualScanEnabled();
+
+if (scanEnabled)
+{
 #if PROGRESSIVE_SCAN
     static uint32_t elapsedScanTime = 0;
     static uint32_t lastScanTime = 0;
@@ -525,6 +529,17 @@ void loop()
     pBLEScan->clearResults();
     //DEBUG_PRINTF("\n*** Memory After scan: %u\n",xPortGetFreeHeapSize());
 #endif 
+}
+else
+{
+    for (auto &trackedDevice : BLETrackedDevices)
+    {
+      trackedDevice.advertised = false;
+      trackedDevice.rssiValue = -100;
+      trackedDevice.advertisementCounter = 0;
+    }
+    pBLEScan->clearResults();
+}
 
 #if USE_MQTT
     publishAvailabilityToMQTT();
@@ -551,20 +566,25 @@ void loop()
 #if USE_MQTT
     publishAvailabilityToMQTT();
 
-    for (auto &trackedDevice : BLETrackedDevices)
+    bool publishSystemInfo = ((lastSySInfoTime + SYS_INFORMATION_DELAY) < NTPTime::seconds()) || (lastSySInfoTime == 0);
+
+    if(scanEnabled || publishSystemInfo)
     {
-      if (trackedDevice.isDiscovered)
-      {
-        publishBLEState(trackedDevice.address, MQTT_PAYLOAD_ON, trackedDevice.rssiValue, trackedDevice.batteryLevel);
-      }
-      else
-      {
-        publishBLEState(trackedDevice.address, MQTT_PAYLOAD_OFF, -100, trackedDevice.batteryLevel);
-      }
+        for (auto &trackedDevice : BLETrackedDevices)
+        {
+          if (trackedDevice.isDiscovered)
+          {
+            publishBLEState(trackedDevice.address, MQTT_PAYLOAD_ON, trackedDevice.rssiValue, trackedDevice.batteryLevel);
+          }
+          else
+          {
+            publishBLEState(trackedDevice.address, MQTT_PAYLOAD_OFF, -100, trackedDevice.batteryLevel);
+          }
+        }
     }
 
     //System Information
-    if (((lastSySInfoTime + SYS_INFORMATION_DELAY) < NTPTime::seconds()) || (lastSySInfoTime == 0))
+    if (publishSystemInfo)
     {
       publishSySInfo();
       lastSySInfoTime = NTPTime::seconds();
