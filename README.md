@@ -264,7 +264,7 @@ SOFTWARE.<br>
 If you like my work, please consider buying me a coffee or making a free donation via PayPal. Thank you for your support! :grin:<br><br>
 [![Buy me a coffee][buymeacoffee-shield]][buymeacoffee] [![PayPal][paypal-shield]][paypal]
 
-[buymeacoffee-shield]: https://www.buymeacoffee.com/assets/img/guidelines/download-assets-sm-2.svg
+[buymeacoffee-shield]: https://raw.githubusercontent.com/shogunxam/donate-assets/master/coffee.png
 [buymeacoffee]: https://www.buymeacoffee.com/shogunxam
-[paypal-shield]: https://www.paypalobjects.com/digitalassets/c/website/marketing/emea/gb/en/not-for-profit-2/donate-button.png
+[paypal-shield]: https://raw.githubusercontent.com/shogunxam/donate-assets/master/paypal.png
 [paypal]: https://paypal.me/shogunxam
