@@ -45,8 +45,8 @@ namespace FHEMLePresenceServer
 
   void publishTag(FHEMClient &fhemClient, const char *reason)
   {
-    char msg[100] = "absence;rssi=unreachable;daemon=" GATEWAY_NAME " V" VERSION "\n";
-
+    char msg[100] = "";
+    snprintf(msg,100, "absence;rssi=unreachable;daemon=%s V" VERSION "\n", SettingsMngr.gateway);
     CRITICALSECTION_READSTART(trackedDevicesMutex)
     for (auto &trackedDevice : BLETrackedDevices)
     {
@@ -56,9 +56,9 @@ namespace FHEMLePresenceServer
       if ((trackedDevice.lastDiscoveryTime + fhemClient.timeout) >= NTPTime::seconds())
       {
         if (PUBLISH_BATTERY_LEVEL && trackedDevice.batteryLevel > 0)
-          snprintf(msg, 100, "present;device_name=%s;rssi=%d;batteryPercent=%d;daemon=" GATEWAY_NAME " V" VERSION "\n", fhemClient.address, trackedDevice.rssiValue, trackedDevice.batteryLevel);
+          snprintf(msg, 100, "present;device_name=%s;rssi=%d;batteryPercent=%d;daemon=%s V" VERSION "\n", fhemClient.address, trackedDevice.rssiValue, trackedDevice.batteryLevel,SettingsMngr.gateway);
         else
-          snprintf(msg, 100, "present;device_name=%s;rssi=%d;daemon=" GATEWAY_NAME " V" VERSION "\n", fhemClient.address, trackedDevice.rssiValue);
+          snprintf(msg, 100, "present;device_name=%s;rssi=%d;daemon=%s V" VERSION "\n", fhemClient.address, trackedDevice.rssiValue,SettingsMngr.gateway);
       }
       break;
     }

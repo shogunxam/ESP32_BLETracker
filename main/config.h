@@ -44,8 +44,8 @@
 #define MQTT_CONNECTION_TIME_OUT 5 // [seconds]
 
 // MQTT availability: available/unavailable
-#define MQTT_BASE_SENSOR_TOPIC     LOCATION "/" GATEWAY_NAME
-#define MQTT_AVAILABILITY_TOPIC    MQTT_BASE_SENSOR_TOPIC "/LWT"
+//#define MQTT_BASE_SENSOR_TOPIC     LOCATION "/" GATEWAY_NAME
+//#define MQTT_AVAILABILITY_TOPIC    MQTT_BASE_SENSOR_TOPIC "/LWT"
 
 #define MQTT_PAYLOAD_ON   "on"
 #define MQTT_PAYLOAD_OFF  "off"
@@ -93,6 +93,6 @@
 
 
 #if USE_MQTT && USE_FHEM_LEPRESENCE_SERVER
-#error MQTT and FHEM LE Presence Server are mutally exclusive
+#error MQTT and FHEM LE Presence Server are mutually exclusive
 #endif
 #endif /*CONFIG_ESP32_BLETRACKER*/

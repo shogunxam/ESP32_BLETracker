@@ -26,44 +26,45 @@ function timeConverter(UNIX_timestamp) {
 
 function loadData() {
   now = new Date();
-  var url = "/getsysinfodata?time=" + now.getTime(); 
+  var url = "/getsysinfodata?time=" + now.getTime();
   $.get(url, function (data) {
-  $('#gateway').text(data.gateway);
-  $('#firmware').text(data.firmware);
-  $('#uptime').text(data.uptime);
-  $('#ssid').text(data.ssid);
-  if (data.build) { $('#build').text(data.build); }
-  else { $('#buildlbl').hide(); $('#build').hide(); }
-  if (data.memory) { $('#memory').text(data.memory); }
-  else { $('#memorylbl').hide(); $('#memory').hide(); }
-  if (!data.battery) {
-    $('#c1').hide();
-  }
-  $("#devices > tbody").remove();
-  var table = $('#devices');
-  table.append($("<tbody/>"));
+    $('#gateway').text(data.gateway);
+    $('#firmware').text(data.firmware);
+    $('#uptime').text(data.uptime);
+    $('#ssid').text(data.ssid);
+    $('#macaddr').text(data.macaddr);
+    if (data.build) { $('#build').text(data.build); }
+    else { $('#buildlbl').hide(); $('#build').hide(); }
+    if (data.memory) { $('#memory').text(data.memory); }
+    else { $('#memorylbl').hide(); $('#memory').hide(); }
+    if (!data.battery) {
+      $('#c1').hide();
+    }
+    $("#devices > tbody").remove();
+    var table = $('#devices');
+    table.append($("<tbody/>"));
 
-  data.devices.forEach(function (item, index) {
-    tmac = $("<td/>").text(item.name ? item.name : item.mac);
-    trssi = $("<td/>").text(item.rssi);
-    if (data.battery) {
-      tbtr = $("<td/>");
-      div = '<div>'
-      + '<p style="display : inline-block; width: fit-content; height: fit-content;">' + item.battery + '</p>'
-      + '<input type="button" value="Refresh" id="rbtn_' + item.mac + '" class=btn onclick="readBattery(\'' + item.mac + '\')"style="font-size : 0.8em; padding: 5px; display : inline-block; width: fit-content; width: -moz-fit-content;height: fit-content;float: right;">'
-      + '</br><p style="text-align: center; margin-top:4%;font-size : 0.8em;">' + (item.bttime ? timeConverter(item.bttime) : '') + '</p>'
-      + '</div>';
-      tbtr.append(div);
-    }
-    tstate = $("<td/>").text(item.state);
-    var row = $("<tr/>").append(tmac);
-    row.append(trssi);
-    if (data.battery) {
-      row.append(tbtr);
-    }
-    row.append(tstate);
-    table.append(row);
-    console.log(table);
-  });
+    data.devices.forEach(function (item, index) {
+      tmac = $("<td/>").text(item.name ? item.name : item.mac);
+      trssi = $("<td/>").text(item.rssi);
+      if (data.battery) {
+        tbtr = $("<td/>");
+        div = '<div>'
+          + '<p style="display : inline-block; width: fit-content; height: fit-content;">' + item.battery + '</p>'
+          + '<input type="button" value="Refresh" id="rbtn_' + item.mac + '" class=btn onclick="readBattery(\'' + item.mac + '\')"style="font-size : 0.8em; padding: 5px; display : inline-block; width: fit-content; width: -moz-fit-content;height: fit-content;float: right;">'
+          + '</br><p style="text-align: center; margin-top:4%;font-size : 0.8em;">' + (item.bttime ? timeConverter(item.bttime) : '') + '</p>'
+          + '</div>';
+        tbtr.append(div);
+      }
+      tstate = $("<td/>").text(item.state);
+      var row = $("<tr/>").append(tmac);
+      row.append(trssi);
+      if (data.battery) {
+        row.append(tbtr);
+      }
+      row.append(tstate);
+      table.append(row);
+      console.log(table);
+    });
   });
 }

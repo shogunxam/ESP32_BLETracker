@@ -81,6 +81,11 @@ form {
   cursor: pointer;
 }
 
+.eyebtn {
+  padding: 0px;
+  background-color: transparent;
+}
+
 .dangerbtn, 
 .fatdangerbtn{
   background: #d21f1b;

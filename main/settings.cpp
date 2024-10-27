@@ -2,7 +2,7 @@
 #include "config.h"
 #include "DebugPrint.h"
 
-#define CURRENT_SETTING_VERSION 6
+#define CURRENT_SETTING_VERSION 7
 
 Settings SettingsMngr;
 
@@ -104,6 +104,12 @@ void Settings::FactoryReset(bool emptyLists)
     logLevel = DEFAULT_FILE_LOG_LEVEL;
     maxNotAdvPeriod = MAX_NON_ADV_PERIOD;
     manualScan = eManualSCanMode::eManualSCanModeDisabled;
+    gateway = GATEWAY_NAME;
+    wifiSSID = WIFI_SSID;
+    wifiPwd = WIFI_PASSWORD;
+    wbsUser = WEBSERVER_USER;
+    wbsPwd = WEBSERVER_PASSWORD;
+    wbsTimeZone = TIME_ZONE;
 }
 
 std::size_t Settings::GetMaxNumOfTraceableDevices()
@@ -179,9 +185,13 @@ String Settings::toJSON()
 {
     String data = "{";
     data += R"("version":)" + String(version) + R"(,)";
-    data += R"("mqtt_enabled":)";
-    data += mqttEnabled ? "true" : "false";
-    data += R"(,)";
+    data += R"("mqtt_enabled":)" + String(mqttEnabled ? "true" : "false") +  R"(,)";
+    data += R"("wifi_ssid":")" + wifiSSID + R"(",)";
+    data += R"("wifi_pwd":")" + wifiPwd + R"(",)";
+    data += R"("wbs_user":")" + wbsUser + R"(",)";
+    data += R"("wbs_pwd":")" + wbsPwd + R"(",)";
+    data += R"("tz":")" + wbsTimeZone + R"(",)";
+    data += R"("gateway":")" + gateway + R"(",)";
     data += R"("mqtt_address":")" + mqttServer + R"(",)";
     data += R"("mqtt_port":)" + String(mqttPort) + ",";
     data += R"("mqtt_usr":")" + mqttUser + R"(",)";
@@ -189,12 +199,8 @@ String Settings::toJSON()
     data += R"("scanPeriod":)" + String(scanPeriod) + ",";
     data += R"("maxNotAdvPeriod":)" + String(maxNotAdvPeriod) + ",";
     data += R"("loglevel":)" + String(logLevel) + ",";
-    data += R"("manualscan":)";
-    data += (manualScan & 0x02)? "true" : + "false";
-    data += R"(,)";
-    data += R"("whiteList":)";
-    data += (enableWhiteList ? "true" : "false");
-    data += R"(,)";
+    data += R"("manualscan":)" + String((manualScan & 0x02)? "true" : + "false") + R"(,)";
+    data += R"("whiteList":)" + String(enableWhiteList ? "true" : "false") +  R"(,)";
     data += R"("trk_list":{)";
     bool first = true;
     for (auto &device : knownDevices)
@@ -204,9 +210,8 @@ String Settings::toJSON()
         else
             first = false;
         data += R"(")" + String(device.address) + R"(":{)";
-        data += R"("battery":)";
-        data += (device.readBattery ? "true" : "false");
-        data += R"(,"desc":")" + String(device.description) + R"("})";
+        data += R"("battery":)" + String(device.readBattery ? "true" : "false") +  R"(,)";
+        data += R"("desc":")" + String(device.description) + R"("})";
     }
     data += "}";
     data += "}";
@@ -335,11 +340,21 @@ bool Settings::Save()
         SaveString(file, mqttUser);
         SaveString(file, mqttPwd);
         file.write((uint8_t *)&enableWhiteList, sizeof(enableWhiteList));
-        SaveKnownDevices(file);
+        SaveKnownDevices(file); //Since Version 5 the format is changed
+        //Since Version 2
         file.write((uint8_t *)&scanPeriod, sizeof(scanPeriod));
+        //Since Version 3
         file.write((uint8_t *)&logLevel, sizeof(logLevel));
+        //Since version 4
         file.write((uint8_t *)&maxNotAdvPeriod, sizeof(maxNotAdvPeriod));
+        //Since version 6
         file.write((uint8_t *)&manualScan, sizeof(manualScan));
+        //Since version 7
+        SaveString(file, wifiSSID);
+        SaveString(file, wifiPwd);
+        SaveString(file, gateway);
+        SaveString(file, wbsTimeZone);
+        DEBUG_PRINTF("saved TZ %s",wbsTimeZone.c_str());
         file.flush();
         file.close();
         return true;
@@ -362,13 +377,29 @@ void Settings::Load()
         file.read((uint8_t *)&enableWhiteList, sizeof(enableWhiteList));
         LoadKnownDevices(file, currVer);
         if (currVer > 1)
-            file.read((uint8_t *)&scanPeriod, sizeof(scanPeriod));
+        {
+                file.read((uint8_t *)&scanPeriod, sizeof(scanPeriod));
+        }
         if (currVer > 2)
-            file.read((uint8_t *)&logLevel, sizeof(logLevel));
+        {
+                file.read((uint8_t *)&logLevel, sizeof(logLevel));
+        }
         if (currVer > 3)
-            file.read((uint8_t *)&maxNotAdvPeriod, sizeof(maxNotAdvPeriod));
+        {
+               file.read((uint8_t *)&maxNotAdvPeriod, sizeof(maxNotAdvPeriod));
+        }
         if (currVer > 5)
+        {
             file.read((uint8_t *)&manualScan, sizeof(manualScan));
+        }
+        if (currVer > 6)
+        {   
+            LoadString(file, wifiSSID);
+            LoadString(file, wifiPwd);
+            LoadString(file, gateway);
+            LoadString(file, wbsTimeZone);
+            DEBUG_PRINTF("loaded TZ %s\n",wbsTimeZone.c_str());
+        }
     }
 }
 
