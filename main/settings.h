@@ -5,6 +5,13 @@
 #include <vector>
 #include "main.h"
 
+enum eManualSCanMode
+{
+    eManualSCanModeDisabled = 0,
+    eManualSCanModeOff = 2,
+    eManualSCanModeOn = 3
+};
+
 class Settings
 {
 public:
@@ -35,6 +42,9 @@ public:
     void AddDeviceToList(const KnownDevice &device);
     void AddDeviceToList(const char mac[ADDRESS_STRING_SIZE], bool checkBattery, const char description[DESCRIPTION_STRING_SIZE] = "");
     const std::vector<KnownDevice> &GetKnownDevicesList();
+    void EnableManualScan(bool enable);
+    bool IsManualScanEnabled();
+    bool IsManualScanOn();
     String mqttUser;
     String mqttPwd;
     String mqttServer;
@@ -43,6 +53,7 @@ public:
     uint32_t maxNotAdvPeriod;
     uint8_t logLevel;
     bool mqttEnabled;
+    uint8_t manualScan; // 0 or 1 manual scan disabled, 2 manual scan enabled and off, 3 manual scan enabled and on
     String wifiSSID;
     String wifiPwd;
     String gateway;

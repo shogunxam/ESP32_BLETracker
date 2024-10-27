@@ -2,7 +2,7 @@
 #include "config.h"
 #include "DebugPrint.h"
 
-#define CURRENT_SETTING_VERSION 6
+#define CURRENT_SETTING_VERSION 7
 
 Settings SettingsMngr;
 
@@ -103,6 +103,7 @@ void Settings::FactoryReset(bool emptyLists)
     scanPeriod = BLE_SCANNING_PERIOD;
     logLevel = DEFAULT_FILE_LOG_LEVEL;
     maxNotAdvPeriod = MAX_NON_ADV_PERIOD;
+    manualScan = eManualSCanMode::eManualSCanModeDisabled;
     gateway = GATEWAY_NAME;
     wifiSSID = WIFI_SSID;
     wifiPwd = WIFI_PASSWORD;
@@ -154,6 +155,32 @@ void Settings::EnableWhiteList(bool enable)
     enableWhiteList = enable;
 }
 
+void Settings::EnableManualScan(bool enable)
+{
+    if(enable)
+    {
+        if(manualScan==eManualSCanMode::eManualSCanModeDisabled)
+        {
+            manualScan = eManualSCanMode::eManualSCanModeOff;
+        }
+    }
+    else
+    {
+        manualScan = eManualSCanMode::eManualSCanModeDisabled;
+    }
+}
+
+
+bool Settings::IsManualScanEnabled()
+{
+    return manualScan != eManualSCanMode::eManualSCanModeDisabled;
+}
+
+bool Settings::IsManualScanOn()
+{
+    return manualScan == eManualSCanMode::eManualSCanModeOn;
+}
+
 String Settings::toJSON()
 {
     String data = "{";
@@ -172,6 +199,7 @@ String Settings::toJSON()
     data += R"("scanPeriod":)" + String(scanPeriod) + ",";
     data += R"("maxNotAdvPeriod":)" + String(maxNotAdvPeriod) + ",";
     data += R"("loglevel":)" + String(logLevel) + ",";
+    data += R"("manualscan":)" + String((manualScan & 0x02)? "true" : + "false") + R"(,)";
     data += R"("whiteList":)" + String(enableWhiteList ? "true" : "false") +  R"(,)";
     data += R"("trk_list":{)";
     bool first = true;
@@ -320,6 +348,8 @@ bool Settings::Save()
         //Since version 4
         file.write((uint8_t *)&maxNotAdvPeriod, sizeof(maxNotAdvPeriod));
         //Since version 6
+        file.write((uint8_t *)&manualScan, sizeof(manualScan));
+        //Since version 7
         SaveString(file, wifiSSID);
         SaveString(file, wifiPwd);
         SaveString(file, gateway);
@@ -359,6 +389,10 @@ void Settings::Load()
                file.read((uint8_t *)&maxNotAdvPeriod, sizeof(maxNotAdvPeriod));
         }
         if (currVer > 5)
+        {
+            file.read((uint8_t *)&manualScan, sizeof(manualScan));
+        }
+        if (currVer > 6)
         {   
             LoadString(file, wifiSSID);
             LoadString(file, wifiPwd);

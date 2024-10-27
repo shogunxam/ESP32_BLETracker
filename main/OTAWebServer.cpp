@@ -397,6 +397,8 @@ void OTAWebServer::postUpdateConfig()
       newSettings.maxNotAdvPeriod = server.arg(i).toInt();
     else if (server.argName(i) == "whiteList")
       newSettings.EnableWhiteList(server.arg(i) == "true");
+    else if (server.argName(i) == "manualscan")
+        newSettings.EnableManualScan(server.arg(i) == "true");
     else //other are mac address with properties in the form "MACADDRESS[property]":"value"
     {
       char argName[20]; //MacAddress size (12 chars) + 2 square brackets + property name size (5 chars) + terminator
@@ -548,6 +550,31 @@ void OTAWebServer::getSysInfo()
   server.sendHeader(F("Content-Encoding"), F("gzip"));
   server.send_P(200, "text/html", (const char *)sysinfo_html_gz, sysinfo_html_gz_size);
 }
+
+void OTAWebServer::getManualScan()
+{
+  if (!server.authenticate(WEBSERVER_USER, WEBSERVER_PASSWORD))
+  {
+    return server.requestAuthentication();
+  }
+  
+  if(SettingsMngr.manualScan != eManualSCanMode::eManualSCanModeDisabled) // Manual scan is enabled
+  {
+    if (server.hasArg("on"))
+    {
+      SettingsMngr.manualScan = eManualSCanMode::eManualSCanModeOn;
+    }
+    else
+    {
+      SettingsMngr.manualScan = eManualSCanMode::eManualSCanModeOff;
+    }
+  }
+
+  server.client().setNoDelay(true);
+  server.sendHeader(F("Connection"), F("close"));
+  server.sendHeader(F("Content-Encoding"), F("gzip"));
+  server.send_P(200, "text/html", (const char *)sysinfo_html_gz, sysinfo_html_gz_size);
+}
 /*
  * setup function
  */
@@ -602,6 +629,8 @@ void OTAWebServer::setup(const String &hN, const String &_ssid_, const String &_
   server.on(F("/getsysinfodata"), HTTP_GET, [&]() { getSysInfoData(); });
 
   server.on(F("/restart"), HTTP_GET, [&]() { resetESP32Page(); });
+
+  server.on(F("/scan"), HTTP_GET, [&]() { getManualScan(); });
 
 #if ENABLE_FILE_LOG
   server.on(F("/logs"), HTTP_GET, [&] { getLogs(); });

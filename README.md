@@ -44,6 +44,11 @@ password: admin<br>
 The new WEB server interface allow to customize the list of devices to be tracked, the scan period, and the MQTT broker parameters.<br>
 The new interface allows also to monitor some logs. The number of logs is limited and when the maximum capacity is reached the oldest are removed.<br>
 <br>
+You can also enable manual scanning. You can start and stop scanning using the following API:
+```
+GET  http://<device_ip>/scan?on=1
+GET  http://<device_ip>/scan?off=1
+```
 
 ### FHEM Support
 If properly configured the BLETracker can be integrate in your FHEM environment. Instead publishing MQTT tokens the BLETracker can be configured to act as a lepresenced daemon.
@@ -256,8 +261,10 @@ SOFTWARE.<br>
 *If you like the content of this repo, please add a star! Thank you!*
 
 # Support my work
-If you like my work, please consider buying me a coffee. Thank you for your support! :grin:<br><br>
-[![Buy me a coffee][buymeacoffee-shield]][buymeacoffee]
+If you like my work, please consider buying me a coffee or making a free donation via PayPal. Thank you for your support! :grin:<br><br>
+[![Buy me a coffee][buymeacoffee-shield]][buymeacoffee] [![PayPal][paypal-shield]][paypal]
 
-[buymeacoffee-shield]: https://www.buymeacoffee.com/assets/img/guidelines/download-assets-sm-2.svg
+[buymeacoffee-shield]: https://raw.githubusercontent.com/shogunxam/donate-assets/master/coffee.png
 [buymeacoffee]: https://www.buymeacoffee.com/shogunxam
+[paypal-shield]: https://raw.githubusercontent.com/shogunxam/donate-assets/master/paypal.png
+[paypal]: https://paypal.me/shogunxam

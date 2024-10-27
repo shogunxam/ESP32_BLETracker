@@ -38,7 +38,7 @@ std::map<std::string, bool> FastDiscovery;
 
 BLEScan *pBLEScan;
 
-#define SYS_INFORMATION_DELAY 120000 /*2 minutes*/
+#define SYS_INFORMATION_DELAY 120 /*2 minutes*/
 unsigned long lastSySInfoTime = 0;
 
 #if ENABLE_OTA_WEBSERVER
@@ -91,13 +91,13 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
       {
 #if NUM_OF_ADVERTISEMENT_IN_SCAN > 1
         trackedDevice.advertisementCounter++;
-        //To proceed we have to find at least NUM_OF_ADVERTISEMENT_IN_SCAN duplicates during the scan
-        //and the code have to be executed only once
+        // To proceed we have to find at least NUM_OF_ADVERTISEMENT_IN_SCAN duplicates during the scan
+        // and the code have to be executed only once
         if (trackedDevice.advertisementCounter != NUM_OF_ADVERTISEMENT_IN_SCAN)
           return;
 #endif
 
-        if (!trackedDevice.advertised) //Skip advertised dups
+        if (!trackedDevice.advertised) // Skip advertised dups
         {
           trackedDevice.addressType = advertisedDevice.getAddressType();
           trackedDevice.advertised = true;
@@ -125,9 +125,9 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
       }
     }
 
-    //This is a new device...
+    // This is a new device...
     BLETrackedDevice trackedDevice;
-    trackedDevice.advertised = NUM_OF_ADVERTISEMENT_IN_SCAN <= 1; //Skip duplicates
+    trackedDevice.advertised = NUM_OF_ADVERTISEMENT_IN_SCAN <= 1; // Skip duplicates
     memcpy(trackedDevice.address, address, ADDRESS_STRING_SIZE);
     trackedDevice.addressType = advertisedDevice.getAddressType();
     trackedDevice.isDiscovered = NUM_OF_ADVERTISEMENT_IN_SCAN <= 1;
@@ -141,8 +141,8 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
     BLETrackedDevices.push_back(std::move(trackedDevice));
     FastDiscovery[trackedDevice.address] = true;
 #if NUM_OF_ADVERTISEMENT_IN_SCAN > 1
-    //To proceed we have to find at least NUM_OF_ADVERTISEMENT_IN_SCAN duplicates during the scan
-    //and the code have to be executed only once
+    // To proceed we have to find at least NUM_OF_ADVERTISEMENT_IN_SCAN duplicates during the scan
+    // and the code have to be executed only once
     return;
 #endif
     CRITICALSECTION_WRITEEND;
@@ -186,7 +186,7 @@ void ForceBatteryRead(const char *normalizedAddr)
 
 void batteryTask()
 {
-  //DEBUG_PRINTF("\n*** Memory before battery scan: %u\n",xPortGetFreeHeapSize());
+  // DEBUG_PRINTF("\n*** Memory before battery scan: %u\n",xPortGetFreeHeapSize());
 
   for (auto &trackedDevice : BLETrackedDevices)
   {
@@ -194,14 +194,14 @@ void batteryTask()
       continue;
 
 #if USE_MQTT
-    if(!IsAccessPointModeOn())
+    if (!IsAccessPointModeOn())
     {
-        publishAvailabilityToMQTT();
+      publishAvailabilityToMQTT();
     }
 #endif
 
-    //We need to connect to the device to read the battery value
-    //So that we check only the device really advertised by the scan
+    // We need to connect to the device to read the battery value
+    // So that we check only the device really advertised by the scan
     unsigned long BatteryReadTimeout = trackedDevice.lastBattMeasureTime + BATTERY_READ_PERIOD;
     unsigned long BatteryRetryTimeout = trackedDevice.lastBattMeasureTime + BATTERY_RETRY_PERIOD;
     unsigned long now = NTPTime::getTimeStamp();
@@ -217,7 +217,7 @@ void batteryTask()
       {
         log_i("Device %s has battery service: %s", trackedDevice.address, trackedDevice.hasBatteryService ? "YES" : "NO");
         trackedDevice.connectionRetry = 0;
-        trackedDevice.lastBattMeasureTime = now;        
+        trackedDevice.lastBattMeasureTime = now;
       }
       else
       {
@@ -226,13 +226,13 @@ void batteryTask()
         {
           trackedDevice.connectionRetry = 0;
           trackedDevice.lastBattMeasureTime = now;
-          //Report the error only one time if Log level info is set
+          // Report the error only one time if Log level info is set
           LOG_TO_FILE_E("Error: Connection to device %s failed", trackedDevice.address);
           DEBUG_PRINTF("Error: Connection to device %s failed", trackedDevice.address);
-        } 
+        }
         else
         {
-          //Report the error every time if Log level debug or verbose is set
+          // Report the error every time if Log level debug or verbose is set
           LOG_TO_FILE_D("Error: Connection to device %s failed", trackedDevice.address);
           DEBUG_PRINTF("Error: Connection to device %s failed", trackedDevice.address);
         }
@@ -240,14 +240,14 @@ void batteryTask()
     }
     else if (BatteryReadTimeout < now)
     {
-      //Here we preserve the lastBattMeasure time to trigger a new read
-      //when the device will be advertised again
+      // Here we preserve the lastBattMeasure time to trigger a new read
+      // when the device will be advertised again
       trackedDevice.batteryLevel = -1;
     }
     trackedDevice.forceBatteryRead = false;
     Watchdog::Feed();
   }
-  //DEBUG_PRINTF("\n*** Memory after battery scan: %u\n",xPortGetFreeHeapSize());
+  // DEBUG_PRINTF("\n*** Memory after battery scan: %u\n",xPortGetFreeHeapSize());
 }
 
 bool batteryLevel(const char address[ADDRESS_STRING_SIZE], esp_ble_addr_type_t addressType, int8_t &battLevel, bool &hasBatteryService)
@@ -295,8 +295,8 @@ bool batteryLevel(const char address[ADDRESS_STRING_SIZE], esp_ble_addr_type_t a
         hasBatteryService = true;
       }
     }
-    //Before disconnecting I need to pause the task to wait (I don't know what), otherwise we have an heap corruption
-    //delay(200);
+    // Before disconnecting I need to pause the task to wait (I don't know what), otherwise we have an heap corruption
+    // delay(200);
     if (client.isConnected())
     {
       log_i("disconnecting...");
@@ -309,7 +309,7 @@ bool batteryLevel(const char address[ADDRESS_STRING_SIZE], esp_ble_addr_type_t a
   }
   else
   {
-    //We fail to connect and we have to be sure the PeerDevice is removed before delete it
+    // We fail to connect and we have to be sure the PeerDevice is removed before delete it
     BLEDevice::removePeerDevice(client.m_appId, true);
     log_i("-------------------Not connected!!!--------------------");
   }
@@ -384,16 +384,16 @@ void setup()
 #endif
 
 #if ERASE_DATA_AFTER_FLASH
-  int dataErased = 0; //0 -> Data erased not performed
+  int dataErased = 0; // 0 -> Data erased not performed
   String ver = Firmware::FullVersion();
   if (ver != Firmware::readVersion())
   {
-    dataErased++; //1 -> Data should be erased
+    dataErased++; // 1 -> Data should be erased
     if (SPIFFS.format())
-      dataErased++; //2 -> Data erased
+      dataErased++; // 2 -> Data erased
     Firmware::writeVersion();
   }
-#endif //ERASE_DATA_AFTER_FLASH
+#endif // ERASE_DATA_AFTER_FLASH
 
   const char *settingsFile = "/settings.bin";
   SettingsMngr.SettingsFile(settingsFile);
@@ -405,7 +405,7 @@ void setup()
   SPIFFSLogger.setLogLevel(SPIFFSLoggerClass::LogLevel(SettingsMngr.logLevel));
 #endif
 
-  if(SettingsMngr.wifiSSID.isEmpty())
+  if (SettingsMngr.wifiSSID.isEmpty())
   {
     StartAccessPointMode();
   }
@@ -429,7 +429,7 @@ void setup()
 #endif
 
   BLETrackedDevices.reserve(SettingsMngr.GetMaxNumOfTraceableDevices());
-  for (const auto& dev : SettingsMngr.GetKnownDevicesList())
+  for (const auto &dev : SettingsMngr.GetKnownDevicesList())
   {
     BLETrackedDevice trackedDevice;
     memcpy(trackedDevice.address, dev.address, ADDRESS_STRING_SIZE);
@@ -439,7 +439,7 @@ void setup()
 
   Watchdog::Initialize();
 
-  if(!IsAccessPointModeOn())
+  if (!IsAccessPointModeOn())
   {
     BLEDevice::init(SettingsMngr.gateway.c_str());
     pBLEScan = BLEDevice::getScan();
@@ -476,15 +476,15 @@ void loop()
   try
   {
 #if USE_MQTT
-  if(!IsAccessPointModeOn())
-  {
+    if (!IsAccessPointModeOn())
+    {
       mqttLoop();
-  }
+    }
 #endif
 
 #if USE_FHEM_LEPRESENCE_SERVER
-    //Check and restore the wifi connection if it's loose
-    if(!SettingsMngr.wifiSSID.isEmpty())
+    // Check and restore the wifi connection if it's loose
+    if (!SettingsMngr.wifiSSID.isEmpty())
     {
       WiFiConnect(SettingsMngr.wifiSSID, SettingsMngr.wifiPwd);
     }
@@ -502,17 +502,24 @@ void loop()
       LOG_TO_FILE("Restarting: reached the max number of traceable devices");
       esp_restart();
     }
-  
-    if(!IsAccessPointModeOn())
+
+    if (!IsAccessPointModeOn())
     {
-    #if PROGRESSIVE_SCAN
+#if PROGRESSIVE_SCAN
+      bool scanCompleted = false;
+#endif
+      bool scanEnabled = SettingsMngr.IsManualScanOn() || !SettingsMngr.IsManualScanEnabled();
+
+      if (scanEnabled)
+      {
+#if PROGRESSIVE_SCAN
         static uint32_t elapsedScanTime = 0;
         static uint32_t lastScanTime = 0;
 
         bool continuePrevScan = elapsedScanTime > 0;
-        if(!continuePrevScan)//new scan
+        if (!continuePrevScan) // new scan
         {
-          //Reset the states of discovered devices
+          // Reset the states of discovered devices
           for (auto &trackedDevice : BLETrackedDevices)
           {
             trackedDevice.advertised = false;
@@ -520,19 +527,19 @@ void loop()
             trackedDevice.advertisementCounter = 0;
           }
         }
-        
+
         lastScanTime = NTPTime::seconds();
         pBLEScan->start(1, continuePrevScan);
         pBLEScan->stop();
         elapsedScanTime += NTPTime::seconds() - lastScanTime;
-        bool scanCompleted = elapsedScanTime > SettingsMngr.scanPeriod;
-        if(scanCompleted)
+        scanCompleted = elapsedScanTime > SettingsMngr.scanPeriod;
+        if (scanCompleted)
         {
-          elapsedScanTime=0;
+          elapsedScanTime = 0;
           pBLEScan->clearResults();
         }
-    #else
-        //Reset the states of discovered devices
+#else
+        // Reset the states of discovered devices
         for (auto &trackedDevice : BLETrackedDevices)
         {
           trackedDevice.advertised = false;
@@ -540,38 +547,52 @@ void loop()
           trackedDevice.advertisementCounter = 0;
         }
 
-        //DEBUG_PRINTF("\n*** Memory Before scan: %u\n",xPortGetFreeHeapSize());
+        // DEBUG_PRINTF("\n*** Memory Before scan: %u\n",xPortGetFreeHeapSize());
         pBLEScan->start(SettingsMngr.scanPeriod);
         pBLEScan->stop();
         pBLEScan->clearResults();
-        //DEBUG_PRINTF("\n*** Memory After scan: %u\n",xPortGetFreeHeapSize());
-    #endif 
-
-    #if USE_MQTT
-          publishAvailabilityToMQTT();
-    #endif
-
+        // DEBUG_PRINTF("\n*** Memory After scan: %u\n",xPortGetFreeHeapSize());
+#endif
+      }
+      else
+      {
         for (auto &trackedDevice : BLETrackedDevices)
         {
-          if (trackedDevice.isDiscovered && (trackedDevice.lastDiscoveryTime + SettingsMngr.maxNotAdvPeriod) < NTPTime::seconds())
-          {
-            trackedDevice.isDiscovered = false;
-            FastDiscovery[trackedDevice.address] = false;
-            LOG_TO_FILE_D("Devices %s is gone out of range", trackedDevice.address);
-          }
+          trackedDevice.advertised = false;
+          trackedDevice.rssiValue = -100;
+          trackedDevice.advertisementCounter = 0;
         }
+        pBLEScan->clearResults();
+      }
 
+#if USE_MQTT
+      publishAvailabilityToMQTT();
+#endif
 
-    #if PUBLISH_BATTERY_LEVEL
-    #if PROGRESSIVE_SCAN
-      if(scanCompleted)
-    #endif
+      for (auto &trackedDevice : BLETrackedDevices)
+      {
+        if (trackedDevice.isDiscovered && (trackedDevice.lastDiscoveryTime + SettingsMngr.maxNotAdvPeriod) < NTPTime::seconds())
+        {
+          trackedDevice.isDiscovered = false;
+          FastDiscovery[trackedDevice.address] = false;
+          LOG_TO_FILE_D("Devices %s is gone out of range", trackedDevice.address);
+        }
+      }
+
+#if PUBLISH_BATTERY_LEVEL
+#if PROGRESSIVE_SCAN
+      if (scanCompleted)
+#endif
         batteryTask();
-    #endif
+#endif
 
-    #if USE_MQTT
-        publishAvailabilityToMQTT();
+#if USE_MQTT
+      publishAvailabilityToMQTT();
 
+      bool publishSystemInfo = ((lastSySInfoTime + SYS_INFORMATION_DELAY) < NTPTime::seconds()) || (lastSySInfoTime == 0);
+
+      if (scanEnabled || publishSystemInfo)
+      {
         for (auto &trackedDevice : BLETrackedDevices)
         {
           if (trackedDevice.isDiscovered)
@@ -583,31 +604,32 @@ void loop()
             publishBLEState(trackedDevice.address, MQTT_PAYLOAD_OFF, -100, trackedDevice.batteryLevel);
           }
         }
-
-        //System Information
-        if (((lastSySInfoTime + SYS_INFORMATION_DELAY) < NTPTime::seconds()) || (lastSySInfoTime == 0))
-        {
-          publishSySInfo();
-          lastSySInfoTime = NTPTime::seconds();
-        }
-
-        publishAvailabilityToMQTT();
-
-    #elif USE_FHEM_LEPRESENCE_SERVER
-        FHEMLePresenceServer::loop();//Handle clients connections
-    #endif
       }
+
+      // System Information
+      if (publishSystemInfo)
+      {
+        publishSySInfo();
+        lastSySInfoTime = NTPTime::seconds();
+      }
+
+      publishAvailabilityToMQTT();
+
+#elif USE_FHEM_LEPRESENCE_SERVER
+      FHEMLePresenceServer::loop(); // Handle clients connections
+#endif
     }
-    catch (std::exception &e)
-    {
-      DEBUG_PRINTF("Error Caught Exception %s", e.what());
-      LOG_TO_FILE_E("Error Caught Exception %s", e.what());
-    }
-    catch (...)
-    {
-      DEBUG_PRINTLN("Error Unhandled exception trapped in main loop");
-      LOG_TO_FILE_E("Error Unhandled exception trapped in main loop");
-    }
+  }
+  catch (std::exception &e)
+  {
+    DEBUG_PRINTF("Error Caught Exception %s", e.what());
+    LOG_TO_FILE_E("Error Caught Exception %s", e.what());
+  }
+  catch (...)
+  {
+    DEBUG_PRINTLN("Error Unhandled exception trapped in main loop");
+    LOG_TO_FILE_E("Error Unhandled exception trapped in main loop");
+  }
 
   delay(IsAccessPointModeOn() ? 5000 : 100);
 }
