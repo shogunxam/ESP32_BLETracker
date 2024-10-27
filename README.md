@@ -9,7 +9,7 @@
 - [Home Assistant integration](#home-assistant-integration)
 - [Licence](#licence)
 - [Support my work](#support-my-work)
-  `<br><br>`
+  <br /><br />
 
 # ESP32 BLETracker
 
@@ -28,13 +28,13 @@ Mac Addresses have to be uppercase without ":" or "-" i.e "BA683F7EC159"
 
 The application can generate the following topics:<br />
 A topic for the BLETracker state:<br />
-&lt;LOCATION&gt;/&lt;GATEWAY_NAME&gt;/&lt;BLE_ADDRESS&gt;/LWT payload: &lt;online|offline&gt;`<br><br>`
+&lt;LOCATION&gt;/&lt;GATEWAY_NAME&gt;/&lt;BLE_ADDRESS&gt;/LWT payload: &lt;online|offline&gt;<br /><br />
 A single topic with the payload in JSON format containing all the items returned by the device (this is the default):<br />
-&lt;LOCATION&gt;/&lt;GATEWAY_NAME&gt;/&lt;BLE_ADDRESS payload: { "state":&lt;"on"|"off"&gt;,"rssi":&lt;dBvalue&gt;,"battery":&lt;batterylevel&gt;}`<br><br>`
+&lt;LOCATION&gt;/&lt;GATEWAY_NAME&gt;/&lt;BLE_ADDRESS payload: { "state":&lt;"on"|"off"&gt;,"rssi":&lt;dBvalue&gt;,"battery":&lt;batterylevel&gt;}<br /><br />
 A topic for each item returned by the advertised device:<br />
 &lt;LOCATION&gt;/&lt;GATEWAY_NAME&gt;/&lt;BLE_ADDRESS&gt;/state payload: &lt;"on"|"off"&gt;<br />
 &lt;LOCATION&gt;/&lt;GATEWAY_NAME&gt;/&lt;BLE_ADDRESS&gt;/rssi payload: &lt;dBvalue&gt;<br />
-&lt;LOCATION&gt;/&lt;GATEWAY_NAME&gt;/&lt;BLE_ADDRESS&gt;/battery payload: &lt;batterylevel&gt;`<br><br>`
+&lt;LOCATION&gt;/&lt;GATEWAY_NAME&gt;/&lt;BLE_ADDRESS&gt;/battery payload: &lt;batterylevel&gt;<br /><br />
 A topic with helpfull system information:<br />
 &lt;LOCATION&gt;/&lt;GATEWAY_NAME&gt;/&lt;BLE_ADDRESS&gt;/sysinfo, payload: { "uptime":&lt;timesinceboot&gt;,"version":&lt;versionnumber&gt;,"SSID":&lt;WiFiSSID&gt;,"IP":&lt;ipnumber&gt;}
 
@@ -119,7 +119,7 @@ so you have to write something like:
 ```
 
 - Open an issue giving as much as possible details you can and attach the output of the decoder.
-  `<br><br>`
+  <br /><br />
 
 # Tested BLE Devices
 
@@ -282,7 +282,7 @@ SOFTWARE.<br />
 
 # Support my work
 
-If you like my work, please consider buying me a coffee or making a free donation via PayPal. Thank you for your support! 😁`<br><br>`
+If you like my work, please consider buying me a coffee or making a free donation via PayPal. Thank you for your support! 😁<br /><br />
 [Buy me a coffee][buymeacoffee] [PayPal][paypal]
 
 [buymeacoffee-shield]: https://raw.githubusercontent.com/shogunxam/donate-assets/master/coffee.png
