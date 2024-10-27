@@ -2,7 +2,7 @@ $(document).ready(function () {
   now = new Date();
   factory = getUrlParameter('factory');
   var url = "/getconfigdata?time=" + now.getTime();
-  if (factory == "true") {
+  if (typeof factory !== 'undefined' && factory === 'true') {
     url += "&factory=true";
   }
 

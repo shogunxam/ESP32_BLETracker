@@ -158,14 +158,12 @@ String Settings::toJSON()
 {
     String data = "{";
     data += R"("version":)" + String(version) + R"(,)";
-    data += R"("mqtt_enabled":)";
-    data += mqttEnabled ? "true" : "false";
-    data += R"(,)";
+    data += R"("mqtt_enabled":)" + String(mqttEnabled ? "true" : "false") +  R"(,)";
     data += R"("wifi_ssid":")" + wifiSSID + R"(",)";
     data += R"("wifi_pwd":")" + wifiPwd + R"(",)";
     data += R"("wbs_user":")" + wbsUser + R"(",)";
     data += R"("wbs_pwd":")" + wbsPwd + R"(",)";
-    data += R"("tz:")" + wbsTimeZone + R"(",)";
+    data += R"("tz":")" + wbsTimeZone + R"(",)";
     data += R"("gateway":")" + gateway + R"(",)";
     data += R"("mqtt_address":")" + mqttServer + R"(",)";
     data += R"("mqtt_port":)" + String(mqttPort) + ",";
@@ -174,9 +172,7 @@ String Settings::toJSON()
     data += R"("scanPeriod":)" + String(scanPeriod) + ",";
     data += R"("maxNotAdvPeriod":)" + String(maxNotAdvPeriod) + ",";
     data += R"("loglevel":)" + String(logLevel) + ",";
-    data += R"("whiteList":)";
-    data += (enableWhiteList ? "true" : "false");
-    data += R"(,)";
+    data += R"("whiteList":)" + String(enableWhiteList ? "true" : "false") +  R"(,)";
     data += R"("trk_list":{)";
     bool first = true;
     for (auto &device : knownDevices)
@@ -186,9 +182,8 @@ String Settings::toJSON()
         else
             first = false;
         data += R"(")" + String(device.address) + R"(":{)";
-        data += R"("battery":)";
-        data += (device.readBattery ? "true" : "false");
-        data += R"(,"desc":")" + String(device.description) + R"("})";
+        data += R"("battery":)" + String(device.readBattery ? "true" : "false") +  R"(,)";
+        data += R"("desc":")" + String(device.description) + R"("})";
     }
     data += "}";
     data += "}";
@@ -369,7 +364,7 @@ void Settings::Load()
             LoadString(file, wifiPwd);
             LoadString(file, gateway);
             LoadString(file, wbsTimeZone);
-             DEBUG_PRINTF("loaded TZ %s",wbsTimeZone.c_str());
+            DEBUG_PRINTF("loaded TZ %s\n",wbsTimeZone.c_str());
         }
     }
 }

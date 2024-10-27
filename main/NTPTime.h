@@ -5,6 +5,7 @@
 namespace NTPTime
 {
     void initialize(const char* timezone);
+    String GetTimezoneFromWeb();
     void getLocalTime(tm& timeinfo);
     time_t getTimeStamp();
     void strftime(const char* format, const tm& timeInfo, String &out);

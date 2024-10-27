@@ -35,11 +35,15 @@
 //Each entry is in the format {"MAC-ADDRESS", read-battery, "Description"} i.e.{"A6B5C4D3E2F1", true, "My iTag"}
 //Mac Addresses are in the form "A6B5C4D3E2F1" (uppercase and no separator)
 //Each block is coma separated
-#define BLE_KNOWN_DEVICES_LIST  {"AABBCCDDEEFF", true, "Nut"}, {"A1B2C3D4E5F6", false, "iTag"}, {"1A2B3C4D5E6F", false, ""}
+//In example
+//#define BLE_KNOWN_DEVICES_LIST  {"AABBCCDDEEFF", true, "Nut"}, {"A1B2C3D4E5F6", false, "iTag"}, {"1A2B3C4D5E6F", false, ""}
+#define BLE_KNOWN_DEVICES_LIST  
 
 //NTP Server configurations
 #define NTP_SERVER          "pool.ntp.org"
-//Get here your time zone https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
-#define TIME_ZONE "CET-1CEST-2,M3.5.0/02:00:00,M10.5.0/03:00:00"
+
+//If empty time zone is autodetected using the web service http://ip-api.com/json
+//To set it manually get your time zone from https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
+#define TIME_ZONE ""
 
 #endif

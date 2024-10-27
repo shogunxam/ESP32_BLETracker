@@ -87,6 +87,12 @@ void WiFiConnect(const String &_ssid_, const String &_password_)
 
     gWiFiMode = WiFiMode::Station;
 
+    if(SettingsMngr.wbsTimeZone.isEmpty())
+    {
+      SettingsMngr.wbsTimeZone = NTPTime::GetTimezoneFromWeb();
+      SettingsMngr.Save();
+    }
+
     //Initialize the time getting it from the WEB We do it after we have WifFi connection
     NTPTime::initialize(SettingsMngr.wbsTimeZone.c_str());
 
