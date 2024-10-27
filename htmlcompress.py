@@ -1,4 +1,8 @@
-Import("env")
+try:
+     # This is for PlatformIO
+    Import("env")
+except:
+   pass
 
 import gzip
 import os

@@ -54,6 +54,12 @@ public:
     uint8_t logLevel;
     bool mqttEnabled;
     uint8_t manualScan; // 0 or 1 manual scan disabled, 2 manual scan enabled and off, 3 manual scan enabled and on
+    String wifiSSID;
+    String wifiPwd;
+    String gateway;
+    String wbsUser;
+    String wbsPwd;
+    String wbsTimeZone;
 
 private:
     enum class DeviceProperty

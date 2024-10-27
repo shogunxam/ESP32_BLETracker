@@ -271,7 +271,9 @@ void OTAWebServer::getIndexData()
   server.client().setNoDelay(true);
   CRITICALSECTION_START(dataBuffMutex)
   StartChunkedContentTransfer("text/json");
-  SendChunkedContent(R"({"gateway":")" GATEWAY_NAME R"(","ver":")" VERSION R"(","logs":)");
+  SendChunkedContent(R"({"gateway":")");
+  SendChunkedContent(SettingsMngr.gateway.c_str());
+  SendChunkedContent(R"(","ver":")" VERSION R"(","logs":)");
 #if ENABLE_FILE_LOG
   SendChunkedContent("true");
 #else
@@ -375,7 +377,13 @@ void OTAWebServer::postUpdateConfig()
   Settings newSettings(SettingsMngr.GetSettingsFile(), true);
   for (int i = 0; i < server.args(); i++)
   {
-    if (server.argName(i) == "mqttsrvr")
+    if (server.argName(i) == "ssid")
+      newSettings.wifiSSID = server.arg(i);
+    else if (server.argName(i) == "wifipwd")
+      newSettings.wifiPwd = server.arg(i);
+    else if (server.argName(i) == "gateway")
+      newSettings.gateway = server.arg(i);      
+    else if (server.argName(i) == "mqttsrvr")
       newSettings.mqttServer = server.arg(i);
     else if (server.argName(i) == "mqttport")
       newSettings.mqttPort = server.arg(i).toInt();
@@ -449,7 +457,9 @@ void OTAWebServer::getSysInfoData()
   server.client().setNoDelay(true);
   StartChunkedContentTransfer("text/json");
   SendChunkedContent("{");
-  SendChunkedContent(R"("gateway":")" GATEWAY_NAME R"(",)");
+  SendChunkedContent(R"("gateway":")");
+  SendChunkedContent(SettingsMngr.gateway.c_str());
+  SendChunkedContent(R"(",)");
   SendChunkedContent(R"("firmware":")" VERSION R"(",)");
 
 #if DEVELOPER_MODE
@@ -464,7 +474,12 @@ void OTAWebServer::getSysInfoData()
   SendChunkedContent(R"("uptime":")");
   SendChunkedContent(formatMillis(millis(), strbuff));
   SendChunkedContent(R"(",)");
-  SendChunkedContent(R"("ssid":")" WIFI_SSID R"(",)");
+  SendChunkedContent(R"("ssid":")");
+  SendChunkedContent(SettingsMngr.wifiSSID.c_str());
+  SendChunkedContent(R"(",)");
+  SendChunkedContent(R"("macaddr":")");
+  SendChunkedContent(WiFi.macAddress().c_str());
+  SendChunkedContent(R"(",)");
   SendChunkedContent(R"("battery":)" xstr(PUBLISH_BATTERY_LEVEL) R"(,)");
   SendChunkedContent(R"("devices":[)");
 
@@ -571,7 +586,14 @@ void OTAWebServer::setup(const String &hN, const String &_ssid_, const String &_
   password = _password_;
 
   DEBUG_PRINTLN("WebServer Setup");
-  WiFiConnect(ssid, password);
+  if(ssid.isEmpty())
+  {
+    StartAccessPointMode();
+  }
+  else
+  {
+    WiFiConnect(ssid, password);
+  }
 
   /*use mdns for host name resolution*/
   if (!MDNS.begin(hostName.c_str()))

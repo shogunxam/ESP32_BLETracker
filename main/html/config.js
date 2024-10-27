@@ -2,12 +2,17 @@ $(document).ready(function () {
   now = new Date();
   factory = getUrlParameter('factory');
   var url = "/getconfigdata?time=" + now.getTime();
-  if (factory == "true") {
+  if (typeof factory !== 'undefined' && factory === 'true') {
     url += "&factory=true";
   }
-  
+
   $.get(url, function (data) {
     console.log(data);
+    $('#ssid').val(data.wifi_ssid);
+    $('#wifipwd').val(data.wifi_pwd);
+    $('#gateway').val(data.gateway);
+    $('#mqttport').val(data.mqtt_port);
+    $('#mqttusr').val(data.mqtt_usr);
     if (!data.mqtt_enabled)
       $('#mqttbroker').hide()
     $('#mqttsrvr').val(data.mqtt_address);
@@ -51,18 +56,16 @@ $(function () {
     });
 
     var d = Array.from(data).reduce((acc, e) => {
-      if(e[0] == "newmac")
+      if (e[0] == "newmac")
         return acc;
-      if( e[0].includes(":"))
-      {
+      if (e[0].includes(":")) {
         [g, k, v] = [...e[0].split(':'), e[1]];
         if (!acc[g])
           acc[g] = {};
-        acc[g][k]=v;
+        acc[g][k] = v;
       }
-      else 
-      {
-        k = e[0]; v= e[1];
+      else {
+        k = e[0]; v = e[1];
         acc[k] = v;
       }
       return acc;
@@ -99,17 +102,27 @@ $(function () {
     $('#newmac').val("");
     $('#devListContainer').scrollTop($('#devListContainer')[0].scrollHeight);
   });
+
+  $('#togglewifipwd').click( function(){
+      const type = $('#wifipwd').attr("type") === "password" ? "text" : "password";
+      $('#wifipwd').attr("type",type);
+    });
+
+  $('#togglemqttpwd').click( function(){
+      const type = $('#mqttpwd').attr("type") === "password" ? "text" : "password";
+      $('#mqttpwd').attr("type",type);
+    });
 });
 
 function addMac(mac, devProp) {
   container = $('#devList > tbody:last-child');
   raw = '<tr id="rw_' + mac + '">';
-  raw += '<td><input type="checkbox" id="'+ mac + '_batt" name="' + mac + ':batt" style="width:auto;height:auto"></td>';
-  raw += '<td>' + mac + '<input type="text" placeholder="Insert a friendly name here" id="' + mac + '_desc" name="' + mac + ':desc" style="font-size:0.95em;text-align:center;width:15em;height:auto" value="' + (devProp.desc ? devProp.desc : "")  +'"><br><hr></td>';
+  raw += '<td><input type="checkbox" id="' + mac + '_batt" name="' + mac + ':batt" style="width:auto;height:auto"></td>';
+  raw += '<td>' + mac + '<input type="text" placeholder="Insert a friendly name here" id="' + mac + '_desc" name="' + mac + ':desc" style="font-size:0.95em;text-align:center;width:15em;height:auto" value="' + (devProp.desc ? devProp.desc : "") + '"><br><hr></td>';
   raw += '<td><input type="button" id="rm_' + mac + '" value="Remove"style="width:auto;height:auto" class=dangerbtn onclick="$(\'#rw_' + mac + '\').remove()"></td>';
   raw += '</tr>';
   container.append(raw);
-  $('#' + mac +'_batt').prop("checked", devProp.battery);
+  $('#' + mac + '_batt').prop("checked", devProp.battery);
 }
 
 function validateMacDigit(elem) {
@@ -144,4 +157,13 @@ function isMacValid(mac) {
   console.log((/^[0-9A-F]+$/.test(mac)));
   return (/^[0-9A-F]+$/.test(mac));
 }
+
+function togglePassword(toggle, password )
+{
+  toggle.click( function(e){
+      const type = password.attr("type") === "password" ? "text" : "password";
+      password.attr("type",type);
+    });
+}
+
 
