@@ -141,12 +141,12 @@ so you have to write something like:
 # Home Assistant integration
 
 Since version 3.8, the Tracker and BLE devices are automatically discovered by Home Assistant through the MQTT discovery feature, requiring no additional configuration.
+
 ![Alt text](/ha_devices.png?raw=true "Screenshot")
-<br /><br />
+
 ![Alt text](/ha_device_infos.png?raw=true "Screenshot")
 
-<br /><br />
-If you ware usign an older versin of the tracker, you can still use the old configuration method.
+If you are using an older version of the tracker, the previous configuration method is still supported.
 
 This is a simple example of a package to manage a Nut Tracker device.<br />
 A more complex example combining more BLETrackers can be found inside the Doc folder.<br />
