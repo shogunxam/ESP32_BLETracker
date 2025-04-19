@@ -24,6 +24,7 @@ struct BLETrackedDevice
   esp_ble_addr_type_t addressType;
   uint8_t advertisementCounter;
   bool forceBatteryRead;
+  bool haDiscoveryPublished;
 
   BLETrackedDevice()
   {
@@ -39,6 +40,7 @@ struct BLETrackedDevice
     addressType = BLE_ADDR_TYPE_PUBLIC;
     advertisementCounter = 0;
     forceBatteryRead = true;
+    haDiscoveryPublished = false;
   }
 };
 

@@ -451,6 +451,15 @@ void setup()
 #if USE_MQTT
     initializeMQTT();
     connectToMQTT();
+    if (connectToMQTT()) {
+      // Pubblica il discovery per il dispositivo principale e il sensore della lista dispositivi
+      publishTrackerDeviceDiscovery();
+      publishDevicesListSensorDiscovery();
+      
+      // Pubblica lo stato iniziale
+      publishTrackerStatus();
+      publishDevicesList();
+  }
 #endif
 
 #if USE_FHEM_LEPRESENCE_SERVER
@@ -595,6 +604,15 @@ void loop()
       {
         for (auto &trackedDevice : BLETrackedDevices)
         {
+          /*
+          if(trackedDevice.haDiscoveryPublished == false)
+          {
+            publishHomeAssistantDiscovery(trackedDevice.address);
+            trackedDevice.haDiscoveryPublished = true;
+          }
+          */
+          publishBLEState(trackedDevice);
+          /*
           if (trackedDevice.isDiscovered)
           {
             publishBLEState(trackedDevice.address, MQTT_PAYLOAD_ON, trackedDevice.rssiValue, trackedDevice.batteryLevel);
@@ -603,6 +621,7 @@ void loop()
           {
             publishBLEState(trackedDevice.address, MQTT_PAYLOAD_OFF, -100, trackedDevice.batteryLevel);
           }
+         */
         }
       }
 
