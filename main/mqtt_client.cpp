@@ -33,33 +33,33 @@ static bool firstTimeMQTTConnection = true;
 static bool MQTTConnectionErrorSignaled = false;
 static uint32_t MQTTErrorCounter = 0;
 
-const char* getMQTTBaseSensorTopic()
+const char *getMQTTBaseSensorTopic()
 {
   static char MQTT_BASE_SENSOR_TOPIC[50] = "";
-  if( MQTT_BASE_SENSOR_TOPIC[0] == 0)
+  if (MQTT_BASE_SENSOR_TOPIC[0] == 0)
   {
-    snprintf(MQTT_BASE_SENSOR_TOPIC,50,"%s/%s", LOCATION, SettingsMngr.gateway);
+    snprintf(MQTT_BASE_SENSOR_TOPIC, 50, "%s/%s", LOCATION, SettingsMngr.gateway);
   }
 
   return MQTT_BASE_SENSOR_TOPIC;
 }
 
-const char* getMQTTAvailabilityTopic()
+const char *getMQTTAvailabilityTopic()
 {
   static char MQTT_AVAILABILITY_TOPIC[60] = "";
-  if(MQTT_AVAILABILITY_TOPIC[0] == 0)
+  if (MQTT_AVAILABILITY_TOPIC[0] == 0)
   {
-     snprintf(MQTT_AVAILABILITY_TOPIC,60,"%s/LWT", getMQTTBaseSensorTopic());
+    snprintf(MQTT_AVAILABILITY_TOPIC, 60, "%s/LWT", getMQTTBaseSensorTopic());
   }
   return MQTT_AVAILABILITY_TOPIC;
 }
 
-const char* getMQTTSysInfoTopic()
+const char *getMQTTSysInfoTopic()
 {
   static char MQTT_SYSINFO_TOPIC[60] = "";
-  if(MQTT_SYSINFO_TOPIC[0] == 0)
+  if (MQTT_SYSINFO_TOPIC[0] == 0)
   {
-     snprintf(MQTT_SYSINFO_TOPIC,60,"%s/sysinfo", getMQTTBaseSensorTopic());
+    snprintf(MQTT_SYSINFO_TOPIC, 60, "%s/sysinfo", getMQTTBaseSensorTopic());
   }
   return MQTT_SYSINFO_TOPIC;
 }
@@ -82,7 +82,7 @@ void _publishToMQTT(const char *topic, const char *payload, bool retain)
 
 void initializeMQTT()
 {
-    mqttClient.setServer(SettingsMngr.mqttServer.c_str(), SettingsMngr.mqttPort);
+  mqttClient.setServer(SettingsMngr.mqttServer.c_str(), SettingsMngr.mqttPort);
 }
 
 bool connectToMQTT()
@@ -157,10 +157,10 @@ void publishAvailabilityToMQTT()
     DEBUG_PRINTF("INFO: MQTT availability topic: %s\n", getMQTTAvailabilityTopic());
     publishToMQTT(getMQTTAvailabilityTopic(), MQTT_PAYLOAD_AVAILABLE, true);
 
-    #if ENABLE_HOME_ASSISTANT_MQTT_DISCOVERY
+#if ENABLE_HOME_ASSISTANT_MQTT_DISCOVERY
     publishTrackerStatus();
     publishDevicesList();
-    #endif // ENABLE_HOME_ASSISTANT_MQTT_DISCOVERY
+#endif // ENABLE_HOME_ASSISTANT_MQTT_DISCOVERY
   }
 }
 
@@ -197,7 +197,6 @@ void publishBLEState(const char address[ADDRESS_STRING_SIZE], const char state[4
 #endif
 }
 
-
 void publishSySInfo()
 {
   constexpr uint16_t maxSysPayloadLen = 83 + sizeof(VERSION) + sizeof(WIFI_SSID);
@@ -213,261 +212,226 @@ void publishSySInfo()
 ////////////////////////////////////////////////////////////////////////////////
 // HOME ASSISTANT DISCOVERY
 // https://www.home-assistant.io/docs/mqtt/discovery/
+void generateCommonDiscoveryPayload(char *buffer, size_t bufferSize,
+                                    const char *name, const char *uniqueId,
+                                    const char *stateTopic, const char *icon = "mdi:bluetooth")
+{
+  const char *availabilityTopic = getMQTTAvailabilityTopic();
+
+  snprintf(buffer, bufferSize,
+           "{"
+           "\"name\":\"%s\","
+           "\"unique_id\":\"%s\","
+           "\"state_topic\":\"%s\","
+           "\"availability_topic\":\"%s\","
+           "\"payload_available\":\"%s\","
+           "\"payload_not_available\":\"%s\","
+           "\"icon\":\"%s\","
+           "\"device\":{"
+           "\"identifiers\":[\"%s\"],"
+           "\"name\":\"ESP32 BLETracker (%s)\","
+           "\"model\":\"ESP32 BLETracker\","
+           "\"manufacturer\":\"Shogunxam\","
+           "\"sw_version\":\"%s\""
+           "}", // Nota: non chiudiamo la parentesi graffa finale
+           name,
+           uniqueId,
+           stateTopic,
+           availabilityTopic,
+           MQTT_PAYLOAD_AVAILABLE,
+           MQTT_PAYLOAD_UNAVAILABLE,
+           icon,
+           SettingsMngr.gateway,
+           SettingsMngr.gateway,
+           VERSION);
+}
+
+// Funzione per aggiungere attributi specifici al payload e chiudere il JSON
+void finalizeDiscoveryPayload(char *buffer, size_t bufferSize, size_t currentPos, const char *additionalAttributes = nullptr)
+{
+  if (additionalAttributes)
+  {
+    strncat(buffer + currentPos, additionalAttributes, bufferSize - currentPos - 2);
+  }
+
+  // Chiudi il JSON
+  strncat(buffer + strlen(buffer), "}", bufferSize - strlen(buffer) - 1);
+}
+
 bool publishTrackerDeviceDiscovery()
 {
   char discoveryTopic[128];
-  snprintf(discoveryTopic, sizeof(discoveryTopic), 
-          "homeassistant/sensor/%s_status/config", 
-          SettingsMngr.gateway);
-  
-  // Topic per lo stato del tracker
-  char stateTopic[64];
-  snprintf(stateTopic, sizeof(stateTopic), 
-          "%s/status", 
-          getMQTTBaseSensorTopic());
-  
-const char* availabilityTopic = getMQTTAvailabilityTopic();
+  snprintf(discoveryTopic, sizeof(discoveryTopic),
+           "homeassistant/sensor/%s_status/config",
+           SettingsMngr.gateway);
 
-char discoveryPayload[512]; 
-snprintf(discoveryPayload, sizeof(discoveryPayload), 
-        "{"
-        "\"name\":\"BLE Tracker Status\","
-        "\"unique_id\":\"%s_status\","
-        "\"state_topic\":\"%s\","
-        "\"value_template\":\"{{ value_json.status }}\","
-        "\"availability_topic\":\"%s\","  
-        "\"payload_available\":\"%s\","   
-        "\"payload_not_available\":\"%s\","  
-        "\"icon\":\"mdi:bluetooth-audio\","
-        "\"device\":{"
-          "\"identifiers\":[\"%s\"],"
-          "\"name\":\"ESP32 BLETracker (%s)\","
-          "\"model\":\"ESP32 BLETracker\","
-          "\"manufacturer\":\"shogunxam\","
-          "\"sw_version\":\"%s\""
-        "}"
-        "}",
-        SettingsMngr.gateway,
-        stateTopic,
-        availabilityTopic,
-        MQTT_PAYLOAD_AVAILABLE,
-        MQTT_PAYLOAD_UNAVAILABLE,
-        SettingsMngr.gateway,
-        SettingsMngr.gateway,
-        VERSION);
-  
-  if (connectToMQTT()) {
+  char stateTopic[64];
+  snprintf(stateTopic, sizeof(stateTopic),
+           "%s/status",
+           getMQTTBaseSensorTopic());
+
+  char uniqueId[32];
+  snprintf(uniqueId, sizeof(uniqueId), "%s_status", SettingsMngr.gateway);
+
+  char discoveryPayload[512];
+  generateCommonDiscoveryPayload(discoveryPayload, sizeof(discoveryPayload),
+                                 "BLE Tracker Status", uniqueId,
+                                 stateTopic, "mdi:bluetooth-scanner");
+
+  // Aggiungi attributi specifici
+  const char *specificAttributes = ",\"value_template\":\"{{ value_json.status }}\"";
+  finalizeDiscoveryPayload(discoveryPayload, sizeof(discoveryPayload),
+                           strlen(discoveryPayload), specificAttributes);
+
+  if (connectToMQTT())
+  {
     _publishToMQTT(discoveryTopic, discoveryPayload, true);
     DEBUG_PRINTLN("INFO: Home Assistant discovery payload sent for BLE Tracker device");
     return true;
   }
-  
+
   return false;
 }
 
 bool publishDevicesListSensorDiscovery()
 {
   char discoveryTopic[128];
-  snprintf(discoveryTopic, sizeof(discoveryTopic), 
-          "homeassistant/sensor/%s_devices/config", 
-          SettingsMngr.gateway);
-  
+  snprintf(discoveryTopic, sizeof(discoveryTopic),
+           "homeassistant/sensor/%s_devices/config",
+           SettingsMngr.gateway);
+
   char devicesTopic[64];
-  snprintf(devicesTopic, sizeof(devicesTopic), 
-          "%s/devices", 
-          getMQTTBaseSensorTopic());
-  
-  const char* availabilityTopic = getMQTTAvailabilityTopic();
+  snprintf(devicesTopic, sizeof(devicesTopic),
+           "%s/devices",
+           getMQTTBaseSensorTopic());
+
+  char uniqueId[32];
+  snprintf(uniqueId, sizeof(uniqueId), "%s_devices", SettingsMngr.gateway);
+
   char discoveryPayload[512];
-  snprintf(discoveryPayload, sizeof(discoveryPayload), 
-          "{"
-          "\"name\":\"BLE Devices\","
-          "\"unique_id\":\"%s_devices\","
-          "\"state_topic\":\"%s\","
-          "\"value_template\":\"{{ value_json.count }}\","
-          "\"availability_topic\":\"%s\"," 
-          "\"payload_available\":\"%s\","
-          "\"payload_not_available\":\"%s\","          
-          "\"icon\":\"mdi:bluetooth\","
-          "\"device\":{"
-            "\"identifiers\":[\"%s\"],"
-            "\"name\":\"ESP32 BLETracker (%s)\","
-            "\"model\":\"ESP32 BLETracker\","
-            "\"manufacturer\":\"shogunxam\","
-            "\"sw_version\":\"%s\""
-          "}"
-          "}",
-          SettingsMngr.gateway,
-          devicesTopic,
-          availabilityTopic,
-          MQTT_PAYLOAD_AVAILABLE,
-          MQTT_PAYLOAD_UNAVAILABLE,          
-          SettingsMngr.gateway,
-          SettingsMngr.gateway,
-          VERSION);
-  
-  if (connectToMQTT()) {
+  generateCommonDiscoveryPayload(discoveryPayload, sizeof(discoveryPayload),
+                                 "BLE Devices", uniqueId, devicesTopic);
+
+  // Aggiungi attributi specifici
+  const char *specificAttributes = ",\"value_template\":\"{{ value_json.count }}\"";
+  finalizeDiscoveryPayload(discoveryPayload, sizeof(discoveryPayload),
+                           strlen(discoveryPayload), specificAttributes);
+
+  if (connectToMQTT())
+  {
     _publishToMQTT(discoveryTopic, discoveryPayload, true);
     DEBUG_PRINTLN("INFO: Home Assistant discovery payload sent for BLE Devices list sensor");
     return true;
   }
-  
+
   return false;
 }
 
-bool publishBLEDeviceSensorDiscovery(const BLETrackedDevice& device)
+bool publishBLEDeviceSensorDiscovery(const BLETrackedDevice &device)
 {
   char discoveryTopic[128];
-  snprintf(discoveryTopic, sizeof(discoveryTopic), 
-          "homeassistant/device_tracker/%s_device_%s/config", 
-          SettingsMngr.gateway, device.address);
-  
+  snprintf(discoveryTopic, sizeof(discoveryTopic),
+           "homeassistant/device_tracker/%s_device_%s/config",
+           SettingsMngr.gateway, device.address);
+
   char deviceName[64];
   snprintf(deviceName, sizeof(deviceName), "BLE Device %s", device.address);
-  
+
+  char uniqueId[48];
+  snprintf(uniqueId, sizeof(uniqueId), "%s_device_%s", SettingsMngr.gateway, device.address);
+
   char deviceTopic[64];
 #if PUBLISH_SIMPLE_JSON
-  snprintf(deviceTopic, sizeof(deviceTopic), 
-          "%s/%s", 
-          getMQTTBaseSensorTopic(), device.address);
+  snprintf(deviceTopic, sizeof(deviceTopic),
+           "%s/%s",
+           getMQTTBaseSensorTopic(), device.address);
 #elif PUBLISH_SEPARATED_TOPICS
-  snprintf(deviceTopic, sizeof(deviceTopic), 
-          "%s/%s/state", 
-          getMQTTBaseSensorTopic(), device.address);
+  snprintf(deviceTopic, sizeof(deviceTopic),
+           "%s/%s/state",
+           getMQTTBaseSensorTopic(), device.address);
 #endif
-  
-  const char* availabilityTopic = getMQTTAvailabilityTopic();
 
   char discoveryPayload[512];
+  generateCommonDiscoveryPayload(discoveryPayload, sizeof(discoveryPayload),
+                                 deviceName, uniqueId, deviceTopic);
+
+  // Prepara gli attributi specifici
+  char specificAttributes[256];
+
 #if PUBLISH_SIMPLE_JSON
-  snprintf(discoveryPayload, sizeof(discoveryPayload), 
-          "{"
-          "\"name\":\"%s\","
-          "\"unique_id\":\"%s_device_%s\","
-          "\"state_topic\":\"%s\","
-          "\"source_type\":\"bluetooth\","
-          "\"value_template\":\"{%% if value_json.state == 'on' %%}home{%% else %%}not_home{%% endif %%}\","
-          "\"json_attributes_topic\":\"%s\","
-          "\"availability_topic\":\"%s\","
-          "\"payload_available\":\"%s\","
-          "\"payload_not_available\":\"%s\","          
-          "\"icon\":\"mdi:bluetooth\","
-          "\"device\":{"
-            "\"identifiers\":[\"%s\"],"
-            "\"name\":\"ESP32 BLETracker (%s)\","
-            "\"model\":\"ESP32 BLETracker\","
-            "\"manufacturer\":\"shogunxam\","
-            "\"sw_version\":\"%s\""
-          "}"
-          "}",
-          deviceName,
-          SettingsMngr.gateway, device.address,
-          deviceTopic,
-          deviceTopic,
-          availabilityTopic,
-          MQTT_PAYLOAD_AVAILABLE,
-          MQTT_PAYLOAD_UNAVAILABLE,          
-          SettingsMngr.gateway,
-          SettingsMngr.gateway,
-          VERSION);
+  snprintf(specificAttributes, sizeof(specificAttributes),
+           ",\"value_template\":\"{%% if value_json.state == 'on' %%}home{%% else %%}not_home{%% endif %%}\","
+           "\"json_attributes_topic\":\"%s\","
+           "\"source_type\":\"bluetooth\"",
+           deviceTopic);
 #elif PUBLISH_SEPARATED_TOPICS
   char rssiTopic[64];
-  snprintf(rssiTopic, sizeof(rssiTopic), 
-          "%s/%s/rssi", 
-          getMQTTBaseSensorTopic(), device.address);
-          
+  snprintf(rssiTopic, sizeof(rssiTopic),
+           "%s/%s/rssi",
+           getMQTTBaseSensorTopic(), device.address);
+
 #if PUBLISH_BATTERY_LEVEL
   char batteryTopic[64];
-  snprintf(batteryTopic, sizeof(batteryTopic), 
-          "%s/%s/battery", 
-          getMQTTBaseSensorTopic(), device.address);
-          
-  snprintf(discoveryPayload, sizeof(discoveryPayload), 
-          "{"
-          "\"name\":\"%s\","
-          "\"unique_id\":\"%s_device_%s\","
-          "\"state_topic\":\"%s\","
-          "\"icon\":\"mdi:bluetooth\","
-          "\"json_attributes_topics\":[\"%s\", \"%s\"],"
-          "\"device\":{"
-            "\"identifiers\":[\"%s\"],"
-            "\"name\":\"ESP32 BLETracker (%s)\","
-            "\"model\":\"ESP32 BLETracker\","
-            "\"manufacturer\":\"shogunxam\","
-            "\"sw_version\":\"%s\""
-          "}"
-          "}",
-          deviceName,
-          SettingsMngr.gateway, device.address,
-          deviceTopic,
-          rssiTopic, batteryTopic,
-          SettingsMngr.gateway,
-          SettingsMngr.gateway,
-          VERSION);
+  snprintf(batteryTopic, sizeof(batteryTopic),
+           "%s/%s/battery",
+           getMQTTBaseSensorTopic(), device.address);
+
+  snprintf(specificAttributes, sizeof(specificAttributes),
+           ",\"json_attributes_topics\":[\"%s\", \"%s\"],"
+           "\"source_type\":\"bluetooth\"",
+           rssiTopic, batteryTopic);
 #else
-  snprintf(discoveryPayload, sizeof(discoveryPayload), 
-          "{"
-          "\"name\":\"%s\","
-          "\"unique_id\":\"%s_device_%s\","
-          "\"state_topic\":\"%s\","
-          "\"icon\":\"mdi:bluetooth\","
-          "\"json_attributes_topic\":\"%s\","
-          "\"device\":{"
-            "\"identifiers\":[\"%s\"],"
-            "\"name\":\"ESP32 BLETracker (%s)\","
-            "\"model\":\"ESP32 BLETracker\","
-            "\"manufacturer\":\"shogunxam\","
-            "\"sw_version\":\"%s\""
-          "}"
-          "}",
-          deviceName,
-          SettingsMngr.gateway, device.address,
-          deviceTopic,
-          rssiTopic,
-          SettingsMngr.gateway,
-          SettingsMngr.gateway,
-          VERSION);
+  snprintf(specificAttributes, sizeof(specificAttributes),
+           ",\"json_attributes_topic\":\"%s\","
+           "\"source_type\":\"bluetooth\"",
+           rssiTopic);
 #endif
 #endif
-  
+
+  finalizeDiscoveryPayload(discoveryPayload, sizeof(discoveryPayload),
+                           strlen(discoveryPayload), specificAttributes);
+
   // Pubblica il discovery
-  if (connectToMQTT()) {
+  if (connectToMQTT())
+  {
     _publishToMQTT(discoveryTopic, discoveryPayload, true);
     DEBUG_PRINTF("INFO: Home Assistant discovery payload sent for BLE Device %s sensor\n", device.address);
-    
-    for (auto& trackedDevice : BLETrackedDevices) {
-      if (strcmp(trackedDevice.address, device.address) == 0) {
+
+    for (auto &trackedDevice : BLETrackedDevices)
+    {
+      if (strcmp(trackedDevice.address, device.address) == 0)
+      {
         trackedDevice.haDiscoveryPublished = true;
         break;
       }
     }
-    
+
     return true;
   }
-  
+
   return false;
 }
 
 void publishTrackerStatus()
 {
   char stateTopic[64];
-  snprintf(stateTopic, sizeof(stateTopic), 
-          "%s/status", 
-          getMQTTBaseSensorTopic());
-  
+  snprintf(stateTopic, sizeof(stateTopic),
+           "%s/status",
+           getMQTTBaseSensorTopic());
+
   char statusPayload[128];
   char strmilli[20];
-  snprintf(statusPayload, sizeof(statusPayload), 
-          "{"
-          "\"status\":\"online\","
-          "\"uptime\":\"%s\","
-          "\"ip\":\"%s\","
-          "\"devices_count\":%zu"
-          "}",
-          formatMillis(millis(), strmilli),
-          WiFi.localIP().toString().c_str(),
-          BLETrackedDevices.size());
-  
+  snprintf(statusPayload, sizeof(statusPayload),
+           "{"
+           "\"status\":\"online\","
+           "\"uptime\":\"%s\","
+           "\"ip\":\"%s\","
+           "\"devices_count\":%zu"
+           "}",
+           formatMillis(millis(), strmilli),
+           WiFi.localIP().toString().c_str(),
+           BLETrackedDevices.size());
+
   publishToMQTT(stateTopic, statusPayload, false);
 }
 
@@ -475,74 +439,77 @@ void publishDevicesList()
 {
   // Topic for the list of devices
   char devicesTopic[64];
-  snprintf(devicesTopic, sizeof(devicesTopic), 
-          "%s/devices", 
-          getMQTTBaseSensorTopic());
-  
+  snprintf(devicesTopic, sizeof(devicesTopic),
+           "%s/devices",
+           getMQTTBaseSensorTopic());
+
   // Create a buffer for the JSON payload
   const size_t maxPayloadSize = 128 + (BLETrackedDevices.size() * 50);
-  char* payload = new char[maxPayloadSize];
-  
+  char *payload = new char[maxPayloadSize];
+
   // Start the JSON payload
-  int written = snprintf(payload, maxPayloadSize, 
-          "{"
-          "\"count\":%zu,"
-          "\"devices\":[", 
-          BLETrackedDevices.size());
-  
+  int written = snprintf(payload, maxPayloadSize,
+                         "{"
+                         "\"count\":%zu,"
+                         "\"devices\":[",
+                         BLETrackedDevices.size());
 
   // Add each device to the JSON
   bool firstDevice = true;
-  for (const auto& device : BLETrackedDevices) {
-    if (!firstDevice) {
+  for (const auto &device : BLETrackedDevices)
+  {
+    if (!firstDevice)
+    {
       written += snprintf(payload + written, maxPayloadSize - written, ",");
     }
-    
-    const char* state = device.isDiscovered ? MQTT_PAYLOAD_ON : MQTT_PAYLOAD_OFF;
-    
+
+    const char *state = device.isDiscovered ? MQTT_PAYLOAD_ON : MQTT_PAYLOAD_OFF;
+
     written += snprintf(payload + written, maxPayloadSize - written,
-            "{"
-            "\"address\":\"%s\","
-            "\"state\":\"%s\","
-            "\"rssi\":%d,"
-            "\"last_seen\":%ld"
-            "}",
-            device.address, state, device.rssiValue, device.lastDiscoveryTime);
-    
+                        "{"
+                        "\"address\":\"%s\","
+                        "\"state\":\"%s\","
+                        "\"rssi\":%d,"
+                        "\"last_seen\":%ld"
+                        "}",
+                        device.address, state, device.rssiValue, device.lastDiscoveryTime);
+
     firstDevice = false;
   }
-  
+
   // Close the JSON
   written += snprintf(payload + written, maxPayloadSize - written, "]}");
-  
+
   // Pubblish the list of devices
   publishToMQTT(devicesTopic, payload, false);
-  
+
   delete[] payload;
 }
 ////////////////////////////////////////////////////////////////////////////////
 
-void publishBLEState(const BLETrackedDevice& device)
+void publishBLEState(const BLETrackedDevice &device)
 {
-  #if ENABLE_HOME_ASSISTANT_MQTT_DISCOVERY
-  //Verify if it's necessary to do the discovery for this device
-  if (!device.haDiscoveryPublished) {
+#if ENABLE_HOME_ASSISTANT_MQTT_DISCOVERY
+  // Verify if it's necessary to do the discovery for this device
+  if (!device.haDiscoveryPublished)
+  {
     publishBLEDeviceSensorDiscovery(device);
   }
-  
+
   // Update and publish the list of devices and tracker status
   static unsigned long lastDevicesListUpdate = 0;
   unsigned long now = millis();
-  
-  if (now - lastDevicesListUpdate > 30000) { // Ogni 30 secondi
+
+  if (now - lastDevicesListUpdate > 30000)
+  { // Ogni 30 secondi
     publishDevicesList();
     publishTrackerStatus();
     lastDevicesListUpdate = now;
   }
-  #endif // ENABLE_HOME_ASSISTANT_MQTT_DISCOVERY
+#endif // ENABLE_HOME_ASSISTANT_MQTT_DISCOVERY
 
   // Extabilish the state of the device
-  const char* state = device.isDiscovered ? MQTT_PAYLOAD_ON : MQTT_PAYLOAD_OFF;
+  const char *state = device.isDiscovered ? MQTT_PAYLOAD_ON : MQTT_PAYLOAD_OFF;
   int rssi = device.isDiscovered ? device.rssiValue : -100;
 
   // Use the existing code to publish device data
@@ -553,11 +520,11 @@ void publishBLEState(const BLETrackedDevice& device)
 
   snprintf(topic, maxTopicLen, "%s/%s/state", getMQTTBaseSensorTopic(), device.address);
   publishToMQTT(topic, state, false);
-  
+
   snprintf(topic, maxTopicLen, "%s/%s/rssi", getMQTTBaseSensorTopic(), device.address);
   itoa(rssi, strbuff, 10);
   publishToMQTT(topic, strbuff, false);
-  
+
 #if PUBLISH_BATTERY_LEVEL
   snprintf(topic, maxTopicLen, "%s/%s/battery", getMQTTBaseSensorTopic(), device.address);
   itoa(device.batteryLevel, strbuff, 10);
@@ -569,15 +536,15 @@ void publishBLEState(const BLETrackedDevice& device)
   const uint16_t maxTopicLen = strlen(getMQTTBaseSensorTopic()) + 22;
   char topic[maxTopicLen];
   snprintf(topic, maxTopicLen, "%s/%s", getMQTTBaseSensorTopic(), device.address);
-  
+
   const uint16_t maxPayloadLen = 45;
   char payload[maxPayloadLen];
-  
+
 #if PUBLISH_BATTERY_LEVEL
-  snprintf(payload, maxPayloadLen, R"({"state":"%s","rssi":%d,"battery":%d})", 
+  snprintf(payload, maxPayloadLen, R"({"state":"%s","rssi":%d,"battery":%d})",
            state, rssi, device.batteryLevel);
 #else
-  snprintf(payload, maxPayloadLen, R"({"state":"%s","rssi":%d})", 
+  snprintf(payload, maxPayloadLen, R"({"state":"%s","rssi":%d})",
            state, rssi);
 #endif
   publishToMQTT(topic, payload, false);
@@ -586,6 +553,6 @@ void publishBLEState(const BLETrackedDevice& device)
 
 void mqttLoop()
 {
-    mqttClient.loop();
+  mqttClient.loop();
 }
 #endif /*USE_MQTT*/
