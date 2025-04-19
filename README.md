@@ -38,6 +38,10 @@ A topic for each item returned by the advertised device:<br />
 A topic with helpfull system information:<br />
 &lt;LOCATION&gt;/&lt;GATEWAY_NAME&gt;/&lt;BLE_ADDRESS&gt;/sysinfo, payload: { "uptime":&lt;timesinceboot&gt;,"version":&lt;versionnumber&gt;,"SSID":&lt;WiFiSSID&gt;,"IP":&lt;ipnumber&gt;}
 
+Since version 3.8, the application supports generating topics compatible with the Home Assistant MQTT Discovery protocol.  
+The integration with Home Assistant leverages the [Home Assistant Community Add-on: MQTT Discovery](https://github.com/hassio-addons/addon-mqtt-discovery).  
+For each gateway, a device is created, providing detailed information about the BLE devices detected by the tracker.  
+
 ### WEB Server
 
 A WEB server is integrated into the BLETracker, it can be accessed using a web browser and the ip or the network name of the tracker.<br />
@@ -124,16 +128,25 @@ so you have to write something like:
 # Tested BLE Devices
 
 | BLE Device            | Discovery | Battery |
-| --------------------- | --------- | ------- |
-| Nut mini              | ✔️      | ✔️    |
-| Nut2                  | ✔️      | ❗️    |
-| Remote Shutter        | ✔️      | ✔️    |
-| Xiomi Amazfit Bip     | ✔️      | ❌      |
-| REDMOND RFT-08S       | ✔️      | ❌      |
-| Xiomi Mi Smart Band 4 | ✔️      | ❌      |
-| Fitness Band GT101    | ✔️      | ❌      |
+| --------------------- |:---------:|:-------:|
+| Nut mini              | ✔️       | ✔️      |
+| Nut2                  | ✔️       | ❗️      |
+| Remote Shutter        | ✔️       | ✔️      |
+| Xiomi Amazfit Bip     | ✔️       | ❌      |
+| REDMOND RFT-08S       | ✔️       | ❌      |
+| Xiomi Mi Smart Band 4 | ✔️       | ❌      |
+| Fitness Band GT101    | ✔️       | ❌      |
+| Gigaset G-tag Beacon  | ✔️       | ✔️      |
 
 # Home Assistant integration
+
+Since version 3.8, the Tracker and BLE devices are automatically discovered by Home Assistant through the MQTT discovery feature, requiring no additional configuration.
+![Alt text](/ha_devices.png?raw=true "Screenshot")
+<br /><br />
+![Alt text](/ha_device_infos.png?raw=true "Screenshot")
+
+<br /><br />
+If you ware usign an older versin of the tracker, you can still use the old configuration method.
 
 This is a simple example of a package to manage a Nut Tracker device.<br />
 A more complex example combining more BLETrackers can be found inside the Doc folder.<br />
