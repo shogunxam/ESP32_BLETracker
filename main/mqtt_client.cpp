@@ -80,9 +80,38 @@ void _publishToMQTT(const char *topic, const char *payload, bool retain)
   }
 }
 
+void MQTTLoopTask(void *parameter)
+{
+  for (;;)
+  {
+    if (mqttClient.connected())
+    {
+      mqttClient.loop();
+    }
+    else
+    {
+      // Tentativo di riconnessione se disconnesso
+      if (WiFi.status() == WL_CONNECTED)
+      {
+        DEBUG_PRINTLN("MQTT disconnected, attempting reconnection...");
+        connectToMQTT();
+      }
+    }
+    delay(100); // Esegui il loop MQTT 10 volte al secondo
+  }
+}
+
 void initializeMQTT()
 {
   mqttClient.setServer(SettingsMngr.mqttServer.c_str(), SettingsMngr.mqttPort);
+  xTaskCreatePinnedToCore(
+      MQTTLoopTask,
+      "MQTTLoopTask",
+      4096,
+      NULL,
+      1,
+      NULL,
+      0);
 }
 
 bool connectToMQTT()
@@ -449,7 +478,7 @@ bool publishBLEDeviceSensorDiscovery(const BLETrackedDevice &device)
 
   // Calculate required buffer size
   size_t payloadSize = calculateDiscoveryPayloadSize(deviceName, uniqueId, deviceTopic,
-                                                           "mdi:bluetooth", SettingsMngr.gateway.c_str(), VERSION);
+                                                     "mdi:bluetooth", SettingsMngr.gateway.c_str(), VERSION);
 
   // Prepare for specific attributes calculation
   char rssiTopic[64] = {0};
@@ -479,12 +508,12 @@ bool publishBLEDeviceSensorDiscovery(const BLETrackedDevice &device)
 
   // Generate specific attributes based on configuration
   char specificAttributes[attrSize];
-  #if PUBLISH_SIMPLE_JSON
+#if PUBLISH_SIMPLE_JSON
   snprintf(specificAttributes, attrSize, SIMPLE_JSON_ATTR_FORMAT, deviceTopic);
 #elif PUBLISH_SEPARATED_TOPICS
 #if PUBLISH_BATTERY_LEVEL
-  snprintf(specificAttributes, attrSize, SEPARATED_TOPICS_ATTR_FORMAT_WITH_BATTERY, 
-         rssiTopic, batteryTopic);
+  snprintf(specificAttributes, attrSize, SEPARATED_TOPICS_ATTR_FORMAT_WITH_BATTERY,
+           rssiTopic, batteryTopic);
 #else
   snprintf(specificAttributes, attrSize, SEPARATED_TOPICS_ATTR_FORMAT_NO_BATTERY, rssiTopic);
 #endif
@@ -492,7 +521,7 @@ bool publishBLEDeviceSensorDiscovery(const BLETrackedDevice &device)
 
   // Finalize the payload
   finalizeDiscoveryPayload(discoveryPayload, payloadSize,
-                         strlen(discoveryPayload), specificAttributes);
+                           strlen(discoveryPayload), specificAttributes);
 
   // Pubblica il discovery
   if (connectToMQTT())
@@ -658,4 +687,5 @@ void mqttLoop()
 {
   mqttClient.loop();
 }
+
 #endif /*USE_MQTT*/
