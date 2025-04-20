@@ -79,9 +79,12 @@ size_t OTAWebServer::appendAndFlush(uint8_t *dest, size_t buffsize, size_t destS
 
 void OTAWebServer::StartChunkedContentTransfer(const char *contentType, bool zipped)
 {
-  server.sendHeader(F("Cache-Control"), F("no-cache, no-store, must-revalidate"));
+  server.sendHeader(F("Cache-Control"), F("no-cache, no-store, must-revalidate, max-age=0"));
   server.sendHeader(F("Pragma"), F("no-cache"));
   server.sendHeader(F("Expires"), F("-1"));
+  server.sendHeader(F("Access-Control-Allow-Origin"), F("*"));
+  server.sendHeader(F("Access-Control-Allow-Methods"), F("GET, POST"));
+
   //Header "Transfer-Encoding:chunked" is automatically added when content length is set to unknown
   if (zipped)
     server.sendHeader(F("Content-Encoding"), F("gzip"));
@@ -178,6 +181,9 @@ void OTAWebServer::getLogsJs()
   }
   server.client().setNoDelay(true);
   server.sendHeader(F("Connection"), F("close"));
+  server.sendHeader(F("Access-Control-Allow-Origin"), F("*"));
+  server.sendHeader(F("Access-Control-Allow-Methods"), F("GET, POST"));
+
   server.sendHeader(F("Content-Encoding"), F("gzip"));
   server.send_P(200, "text/javascripthtml", (const char *)logs_js_gz, logs_js_gz_size);
 }
@@ -258,6 +264,9 @@ void OTAWebServer::getIndex()
   }
   server.client().setNoDelay(true);
   server.sendHeader(F("Connection"), F("close"));
+  server.sendHeader(F("Access-Control-Allow-Origin"), F("*"));
+  server.sendHeader(F("Access-Control-Allow-Methods"), F("GET, POST"));
+
   server.sendHeader(F("Content-Encoding"), F("gzip"));
   server.send_P(200, "text/html", (const char *)index_html_gz, index_html_gz_size);
 }
@@ -316,6 +325,9 @@ void OTAWebServer::getConfigData()
   }
   server.client().setNoDelay(true);
   server.sendHeader(F("Connection"), F("close"));
+  server.sendHeader(F("Access-Control-Allow-Origin"), F("*"));
+  server.sendHeader(F("Access-Control-Allow-Methods"), F("GET, POST"));
+
   DEBUG_PRINTLN(SettingsMngr.toJSON());
   if (server.args() > 0 && server.hasArg("factory") && server.arg("factory") == "true")
   {
@@ -690,7 +702,7 @@ void WebServerWatchDogloop(void *param)
   WebServerWatchDogStartTime.store(millis());
   while (true)
   {
-    if (millis() > (WebServerWatchDogStartTime.load() + 10000))
+    if (millis() > (WebServerWatchDogStartTime.load() + 30000))
     {
       server->stop();
       server->begin();
