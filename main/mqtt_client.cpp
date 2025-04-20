@@ -212,28 +212,106 @@ void publishSySInfo()
 ////////////////////////////////////////////////////////////////////////////////
 // HOME ASSISTANT DISCOVERY
 // https://www.home-assistant.io/docs/mqtt/discovery/
+
+// Define the common format string once as a static constant
+static const char *DISCOVERY_PAYLOAD_FORMAT =
+    "{"
+    "\"name\":\"%s\","
+    "\"unique_id\":\"%s\","
+    "\"state_topic\":\"%s\","
+    "\"availability_topic\":\"%s\","
+    "\"payload_available\":\"%s\","
+    "\"payload_not_available\":\"%s\","
+    "\"icon\":\"%s\","
+    "\"device\":{"
+    "\"identifiers\":[\"%s\"],"
+    "\"name\":\"ESP32 BLETracker (%s)\","
+    "\"model\":\"ESP32 BLETracker\","
+    "\"manufacturer\":\"Shogunxam\","
+    "\"sw_version\":\"%s\""
+    "}";
+
+// Similarly for attribute formats
+static const char *SIMPLE_JSON_ATTR_FORMAT =
+    ",\"value_template\":\"{%% if value_json.state == 'on' %%}home{%% else %%}not_home{%% endif %%}\","
+    "\"json_attributes_topic\":\"%s\","
+    "\"source_type\":\"bluetooth\"";
+
+static const char *SEPARATED_TOPICS_ATTR_FORMAT_WITH_BATTERY =
+    ",\"json_attributes_topics\":[\"%s\", \"%s\"],"
+    "\"source_type\":\"bluetooth\"";
+
+static const char *SEPARATED_TOPICS_ATTR_FORMAT_NO_BATTERY =
+    ",\"json_attributes_topic\":\"%s\","
+    "\"source_type\":\"bluetooth\"";
+
+static const char *TRACKER_STATUS_ATTR_FORMAT =
+    ",\"value_template\":\"{{ value_json.status }}\"";
+
+static const char *DEVICES_LIST_ATTR_FORMAT =
+    ",\"value_template\":\"{{ value_json.count }}\"";
+
+// Calculate required buffer size for discovery payload
+size_t calculateDiscoveryPayloadSize(const char *name, const char *uniqueId,
+                                     const char *stateTopic, const char *icon,
+                                     const char *gatewayName, const char *version)
+{
+  // Calculate base size (format string length minus format specifiers)
+  static const size_t baseSize = strlen(DISCOVERY_PAYLOAD_FORMAT) - 10 * 2; // 10 %s placeholders, each 2 chars
+
+  // Add variable field lengths
+  size_t dynamicSize = 0;
+  dynamicSize += strlen(name);
+  dynamicSize += strlen(uniqueId);
+  dynamicSize += strlen(stateTopic);
+  dynamicSize += strlen(getMQTTAvailabilityTopic());
+  dynamicSize += strlen(MQTT_PAYLOAD_AVAILABLE);
+  dynamicSize += strlen(MQTT_PAYLOAD_UNAVAILABLE);
+  dynamicSize += strlen(icon);
+  dynamicSize += strlen(gatewayName) * 2; // Gateway name appears twice
+  dynamicSize += strlen(version);
+
+  // Add some margin for safety
+  return baseSize + dynamicSize + 20;
+}
+
+// Similarly for the specific attributes function
+size_t calculateSpecificAttributesSize(bool isSimpleJson, const char *deviceTopic,
+                                       const char *rssiTopic = nullptr,
+                                       const char *batteryTopic = nullptr)
+{
+  // Calculate base size based on the format string being used
+  size_t baseSize;
+  size_t dynamicSize = 0;
+
+  if (isSimpleJson)
+  {
+    baseSize = strlen(SIMPLE_JSON_ATTR_FORMAT) - 2; // One %s placeholder
+    dynamicSize += strlen(deviceTopic);
+  }
+  else if (batteryTopic != nullptr)
+  {
+    baseSize = strlen(SEPARATED_TOPICS_ATTR_FORMAT_WITH_BATTERY) - 4; // Two %s placeholders
+    dynamicSize += strlen(rssiTopic) + strlen(batteryTopic);
+  }
+  else
+  {
+    baseSize = strlen(SEPARATED_TOPICS_ATTR_FORMAT_NO_BATTERY) - 2; // One %s placeholder
+    dynamicSize += strlen(rssiTopic);
+  }
+
+  // Add margin for safety
+  return baseSize + dynamicSize + 20;
+}
+
 void generateCommonDiscoveryPayload(char *buffer, size_t bufferSize,
                                     const char *name, const char *uniqueId,
                                     const char *stateTopic, const char *icon = "mdi:bluetooth")
 {
   const char *availabilityTopic = getMQTTAvailabilityTopic();
 
-  snprintf(buffer, bufferSize,
-           "{"
-           "\"name\":\"%s\","
-           "\"unique_id\":\"%s\","
-           "\"state_topic\":\"%s\","
-           "\"availability_topic\":\"%s\","
-           "\"payload_available\":\"%s\","
-           "\"payload_not_available\":\"%s\","
-           "\"icon\":\"%s\","
-           "\"device\":{"
-           "\"identifiers\":[\"%s\"],"
-           "\"name\":\"ESP32 BLETracker (%s)\","
-           "\"model\":\"ESP32 BLETracker\","
-           "\"manufacturer\":\"Shogunxam\","
-           "\"sw_version\":\"%s\""
-           "}", // Nota: non chiudiamo la parentesi graffa finale
+  // Use the same format string defined above
+  snprintf(buffer, bufferSize, DISCOVERY_PAYLOAD_FORMAT,
            name,
            uniqueId,
            stateTopic,
@@ -249,13 +327,17 @@ void generateCommonDiscoveryPayload(char *buffer, size_t bufferSize,
 // Funzione per aggiungere attributi specifici al payload e chiudere il JSON
 void finalizeDiscoveryPayload(char *buffer, size_t bufferSize, size_t currentPos, const char *additionalAttributes = nullptr)
 {
-  if (additionalAttributes)
+  if (additionalAttributes && (currentPos + strlen(additionalAttributes) + 2 < bufferSize))
   {
     strncat(buffer + currentPos, additionalAttributes, bufferSize - currentPos - 2);
   }
 
-  // Chiudi il JSON
-  strncat(buffer + strlen(buffer), "}", bufferSize - strlen(buffer) - 1);
+  // Close the JSON if there's room
+  size_t currentLen = strlen(buffer);
+  if (currentLen + 1 < bufferSize)
+  {
+    strncat(buffer + currentLen, "}", bufferSize - currentLen - 1);
+  }
 }
 
 bool publishTrackerDeviceDiscovery()
@@ -273,15 +355,22 @@ bool publishTrackerDeviceDiscovery()
   char uniqueId[32];
   snprintf(uniqueId, sizeof(uniqueId), "%s_status", SettingsMngr.gateway);
 
-  char discoveryPayload[512];
-  generateCommonDiscoveryPayload(discoveryPayload, sizeof(discoveryPayload),
-                                 "BLE Tracker Status", uniqueId,
-                                 stateTopic, "mdi:bluetooth-scanner");
+  // Calculate required buffer size
+  size_t payloadSize = calculateDiscoveryPayloadSize("BLETracker Status", uniqueId,
+                                                     stateTopic, "mdi:bluetooth-audio",
+                                                     SettingsMngr.gateway.c_str(), VERSION);
 
-  // Aggiungi attributi specifici
-  const char *specificAttributes = ",\"value_template\":\"{{ value_json.status }}\"";
-  finalizeDiscoveryPayload(discoveryPayload, sizeof(discoveryPayload),
-                           strlen(discoveryPayload), specificAttributes);
+  // Add size for specific attributes
+  payloadSize += strlen(TRACKER_STATUS_ATTR_FORMAT) + 2; // +2 for closing brace and null terminator
+
+  char discoveryPayload[payloadSize];
+  generateCommonDiscoveryPayload(discoveryPayload, sizeof(discoveryPayload),
+                                 "BLETracker Status", uniqueId,
+                                 stateTopic, "mdi:bluetooth-audio");
+
+  // Add specific attributes and finalize
+  finalizeDiscoveryPayload(discoveryPayload, payloadSize,
+                           strlen(discoveryPayload), TRACKER_STATUS_ATTR_FORMAT);
 
   if (connectToMQTT())
   {
@@ -308,14 +397,21 @@ bool publishDevicesListSensorDiscovery()
   char uniqueId[32];
   snprintf(uniqueId, sizeof(uniqueId), "%s_devices", SettingsMngr.gateway);
 
-  char discoveryPayload[512];
+  // Calculate required buffer size
+  size_t payloadSize = calculateDiscoveryPayloadSize("BLE Devices", uniqueId,
+                                                     devicesTopic, "mdi:bluetooth",
+                                                     SettingsMngr.gateway.c_str(), VERSION);
+
+  // Add size for specific attributes
+  payloadSize += strlen(DEVICES_LIST_ATTR_FORMAT) + 2; // +2 for closing brace and null terminator
+
+  char discoveryPayload[payloadSize];
   generateCommonDiscoveryPayload(discoveryPayload, sizeof(discoveryPayload),
                                  "BLE Devices", uniqueId, devicesTopic);
 
-  // Aggiungi attributi specifici
-  const char *specificAttributes = ",\"value_template\":\"{{ value_json.count }}\"";
-  finalizeDiscoveryPayload(discoveryPayload, sizeof(discoveryPayload),
-                           strlen(discoveryPayload), specificAttributes);
+  // Add specific attributes and finalize
+  finalizeDiscoveryPayload(discoveryPayload, payloadSize,
+                           strlen(discoveryPayload), DEVICES_LIST_ATTR_FORMAT);
 
   if (connectToMQTT())
   {
@@ -351,45 +447,52 @@ bool publishBLEDeviceSensorDiscovery(const BLETrackedDevice &device)
            getMQTTBaseSensorTopic(), device.address);
 #endif
 
-  char discoveryPayload[512];
-  generateCommonDiscoveryPayload(discoveryPayload, sizeof(discoveryPayload),
-                                 deviceName, uniqueId, deviceTopic);
+  // Calculate required buffer size
+  size_t payloadSize = calculateDiscoveryPayloadSize(deviceName, uniqueId, deviceTopic,
+                                                           "mdi:bluetooth", SettingsMngr.gateway.c_str(), VERSION);
 
-  // Prepara gli attributi specifici
-  char specificAttributes[256];
+  // Prepare for specific attributes calculation
+  char rssiTopic[64] = {0};
+  char batteryTopic[64] = {0};
 
-#if PUBLISH_SIMPLE_JSON
-  snprintf(specificAttributes, sizeof(specificAttributes),
-           ",\"value_template\":\"{%% if value_json.state == 'on' %%}home{%% else %%}not_home{%% endif %%}\","
-           "\"json_attributes_topic\":\"%s\","
-           "\"source_type\":\"bluetooth\"",
-           deviceTopic);
-#elif PUBLISH_SEPARATED_TOPICS
-  char rssiTopic[64];
+#if PUBLISH_SEPARATED_TOPICS
   snprintf(rssiTopic, sizeof(rssiTopic),
            "%s/%s/rssi",
            getMQTTBaseSensorTopic(), device.address);
-
 #if PUBLISH_BATTERY_LEVEL
-  char batteryTopic[64];
   snprintf(batteryTopic, sizeof(batteryTopic),
            "%s/%s/battery",
            getMQTTBaseSensorTopic(), device.address);
+#endif
+#endif
 
-  snprintf(specificAttributes, sizeof(specificAttributes),
-           ",\"json_attributes_topics\":[\"%s\", \"%s\"],"
-           "\"source_type\":\"bluetooth\"",
-           rssiTopic, batteryTopic);
+  // Calculate size for specific attributes
+  const char *batteryTopicPtr = (PUBLISH_BATTERY_LEVEL && PUBLISH_SEPARATED_TOPICS) ? batteryTopic : nullptr;
+  size_t attrSize = calculateSpecificAttributesSize(PUBLISH_SIMPLE_JSON, deviceTopic, rssiTopic, batteryTopicPtr);
+
+  // Add attribute size to payload size
+  payloadSize += attrSize;
+
+  char discoveryPayload[payloadSize];
+  generateCommonDiscoveryPayload(discoveryPayload, sizeof(discoveryPayload),
+                                 deviceName, uniqueId, deviceTopic);
+
+  // Generate specific attributes based on configuration
+  char specificAttributes[attrSize];
+  #if PUBLISH_SIMPLE_JSON
+  snprintf(specificAttributes, attrSize, SIMPLE_JSON_ATTR_FORMAT, deviceTopic);
+#elif PUBLISH_SEPARATED_TOPICS
+#if PUBLISH_BATTERY_LEVEL
+  snprintf(specificAttributes, attrSize, SEPARATED_TOPICS_ATTR_FORMAT_WITH_BATTERY, 
+         rssiTopic, batteryTopic);
 #else
-  snprintf(specificAttributes, sizeof(specificAttributes),
-           ",\"json_attributes_topic\":\"%s\","
-           "\"source_type\":\"bluetooth\"",
-           rssiTopic);
+  snprintf(specificAttributes, attrSize, SEPARATED_TOPICS_ATTR_FORMAT_NO_BATTERY, rssiTopic);
 #endif
 #endif
 
-  finalizeDiscoveryPayload(discoveryPayload, sizeof(discoveryPayload),
-                           strlen(discoveryPayload), specificAttributes);
+  // Finalize the payload
+  finalizeDiscoveryPayload(discoveryPayload, payloadSize,
+                         strlen(discoveryPayload), specificAttributes);
 
   // Pubblica il discovery
   if (connectToMQTT())
