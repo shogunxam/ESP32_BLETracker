@@ -1,3 +1,4 @@
+#include <atomic>
 #include "config.h"
 #if USE_MQTT
 #include "mqtt_client.h"
@@ -102,13 +103,13 @@ void MQTTLoopTask(void *parameter)
     else
     {
       // Reconnect to MQTT broker if not connected
-      if (WiFi.status() == WL_CONNECTED)
+      if (WiFi.status() == WL_CONNECTED && !IsAccessPointModeOn())
       {
         DEBUG_PRINTLN("MQTT disconnected, attempting reconnection...");
         connectToMQTT();
       }
     }
-    delay(1000); // Run the loop every second
+    delay(100); // Run the loop every second
   }
 }
 
@@ -125,16 +126,35 @@ void initializeMQTT()
       0);
 }
 
-std::mutex mqttMutex;
+static std::atomic<bool> mqttConnectionInProgress(false);
 bool connectToMQTT()
 {
-  // Avoid multiple threads trying to connect to MQTT at the same time
-  std::lock_guard<std::mutex> lock(mqttMutex);
-  WiFiConnect(SettingsMngr.wifiSSID, SettingsMngr.wifiPwd);
+  if (mqttClient.connected())
+  {
+    return true;
+  }
+
+  bool expected = false;
+  if (!mqttConnectionInProgress.compare_exchange_strong(expected, true))
+  {
+    // Another thread is already trying to connect
+    delay(200);
+    if (mqttClient.connected())
+    {
+      return true;
+    }
+    return false;
+  }
+
+  if (!WiFiConnect(SettingsMngr.wifiSSID, SettingsMngr.wifiPwd))
+  {
+    return false;
+  }
 
   uint8_t maxRetry = 3;
   while (!mqttClient.connected())
   {
+
     DEBUG_PRINTF("INFO: Connecting to MQTT broker: %s\n", SettingsMngr.mqttServer.c_str());
     if (!firstTimeMQTTConnection && !MQTTConnectionErrorSignaled)
     {
@@ -373,8 +393,8 @@ void generateCommonDiscoveryPayload(char *buffer, size_t bufferSize,
            MQTT_PAYLOAD_AVAILABLE,
            MQTT_PAYLOAD_UNAVAILABLE,
            icon,
-           SettingsMngr.gateway,
-           SettingsMngr.gateway,
+           SettingsMngr.gateway.c_str(),
+           SettingsMngr.gateway.c_str(),
            VERSION);
 }
 
@@ -399,7 +419,7 @@ bool publishTrackerDeviceDiscovery()
   char discoveryTopic[128];
   snprintf(discoveryTopic, sizeof(discoveryTopic),
            "homeassistant/sensor/%s_status/config",
-           SettingsMngr.gateway);
+           SettingsMngr.gateway.c_str());
 
   char stateTopic[64];
   snprintf(stateTopic, sizeof(stateTopic),
@@ -407,7 +427,7 @@ bool publishTrackerDeviceDiscovery()
            getMQTTBaseSensorTopic());
 
   char uniqueId[32];
-  snprintf(uniqueId, sizeof(uniqueId), "%s_status", SettingsMngr.gateway);
+  snprintf(uniqueId, sizeof(uniqueId), "%s_status", SettingsMngr.gateway.c_str());
 
   // Calculate required buffer size
   size_t payloadSize = calculateDiscoveryPayloadSize("BLETracker Status", uniqueId,
@@ -441,7 +461,7 @@ bool publishDevicesListSensorDiscovery()
   char discoveryTopic[128];
   snprintf(discoveryTopic, sizeof(discoveryTopic),
            "homeassistant/sensor/%s_devices/config",
-           SettingsMngr.gateway);
+           SettingsMngr.gateway.c_str());
 
   char devicesTopic[64];
   snprintf(devicesTopic, sizeof(devicesTopic),
@@ -449,7 +469,7 @@ bool publishDevicesListSensorDiscovery()
            getMQTTBaseSensorTopic());
 
   char uniqueId[32];
-  snprintf(uniqueId, sizeof(uniqueId), "%s_devices", SettingsMngr.gateway);
+  snprintf(uniqueId, sizeof(uniqueId), "%s_devices", SettingsMngr.gateway.c_str());
 
   // Calculate required buffer size
   size_t payloadSize = calculateDiscoveryPayloadSize("BLE Devices", uniqueId,
@@ -482,13 +502,13 @@ bool publishBLEDeviceSensorDiscovery(const BLETrackedDevice &device)
   char discoveryTopic[128];
   snprintf(discoveryTopic, sizeof(discoveryTopic),
            "homeassistant/device_tracker/%s_device_%s/config",
-           SettingsMngr.gateway, device.address);
+           SettingsMngr.gateway.c_str(), device.address);
 
   char deviceName[64];
   snprintf(deviceName, sizeof(deviceName), "BLE Device %s", device.address);
 
   char uniqueId[48];
-  snprintf(uniqueId, sizeof(uniqueId), "%s_device_%s", SettingsMngr.gateway, device.address);
+  snprintf(uniqueId, sizeof(uniqueId), "%s_device_%s", SettingsMngr.gateway.c_str(), device.address);
 
   char deviceTopic[64];
 #if PUBLISH_SIMPLE_JSON

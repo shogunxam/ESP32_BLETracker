@@ -49,7 +49,7 @@ void StartAccessPointMode()
   apModeStartTime = millis();
 }
 
-void WiFiConnect(const String &_ssid_, const String &_password_)
+bool WiFiConnect(const String &_ssid_, const String &_password_)
 {
   if (WiFi.status() != WL_CONNECTED && !_ssid_.isEmpty())
   {
@@ -90,8 +90,7 @@ void WiFiConnect(const String &_ssid_, const String &_password_)
         LOG_TO_FILE_E("Start AccessPoint: failed to connect to %s.", _ssid_.c_str());
         WiFi.enableAP(true);
         StartAccessPointMode();
-        return;
-        // esp_restart();
+        return false;
       }
     }
 
@@ -109,8 +108,10 @@ void WiFiConnect(const String &_ssid_, const String &_password_)
     DEBUG_PRINTLN("--------------------");
     DEBUG_PRINTF("Connected to %s\n", _ssid_.c_str());
     DEBUG_PRINTF("IP address: %s\n", WiFi.localIP().toString().c_str());
-    LOG_TO_FILE_I("Connected to %s", _ssid_.c_str());
+    LOG_TO_FILE_I("Connected to %s", _ssid_.c_str());    
   }
+
+  return true;
 }
 
 void CheckAPModeTimeout()
