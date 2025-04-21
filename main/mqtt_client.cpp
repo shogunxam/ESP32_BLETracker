@@ -32,13 +32,23 @@ volatile unsigned long lastMQTTConnection = 0;
 static bool firstTimeMQTTConnection = true;
 static bool MQTTConnectionErrorSignaled = false;
 static uint32_t MQTTErrorCounter = 0;
+static const size_t cMaxLocationNameLength = 32;
+static const size_t cMaxGatewayNameLength = 32;
+static const size_t cMQTTBaseSensorTopicLength = cMaxLocationNameLength + cMaxGatewayNameLength + 2; // +2 for "/"
 
 const char *getMQTTBaseSensorTopic()
 {
-  static char MQTT_BASE_SENSOR_TOPIC[50] = "";
+  static char MQTT_BASE_SENSOR_TOPIC[cMQTTBaseSensorTopicLength] = "";
   if (MQTT_BASE_SENSOR_TOPIC[0] == 0)
   {
-    snprintf(MQTT_BASE_SENSOR_TOPIC, 50, "%s/%s", LOCATION, SettingsMngr.gateway);
+    char location[cMaxLocationNameLength] = "";
+    char gateway[cMaxGatewayNameLength] = "";
+    strncpy(location, LOCATION, sizeof(location));
+    location[sizeof(location) - 1] = '\0'; // Ensure null-termination
+    strncpy(gateway, SettingsMngr.gateway.c_str(), sizeof(gateway));
+    gateway[sizeof(gateway) - 1] = '\0'; // Ensure null-termination
+
+    snprintf(MQTT_BASE_SENSOR_TOPIC, sizeof(MQTT_BASE_SENSOR_TOPIC), "%s/%s", location, gateway);
   }
 
   return MQTT_BASE_SENSOR_TOPIC;
@@ -46,20 +56,21 @@ const char *getMQTTBaseSensorTopic()
 
 const char *getMQTTAvailabilityTopic()
 {
-  static char MQTT_AVAILABILITY_TOPIC[60] = "";
+  static char MQTT_AVAILABILITY_TOPIC[cMQTTBaseSensorTopicLength + 10] = "";
   if (MQTT_AVAILABILITY_TOPIC[0] == 0)
   {
-    snprintf(MQTT_AVAILABILITY_TOPIC, 60, "%s/LWT", getMQTTBaseSensorTopic());
+
+    snprintf(MQTT_AVAILABILITY_TOPIC, sizeof(MQTT_AVAILABILITY_TOPIC), "%s/LWT", getMQTTBaseSensorTopic());
   }
   return MQTT_AVAILABILITY_TOPIC;
 }
 
 const char *getMQTTSysInfoTopic()
 {
-  static char MQTT_SYSINFO_TOPIC[60] = "";
+  static char MQTT_SYSINFO_TOPIC[cMQTTBaseSensorTopicLength + 10] = "";
   if (MQTT_SYSINFO_TOPIC[0] == 0)
   {
-    snprintf(MQTT_SYSINFO_TOPIC, 60, "%s/sysinfo", getMQTTBaseSensorTopic());
+    snprintf(MQTT_SYSINFO_TOPIC, sizeof(MQTT_SYSINFO_TOPIC), "%s/sysinfo", getMQTTBaseSensorTopic());
   }
   return MQTT_SYSINFO_TOPIC;
 }
@@ -90,14 +101,14 @@ void MQTTLoopTask(void *parameter)
     }
     else
     {
-      // Tentativo di riconnessione se disconnesso
+      // Reconnect to MQTT broker if not connected
       if (WiFi.status() == WL_CONNECTED)
       {
         DEBUG_PRINTLN("MQTT disconnected, attempting reconnection...");
         connectToMQTT();
       }
     }
-    delay(100); // Esegui il loop MQTT 10 volte al secondo
+    delay(1000); // Run the loop every second
   }
 }
 
@@ -114,8 +125,11 @@ void initializeMQTT()
       0);
 }
 
+std::mutex mqttMutex;
 bool connectToMQTT()
 {
+  // Avoid multiple threads trying to connect to MQTT at the same time
+  std::lock_guard<std::mutex> lock(mqttMutex);
   WiFiConnect(SettingsMngr.wifiSSID, SettingsMngr.wifiPwd);
 
   uint8_t maxRetry = 3;
@@ -123,7 +137,9 @@ bool connectToMQTT()
   {
     DEBUG_PRINTF("INFO: Connecting to MQTT broker: %s\n", SettingsMngr.mqttServer.c_str());
     if (!firstTimeMQTTConnection && !MQTTConnectionErrorSignaled)
+    {
       LOG_TO_FILE_E("Error: MQTT broker disconnected, connecting...");
+    }
     DEBUG_PRINTLN(F("Error: MQTT broker disconnected, connecting..."));
     if (mqttClient.connect(GATEWAY_NAME, SettingsMngr.mqttUser.c_str(), SettingsMngr.mqttPwd.c_str(), getMQTTAvailabilityTopic(), 1, true, MQTT_PAYLOAD_UNAVAILABLE))
     {
@@ -143,12 +159,19 @@ bool connectToMQTT()
       uint32_t deltaLogs;
 
       if (numLogs < MQTTErrorCounter)
+      {
+        // The number of logs has wrapped around
         deltaLogs = ~uint32_t(0) - MQTTErrorCounter + numLogs;
+      }
       else
+      {
         deltaLogs = numLogs - MQTTErrorCounter;
+      }
 
       if (deltaLogs >= 500)
+      {
         MQTTConnectionErrorSignaled = false;
+      }
 
       if (!MQTTConnectionErrorSignaled)
       {
@@ -163,7 +186,9 @@ bool connectToMQTT()
 
     maxRetry--;
     if (maxRetry == 0)
+    {
       return false;
+    }
   }
   firstTimeMQTTConnection = false;
   return true;

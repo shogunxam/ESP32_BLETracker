@@ -1,7 +1,9 @@
 #ifndef _USER_CONFIG_H_
 #define _USER_CONFIG_H_
 
+// Location name maximum length is 32 characters
 #define LOCATION "home"
+// Gateway name maximum length is 32 characters
 #define GATEWAY_NAME "BLETracker"
 
 // Wi-Fi credentials
