@@ -193,12 +193,6 @@ void batteryTask()
     if (!(SettingsMngr.InBatteryList(trackedDevice.address) || trackedDevice.forceBatteryRead))
       continue;
 
-#if USE_MQTT
-    if (!IsAccessPointModeOn())
-    {
-      publishAvailabilityToMQTT();
-    }
-#endif
 
     // We need to connect to the device to read the battery value
     // So that we check only the device really advertised by the scan
@@ -484,8 +478,12 @@ void loop()
 {
   try
   {
+    if (IsAccessPointModeOn())
+    {
+      CheckAPModeTimeout();
+    }
 #if USE_MQTT
-    if (!IsAccessPointModeOn())
+    else
     {
       mqttLoop();
     }
@@ -574,9 +572,6 @@ void loop()
         pBLEScan->clearResults();
       }
 
-#if USE_MQTT
-      publishAvailabilityToMQTT();
-#endif
 
       for (auto &trackedDevice : BLETrackedDevices)
       {
@@ -596,7 +591,6 @@ void loop()
 #endif
 
 #if USE_MQTT
-      publishAvailabilityToMQTT();
 
       bool publishSystemInfo = ((lastSySInfoTime + SYS_INFORMATION_DELAY) < NTPTime::seconds()) || (lastSySInfoTime == 0);
 
@@ -614,8 +608,6 @@ void loop()
         publishSySInfo();
         lastSySInfoTime = NTPTime::seconds();
       }
-
-      publishAvailabilityToMQTT();
 
 #elif USE_FHEM_LEPRESENCE_SERVER
       FHEMLePresenceServer::loop(); // Handle clients connections

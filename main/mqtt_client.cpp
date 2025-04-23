@@ -94,11 +94,18 @@ void _publishToMQTT(const char *topic, const char *payload, bool retain)
 
 void MQTTLoopTask(void *parameter)
 {
+  const unsigned long AVAILABILITY_UPDATE_INTERVAL = 300; // 5 minutes
+  unsigned long lastMQTTAvailabilityUpdate = NTPTime::seconds() ;
   for (;;)
   {
     if (mqttClient.connected())
     {
       mqttClient.loop();
+      if((NTPTime::seconds()  - lastMQTTAvailabilityUpdate) > AVAILABILITY_UPDATE_INTERVAL)
+      {
+        _publishToMQTT(getMQTTAvailabilityTopic(), MQTT_PAYLOAD_AVAILABLE, true);
+        lastMQTTAvailabilityUpdate = NTPTime::seconds();
+      }
     }
     else
     {
@@ -109,7 +116,8 @@ void MQTTLoopTask(void *parameter)
         connectToMQTT();
       }
     }
-    delay(100); // Run the loop every second
+
+    delay(1000); // Run the loop every second
   }
 }
 
@@ -138,7 +146,7 @@ bool connectToMQTT()
   if (!mqttConnectionInProgress.compare_exchange_strong(expected, true))
   {
     // Another thread is already trying to connect
-    delay(200);
+    delay(300);
     if (mqttClient.connected())
     {
       return true;
@@ -161,12 +169,14 @@ bool connectToMQTT()
       LOG_TO_FILE_E("Error: MQTT broker disconnected, connecting...");
     }
     DEBUG_PRINTLN(F("Error: MQTT broker disconnected, connecting..."));
-    if (mqttClient.connect(GATEWAY_NAME, SettingsMngr.mqttUser.c_str(), SettingsMngr.mqttPwd.c_str(), getMQTTAvailabilityTopic(), 1, true, MQTT_PAYLOAD_UNAVAILABLE))
+    String clientId = SettingsMngr.gateway+"-"+String(WiFi.macAddress()); // Ensure the client ID is unique
+    if (mqttClient.connect(clientId.c_str(), SettingsMngr.mqttUser.c_str(), SettingsMngr.mqttPwd.c_str(), getMQTTAvailabilityTopic(), 1, true, MQTT_PAYLOAD_UNAVAILABLE))
     {
       DEBUG_PRINTLN(F("INFO: The client is successfully connected to the MQTT broker"));
       LOG_TO_FILE_I("MQTT broker connected!");
       MQTTConnectionErrorSignaled = false;
       _publishToMQTT(getMQTTAvailabilityTopic(), MQTT_PAYLOAD_AVAILABLE, true);
+      mqttConnectionInProgress = false;
     }
     else
     {
@@ -207,9 +217,11 @@ bool connectToMQTT()
     maxRetry--;
     if (maxRetry == 0)
     {
+      mqttConnectionInProgress = false;
       return false;
     }
   }
+  mqttConnectionInProgress = false;
   firstTimeMQTTConnection = false;
   return true;
 }
