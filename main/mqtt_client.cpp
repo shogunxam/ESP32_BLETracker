@@ -31,7 +31,7 @@ volatile unsigned long lastMQTTConnection = 0;
   Function called to connect/reconnect to the MQTT broker
 */
 static bool firstTimeMQTTConnection = true;
-static bool MQTTConnectionErrorSignaled = false;
+static bool MQTTConnectionErrorLogged = false;
 static uint32_t MQTTErrorCounter = 0;
 static const size_t cMaxLocationNameLength = 32;
 static const size_t cMaxGatewayNameLength = 32;
@@ -147,24 +147,22 @@ bool connectToMQTT()
   {
     // Another thread is already trying to connect
     delay(300);
-    if (mqttClient.connected())
-    {
-      return true;
-    }
+    return mqttClient.connected();
+  }
+
+  // Check if WiFi is connected and in case connect to it
+  if (!WiFiConnect(SettingsMngr.wifiSSID, SettingsMngr.wifiPwd) || IsAccessPointModeOn())
+  {
+    DEBUG_PRINTLN("ERROR: WiFi not connected, cannot connect to MQTT broker");
+    mqttConnectionInProgress = false;
     return false;
   }
 
-  if (!WiFiConnect(SettingsMngr.wifiSSID, SettingsMngr.wifiPwd))
+  uint8_t maxRetry = 3; // Retry 3 times
+  while (!mqttClient.connected() && maxRetry > 0)
   {
-    return false;
-  }
-
-  uint8_t maxRetry = 3;
-  while (!mqttClient.connected())
-  {
-
     DEBUG_PRINTF("INFO: Connecting to MQTT broker: %s\n", SettingsMngr.mqttServer.c_str());
-    if (!firstTimeMQTTConnection && !MQTTConnectionErrorSignaled)
+    if (!firstTimeMQTTConnection && !MQTTConnectionErrorLogged)
     {
       LOG_TO_FILE_E("Error: MQTT broker disconnected, connecting...");
     }
@@ -174,9 +172,8 @@ bool connectToMQTT()
     {
       DEBUG_PRINTLN(F("INFO: The client is successfully connected to the MQTT broker"));
       LOG_TO_FILE_I("MQTT broker connected!");
-      MQTTConnectionErrorSignaled = false;
+      MQTTConnectionErrorLogged = false;
       _publishToMQTT(getMQTTAvailabilityTopic(), MQTT_PAYLOAD_AVAILABLE, true);
-      mqttConnectionInProgress = false;
     }
     else
     {
@@ -185,45 +182,39 @@ bool connectToMQTT()
       DEBUG_PRINTF("INFO: MQTT password: %s\n", SettingsMngr.mqttPwd.c_str());
       DEBUG_PRINTF("INFO: MQTT broker: %s\n", SettingsMngr.mqttServer.c_str());
 #if ENABLE_FILE_LOG
+     // To prevent MQTT error logs from saturating the limited storage space,
+     // repeted connection errors are logged only after 500 other logs. 
+     // This ensures space is preserved for documenting other system issues.
+
       uint32_t numLogs = SPIFFSLogger.numOfLogsPerSession();
       uint32_t deltaLogs;
 
-      if (numLogs < MQTTErrorCounter)
-      {
-        // The number of logs has wrapped around
-        deltaLogs = ~uint32_t(0) - MQTTErrorCounter + numLogs;
-      }
-      else
-      {
-        deltaLogs = numLogs - MQTTErrorCounter;
-      }
+      // Calculate the number of logs since the last MQTT error considering the wrap-around
+      deltaLogs = (numLogs < MQTTErrorCounter) ? (~uint32_t(0) - MQTTErrorCounter + numLogs) : (numLogs - MQTTErrorCounter);
 
+      // MQTTConnectionErrorLogged is reset if the number of logs since the last error is greater than 500
+      // or the MQTT connection is successful
       if (deltaLogs >= 500)
       {
-        MQTTConnectionErrorSignaled = false;
+        MQTTConnectionErrorLogged = false;
       }
 
-      if (!MQTTConnectionErrorSignaled)
+      if (!MQTTConnectionErrorLogged)
       {
         LOG_TO_FILE_E("Error: Connection to the MQTT broker failed!");
-        MQTTConnectionErrorSignaled = true;
+        MQTTConnectionErrorLogged = true;
         MQTTErrorCounter = SPIFFSLogger.numOfLogsPerSession();
       }
 #endif
     }
 
     Watchdog::Feed();
-
     maxRetry--;
-    if (maxRetry == 0)
-    {
-      mqttConnectionInProgress = false;
-      return false;
-    }
   }
+
   mqttConnectionInProgress = false;
   firstTimeMQTTConnection = false;
-  return true;
+  return mqttClient.connected();
 }
 
 void publishToMQTT(const char *topic, const char *payload, bool retain)
