@@ -55,6 +55,8 @@
 
 #define PUBLISH_SIMPLE_JSON         true
 #define PUBLISH_SEPARATED_TOPICS    false
+
+#define ENABLE_HOME_ASSISTANT_MQTT_DISCOVERY true
 ///////////////////
 
 

@@ -10,9 +10,10 @@ enum class WiFiMode
 };
 
 void StartAccessPointMode();
-void WiFiConnect(const String& _ssid_, const String& _password_) ;
+bool WiFiConnect(const String& _ssid_, const String& _password_) ;
 WiFiMode GetWifiMode();
 bool IsAccessPointModeOn();
+void CheckAPModeTimeout();
 
 extern WiFiClient wifiClient;
 #endif /*_WIFI_MANAGER_H_*/

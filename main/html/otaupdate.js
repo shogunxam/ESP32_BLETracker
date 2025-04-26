@@ -5,6 +5,7 @@ function sub(obj) {
 $(function() {
 $('form').submit(function(e) {
   e.preventDefault();
+  $("#errormsg").css("visibility","hidden");
   var form = $('#upload_form')[0];
   var data = new FormData(form);
   $.ajax({

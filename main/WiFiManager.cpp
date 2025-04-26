@@ -5,8 +5,9 @@
 #include "config.h"
 #include "WiFiManager.h"
 #include "DebugPrint.h"
-extern "C" {
-  #include <esp_wifi.h>
+extern "C"
+{
+#include <esp_wifi.h>
 }
 #include "NTPTime.h"
 #include "SPIFFSLogger.h"
@@ -25,33 +26,42 @@ WiFiMode GetWifiMode()
   return gWiFiMode;
 }
 
+static unsigned long apModeStartTime = 0;
+static constexpr unsigned long AP_MODE_RECONNECT_TIMEOUT = 60000; // 60 seconds to reconnect to WiFi
+
 void StartAccessPointMode()
 {
-    // Enable Access Point Mode
-    DEBUG_PRINT("Starting AccessPoint Mode...");
-    IPAddress local_ip(192,168,2,1);
-    IPAddress gateway(192,168,2,1);
-    IPAddress subnet(255,255,255,0);
-    WiFi.mode(WIFI_AP);
-    WiFi.softAPConfig(local_ip, gateway, subnet);
-    WiFi.softAP("ESP32_BLETRACKER", nullptr);
-    gWiFiMode = WiFiMode::AcessPoint;
-    DEBUG_PRINT("AccessPoint Mode enabled.");
+  // Enable Access Point Mode
+  DEBUG_PRINT("Starting AccessPoint Mode...");
+  IPAddress local_ip(192, 168, 2, 1);
+  IPAddress gateway(192, 168, 2, 1);
+  IPAddress subnet(255, 255, 255, 0);
+  WiFi.mode(WIFI_AP);
+  uint8_t mac[6];
+  WiFi.macAddress(mac);
+  char ssid[32];
+  snprintf(ssid, sizeof(ssid), "ESP32_%02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+  WiFi.softAPConfig(local_ip, gateway, subnet);
+  WiFi.softAP(ssid);
+  gWiFiMode = WiFiMode::AcessPoint;
+  DEBUG_PRINT("AccessPoint Mode enabled.");
+
+  apModeStartTime = millis();
 }
 
-void WiFiConnect(const String &_ssid_, const String &_password_)
+bool WiFiConnect(const String &_ssid_, const String &_password_)
 {
-  if (WiFi.status() != WL_CONNECTED && !_ssid_.isEmpty() && gWiFiMode != WiFiMode::AcessPoint)
+  if (WiFi.status() != WL_CONNECTED && !_ssid_.isEmpty())
   {
     DEBUG_PRINTF("Connecting to WiFi %s...", _ssid_.c_str());
     esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
     // Connect to WiFi network
-     WiFi.enableAP(false);
+    WiFi.enableAP(false);
     WiFi.mode(WIFI_STA);
     WiFi.disconnect(true);
-    
-    #if !USE_DHCP
-    IPAddress ip,netmask,gateway,primaryDNS,secondaryDNS;
+
+#if !USE_DHCP
+    IPAddress ip, netmask, gateway, primaryDNS, secondaryDNS;
     ip.fromString(LOCAL_IP);
     netmask.fromString(NETMASK);
     gateway.fromString(GATEWAY);
@@ -62,7 +72,7 @@ void WiFiConnect(const String &_ssid_, const String &_password_)
       DEBUG_PRINTLN("Error: WiFi configuration failed");
       LOG_TO_FILE_E("Error: WiFi configuration failed");
     }
-    #endif/*!USE_DHCP*/
+#endif /*!USE_DHCP*/
 
     WiFi.begin(_ssid_.c_str(), _password_.c_str());
     DEBUG_PRINTLN("");
@@ -77,28 +87,48 @@ void WiFiConnect(const String &_ssid_, const String &_password_)
       if (NTPTime::seconds() > timeout)
       {
         DEBUG_PRINTLN("Failed connecting to the network: timeout error!!!");
-        LOG_TO_FILE_E("Start AccessPoint: failed to connect to %s.",_ssid_.c_str());
+        LOG_TO_FILE_E("Start AccessPoint: failed to connect to %s.", _ssid_.c_str());
         WiFi.enableAP(true);
         StartAccessPointMode();
-        return;
-        //esp_restart();
+        return false;
       }
     }
 
     gWiFiMode = WiFiMode::Station;
 
-    if(SettingsMngr.wbsTimeZone.isEmpty())
+    if (SettingsMngr.wbsTimeZone.isEmpty())
     {
       SettingsMngr.wbsTimeZone = NTPTime::GetTimezoneFromWeb();
       SettingsMngr.Save();
     }
 
-    //Initialize the time getting it from the WEB We do it after we have WifFi connection
+    // Initialize the time getting it from the WEB We do it after we have WifFi connection
     NTPTime::initialize(SettingsMngr.wbsTimeZone.c_str());
 
     DEBUG_PRINTLN("--------------------");
-    DEBUG_PRINTF("Connected to %s\n",_ssid_.c_str());
-    DEBUG_PRINTF("IP address: %s\n",WiFi.localIP().toString().c_str());
-    LOG_TO_FILE_I("Connected to %s",_ssid_.c_str());
+    DEBUG_PRINTF("Connected to %s\n", _ssid_.c_str());
+    DEBUG_PRINTF("IP address: %s\n", WiFi.localIP().toString().c_str());
+    LOG_TO_FILE_I("Connected to %s", _ssid_.c_str());    
+  }
+
+  return true;
+}
+
+void CheckAPModeTimeout()
+{
+  if (gWiFiMode == WiFiMode::AcessPoint)
+  {
+    unsigned long currentTime = millis();
+
+    if (currentTime - apModeStartTime > AP_MODE_RECONNECT_TIMEOUT)
+    {
+      // IF the Access Point mode is active and no clients are connected for more than 60 seconds,
+      // but the WiFi SSID is not empty, try to connect to the WiFi network
+      if (WiFi.softAPgetStationNum() == 0 && !SettingsMngr.wifiSSID.isEmpty())
+      {
+        WiFiConnect(SettingsMngr.wifiSSID, SettingsMngr.wifiPwd);
+        // Access Point mode is started automatically when the WiFi connection fails
+      }
+    }
   }
 }

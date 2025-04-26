@@ -29,7 +29,7 @@ def minify(filename, outfilename):
 '''
 
 def compress(filename, outfilename):
-    with open(filename, 'rb') as src, gzip.open(outfilename, 'wb') as dst:
+    with open(filename, 'rb') as src, gzip.GzipFile(filename=outfilename, mode='wb', mtime=0) as dst:
         dst.writelines(src)
 
 def bin2c(filename, outfilename):
