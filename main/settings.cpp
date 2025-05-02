@@ -1,8 +1,9 @@
 #include "settings.h"
 #include "config.h"
 #include "DebugPrint.h"
+#include "WiFiManager.h" 
 
-#define CURRENT_SETTING_VERSION 7
+#define CURRENT_SETTING_VERSION 8
 
 Settings SettingsMngr;
 
@@ -104,7 +105,7 @@ void Settings::FactoryReset(bool emptyLists)
     logLevel = DEFAULT_FILE_LOG_LEVEL;
     maxNotAdvPeriod = MAX_NON_ADV_PERIOD;
     manualScan = eManualSCanMode::eManualSCanModeDisabled;
-    gateway = GATEWAY_NAME;
+    gateway =  WiFiManager::GetDefaultGatewayName();
     wifiSSID = WIFI_SSID;
     wifiPwd = WIFI_PASSWORD;
     wbsUser = WEBSERVER_USER;
@@ -353,8 +354,11 @@ bool Settings::Save()
         SaveString(file, wifiSSID);
         SaveString(file, wifiPwd);
         SaveString(file, gateway);
-        SaveString(file, wbsTimeZone);
+        SaveString(file, wbsTimeZone);        
         DEBUG_PRINTF("saved TZ %s",wbsTimeZone.c_str());
+        //Since version 8
+        SaveString(file, wbsUser);
+        SaveString(file, wbsPwd);
         file.flush();
         file.close();
         return true;
@@ -400,6 +404,12 @@ void Settings::Load()
             LoadString(file, wbsTimeZone);
             DEBUG_PRINTF("loaded TZ %s\n",wbsTimeZone.c_str());
         }
+        if(currVer > 7)
+        {
+            LoadString(file, wbsUser);
+            LoadString(file, wbsPwd);
+        }
+        file.close();
     }
 }
 

@@ -21,7 +21,7 @@
 
 #include <PubSubClient.h> // https://github.com/knolleary/pubsubclient
 
-PubSubClient mqttClient(wifiClient);
+PubSubClient mqttClient(WiFiManager::GetWiFiClient());
 
 ///////////////////////////////////////////////////////////////////////////
 //   MQTT
@@ -110,7 +110,7 @@ void MQTTLoopTask(void *parameter)
     else
     {
       // Reconnect to MQTT broker if not connected
-      if (WiFi.status() == WL_CONNECTED && !IsAccessPointModeOn())
+      if (WiFi.status() == WL_CONNECTED && !WiFiManager::IsAccessPointModeOn())
       {
         DEBUG_PRINTLN("MQTT disconnected, attempting reconnection...");
         connectToMQTT();
@@ -151,7 +151,7 @@ bool connectToMQTT()
   }
 
   // Check if WiFi is connected and in case connect to it
-  if (!WiFiConnect(SettingsMngr.wifiSSID, SettingsMngr.wifiPwd) || IsAccessPointModeOn())
+  if (!WiFiManager::WiFiConnect(SettingsMngr.wifiSSID, SettingsMngr.wifiPwd) || WiFiManager::IsAccessPointModeOn())
   {
     DEBUG_PRINTLN("ERROR: WiFi not connected, cannot connect to MQTT broker");
     mqttConnectionInProgress = false;
@@ -162,11 +162,14 @@ bool connectToMQTT()
   while (!mqttClient.connected() && maxRetry > 0)
   {
     DEBUG_PRINTF("INFO: Connecting to MQTT broker: %s\n", SettingsMngr.mqttServer.c_str());
+
+    const char *errMsg = "Error: MQTT broker disconnected, connecting...";
+    DEBUG_PRINTLN(errMsg);
     if (!firstTimeMQTTConnection && !MQTTConnectionErrorLogged)
     {
-      LOG_TO_FILE_E("Error: MQTT broker disconnected, connecting...");
+      LOG_TO_FILE_E(errMsg);
     }
-    DEBUG_PRINTLN(F("Error: MQTT broker disconnected, connecting..."));
+    
     String clientId = SettingsMngr.gateway+"-"+String(WiFi.macAddress()); // Ensure the client ID is unique
     if (mqttClient.connect(clientId.c_str(), SettingsMngr.mqttUser.c_str(), SettingsMngr.mqttPwd.c_str(), getMQTTAvailabilityTopic(), 1, true, MQTT_PAYLOAD_UNAVAILABLE))
     {

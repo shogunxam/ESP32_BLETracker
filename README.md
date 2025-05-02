@@ -1,6 +1,7 @@
 # ESP32 BLETracker
 
-A simple solution for tracking Bluetooth Low Energy devices with an ESP32, MQTT protocol, and Home Assistant integration. This project allows you to monitor BLE devices with public (non-changing) MAC addresses.
+A simple solution for tracking Bluetooth Low Energy devices with an ESP32, MQTT protocol, and Home Assistant integration.  
+This project allows you to monitor BLE devices with public (non-changing) MAC addresses.
 
 ## Table of Contents
 
@@ -34,14 +35,16 @@ ESP32_BLETracker allows you to:
    - Use [PlatformIO](https://platformio.org/) (recommended)
    - Install [git](https://git-scm.com/downloads) for automatic dependency management
    - Modify `user_config.h` with your WiFi and MQTT broker information
+   - Build the prefered variant (e.g., `esp32dev-ble-release`)
+   - Flash the firmware to the ESP32
 
 2. **First-time Setup**:
    - If WiFi credentials aren't provided, the ESP32 starts in access point mode
-   - Connect to the access point (IP: 192.168.2.1)
-   - Enter WiFi credentials through the web interface
+   - Connect to the access point via WiFi and navigate to `http://192.168.2.1`
+   - Enter WiFi credentials through the web interface in the configuration page
 
 3. **MQTT Configuration**:
-   - Ensure your GATEWAY_NAME is unique (used as MQTT Client ID)
+   - Ensure your GATEWAY_NAME is unique (it will be used for the MQTT Client ID, hostname, and within the MQTT topic itself)
    - Configure MQTT broker details in the web interface or `user_config.h`
 
 ### Battery Level Monitoring
@@ -50,13 +53,15 @@ The system can read battery levels from BLE devices that support the Battery Ser
 
 - Check device compatibility using a nRF Sniffer like [nRF Connect](https://play.google.com/store/apps/details?id=no.nordicsemi.android.mcp)
 - Successfully tested with Nut Mini (other devices may have connection issues)
-- For multiple devices, use a whitelist to prevent Wi-Fi disconnections:
+- To prevent Wi-Fi disconnections on your ESP32 when connecting to multiple BLE devices for battery status, a whitelist is recommended. 
+The Bluetooth activity involved in scanning, connecting, and reading data from these devices can sometimes interfere with the ESP32's Wi-Fi connection:
 
-```
-BLE_BATTERY_WHITELIST       "XXXXXXXXX","YYYYYYYY"
-```
+  ```cpp
+  #define BLE_KNOWN_DEVICES_LIST       {"AABBCCDDEEFF", true, "DeviceA"}, {"A1B2C3D4E5F6", false, "DeviceB"}
+  ```
+  The device list can be also updated and enabled through the web interface.
 
-**Important**: MAC addresses must be uppercase without ":" or "-" (e.g., "BA683F7EC159")
+  **Important**: MAC addresses must be uppercase without ":" or "-" (e.g., "BA683F7EC159")
 
 ## Features
 
@@ -68,15 +73,71 @@ The integrated web server provides:
 - Log monitoring
 - OTA (Over-The-Air) firmware updates
 
-**Access Credentials**:
+**Default access Credentials**:
 - Username: `admin`
 - Password: `admin`
 
-**Manual Scanning API**:
-```
-GET http://<user>:<password>@<device_ip>/scan?on=1
-GET http://<user>:<password>@<device_ip>/scan?off=1
-```
+#### Web APIs:
+The web server exposes the following APIs for the integration with other systems.  
+To access these APIs, you need to authenticate with the web interface credentials.
+You have to use one of the two basic authentication methods to pass the credentials:
+- Authorization Header: The client includes an Authorization header in the HTTP request. This header contains "Basic" followed by a Base64-encoded string of the username and password, separated by a colon.
+
+- (Less Secure) URL Embedding: The username and password are included directly in the URL, typically before the hostname, separated by a colon and followed by an "@" symbol (e.g., https://username:password@example.com/resource). This method is generally not recommended due to security concerns.  
+
+##### API Endpoints:
+
+1. **Devices List**:
+   This endpoint provides the list of devices currently being tracked:
+   ```
+   GET /api/devices
+   ```
+
+   Response:
+   ```json
+   {
+    "devices": [
+        {
+            "battery": <battery_value>,
+            "bttime": <last_battery_read_time>,
+            "mac": "<ble_mac_address>",
+            "name": "<device_description>",
+            "rssi": <rssi_value>,
+            "state": "On"
+        },
+        {
+            "battery": <battery_value>,
+            "bttime": <last_battery_read_time>,
+            "mac": "<ble_mac_address>",
+            "name": "<device_description>",
+            "rssi": <rssi_value>,
+            "state": "Off"
+        },
+    ]
+   }
+   ```
+2. **Tracking Status**:
+   This endpoint provides the current tracking status of a device:
+   ```
+   GET /api/device?mac=<BLE_MAC_ADDRESS>   
+   ```
+   Response: 
+   ```json
+   {
+    "battery": <battery_value>,
+    "batteryReadingEnabled": true,
+    "mac": "<ble_mac_address>",
+    "name": "<device_description>",
+    "rssi": <rssi_value>,
+    "state": "On"
+    }
+   ```
+3. **Manual Device Scanning**:
+   These endpoints allow to start/stop the scanning of BLE devices if the manual scan is enabled:
+   ```
+   POST /api/scan/on
+   POST /api/scan/off
+   ```
 
 ### MQTT Integration
 
@@ -87,6 +148,8 @@ The system publishes to the following topics:
    <LOCATION>/<GATEWAY_NAME>/LWT
    ```
    Payload: `online` or `offline`
+
+   The default location is `home`
 
 2. **Device State** (two format options):
    - **JSON Format** (default):
@@ -140,25 +203,19 @@ Since version 3.8, the application supports automatic device discovery in Home A
      ```
      homeassistant/device_tracker/{gateway_name}_device_{BLE_ADDRESS}/config
      ```
-     with empty payload: `""`
+     with empty payload: `""`  
 
-3. **Manual removal from Home Assistant**:
-   - Go to Settings > Devices & Services > MQTT
-   - Find the "ESP32 BLETracker ({gateway_name})" device
-   - Select "Remove" to delete the device and all its entities
-
-4. **Completely disable Discovery**:
+     Example with mosquitto_pub:
+     ```bash
+     mosquitto_pub -h [broker] -u [user] -P [password] -t "homeassistant/device_tracker/{gateway_name}_device_{BLE_ADDRESS}/config" -m ""
+     ```
+     Alternatively, use a user-friendly MQTT client such as MQTT Explorer (available for Windows, Linux, and Mac) to easily delete unwanted topics.
+3. **Completely disable Discovery**:
    - Modify `config.h`:
      ```cpp
      #define ENABLE_HOME_ASSISTANT_MQTT_DISCOVERY false
      ```
    - Recompile and upload the firmware
-
-5. **Clean up the MQTT broker**:
-   - Example with mosquitto_pub:
-     ```bash
-     mosquitto_pub -h [broker] -u [user] -P [password] -t "homeassistant/device_tracker/{gateway_name}_device_{BLE_ADDRESS}/config" -m ""
-     ```
 
 #### Manual Configuration
 

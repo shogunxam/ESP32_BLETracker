@@ -101,24 +101,21 @@ bool SPIFFSLoggerClass::writeHeader()
 }
 void SPIFFSLoggerClass::writeLog(LogLevel logLevel,const char *msg, ...)
 {
-    if(logLevel <= mLogLevel)
-    {
-        va_list args;
-        va_start(args, msg);
-        write_next_entry(msg, args);
-        va_end(args);
-    }
-}
-
-void SPIFFSLoggerClass::write_next_entry(const char *msg, ...)
-{
     va_list args;
     va_start(args, msg);
-    write_next_entry(msg, args);
+    write_next_entry(logLevel, msg, args);
     va_end(args);
 }
 
-void SPIFFSLoggerClass::write_next_entry(const char *msg, va_list args)
+void SPIFFSLoggerClass::write_next_entry(LogLevel logLevel, const char *msg, ...)
+{
+    va_list args;
+    va_start(args, msg);
+    write_next_entry(logLevel,msg, args);
+    va_end(args);
+}
+
+void SPIFFSLoggerClass::write_next_entry(LogLevel logLevel, const char *msg, va_list args)
 {
     locker guard(*this);
     
@@ -137,20 +134,22 @@ void SPIFFSLoggerClass::write_next_entry(const char *msg, va_list args)
     //The generated string has a length of at sizeof(ent.msg)-1, leaving space for the additional terminating null character.
     vsnprintf(ent.msg, sizeof(ent.msg), msg, args);
 
-    struct tm timeInfo;
-    NTPTime::getLocalTime(timeInfo);
-    NTPTime::strftime("%Y-%m-%d %H:%M:%S", timeInfo, ent.timeStamp, sizeof(ent.timeStamp));
+    //struct tm timeInfo;
+    //NTPTime::getLocalTime(timeInfo);
+    //NTPTime::strftime("%Y-%m-%d %H:%M:%S", timeInfo, ent.timeStamp, sizeof(ent.timeStamp));
+    ent.timeStamp = NTPTime::getTimeStamp();
 
     size_t bytes = 0;
     log_i("Writing to record %d T:%s, M:%s", mNextWriteLogIndex, ent.timeStamp, ent.msg);
-
+    ent.level = char(logLevel);
+    
     int overwrittenElemSize = 0;
     if (mHeader.mNumWrittenLogs == mHeader.mMaxLogsNumber)
     {
         logEntry tmpent;
         mLogFile.seek(RECORD_POSITION(mNextWriteLogIndex));
         mLogFile.read((uint8_t *)(&tmpent), cRecordSize);
-        overwrittenElemSize = strlen(tmpent.msg) + strlen(tmpent.timeStamp);
+        overwrittenElemSize = strlen(tmpent.msg) + sizeof(tmpent.timeStamp) + 1;
     }
 
     if (mLogFile.seek(RECORD_POSITION(mNextWriteLogIndex)))
@@ -173,7 +172,7 @@ void SPIFFSLoggerClass::write_next_entry(const char *msg, va_list args)
     if (mHeader.mNumWrittenLogs < mHeader.mMaxLogsNumber)
         mHeader.mNumWrittenLogs++;
     int bck = mHeader.mRealLogsSize;
-    mHeader.mRealLogsSize += strlen(ent.msg) + strlen(ent.timeStamp) - overwrittenElemSize;
+    mHeader.mRealLogsSize += strlen(ent.msg) + sizeof(ent.timeStamp) + 1 - overwrittenElemSize;
 
     if (!writeHeader())
     {
@@ -245,7 +244,7 @@ bool SPIFFSLoggerClass::read_next_entry(SPIFFSLoggerClass::logEntry &ent)
     if (!read_entry(mNextLogToReadIdx, ent))
     {
         log_i("Failed to read record from file");
-        strcpy(ent.timeStamp, "--:--");
+        ent.timeStamp = 0;
         strcpy(ent.msg, "Failed to read log from file");
     }
     mNumOfreadLogs++;

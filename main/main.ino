@@ -399,13 +399,17 @@ void setup()
   SPIFFSLogger.setLogLevel(SPIFFSLoggerClass::LogLevel(SettingsMngr.logLevel));
 #endif
 
+#if ENABLE_OTA_WEBSERVER
+  webserver.setup(SettingsMngr.gateway);
+#endif
+
   if (SettingsMngr.wifiSSID.isEmpty())
   {
-    StartAccessPointMode();
+    WiFiManager::StartAccessPointMode();
   }
   else
   {
-    WiFiConnect(SettingsMngr.wifiSSID, SettingsMngr.wifiPwd);
+    WiFiManager::WiFiConnect(SettingsMngr.wifiSSID, SettingsMngr.wifiPwd);
   }
 
   LogResetReason();
@@ -418,7 +422,6 @@ void setup()
 #endif
 
 #if ENABLE_OTA_WEBSERVER
-  webserver.setup(SettingsMngr.gateway, SettingsMngr.wifiSSID, SettingsMngr.wifiPwd);
   webserver.begin();
 #endif
 
@@ -433,7 +436,7 @@ void setup()
 
   Watchdog::Initialize();
 
-  if (!IsAccessPointModeOn())
+  if (!WiFiManager::IsAccessPointModeOn())
   {
     BLEDevice::init(SettingsMngr.gateway.c_str());
     pBLEScan = BLEDevice::getScan();
@@ -478,9 +481,9 @@ void loop()
 {
   try
   {
-    if (IsAccessPointModeOn())
+    if (WiFiManager::IsAccessPointModeOn())
     {
-      CheckAPModeTimeout();
+      WiFiManager::CheckAPModeTimeout();
     }
 #if USE_MQTT
     else
@@ -493,7 +496,7 @@ void loop()
     // Check and restore the wifi connection if it's loose
     if (!SettingsMngr.wifiSSID.isEmpty())
     {
-      WiFiConnect(SettingsMngr.wifiSSID, SettingsMngr.wifiPwd);
+      WiFiManager::WiFiConnect(SettingsMngr.wifiSSID, SettingsMngr.wifiPwd);
     }
 #endif
 
@@ -505,12 +508,13 @@ void loop()
 
     if (BLETrackedDevices.size() == SettingsMngr.GetMaxNumOfTraceableDevices())
     {
-      DEBUG_PRINTLN("INFO: Restart because the array is full\n");
-      LOG_TO_FILE("Restarting: reached the max number of traceable devices");
+      const char* errMsg = "Restarting: reached the max number of traceable devices";
+      DEBUG_PRINTLN(errMsg);
+      LOG_TO_FILE(errMsg);
       esp_restart();
     }
 
-    if (!IsAccessPointModeOn())
+    if (!WiFiManager::IsAccessPointModeOn())
     {
 #if PROGRESSIVE_SCAN
       bool scanCompleted = false;
@@ -616,14 +620,16 @@ void loop()
   }
   catch (std::exception &e)
   {
-    DEBUG_PRINTF("Error Caught Exception %s", e.what());
-    LOG_TO_FILE_E("Error Caught Exception %s", e.what());
+    const char* errMsg = "Error Caught Exception %s";
+    DEBUG_PRINTF(errMsg, e.what());
+    LOG_TO_FILE_E(errMsg, e.what());
   }
   catch (...)
   {
-    DEBUG_PRINTLN("Error Unhandled exception trapped in main loop");
-    LOG_TO_FILE_E("Error Unhandled exception trapped in main loop");
+    const char* errMsg = "Error Unhandled exception trapped in main loop";
+    DEBUG_PRINTLN(errMsg);
+    LOG_TO_FILE_E(errMsg);
   }
 
-  delay(IsAccessPointModeOn() ? 5000 : 100);
+  delay(WiFiManager::IsAccessPointModeOn() ? 5000 : 100);
 }

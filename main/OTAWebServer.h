@@ -7,13 +7,14 @@ class OTAWebServer
 {
 public:
     OTAWebServer();
-    void setup(const String &hostName, const String &ssid, const String &password);
+    void setup(const String &hostName);
     void begin(void);
 
 private:
+    void enableMDNS();
     void resetESP32Page();
     void getStyle();
-
+    void getUtilityJs();
     void getSysInfoData();
     void getIndex();
     void getIndexJs();
@@ -27,6 +28,7 @@ private:
     void postUpdateConfig();
     void getSysInfo();
     void getSysInfoJs();
+    void getDeviceInfoData();
 #if ENABLE_FILE_LOG
     void eraseLogs();
     void getLogs();
@@ -34,18 +36,20 @@ private:
     void getLogsJs();
     void getLogsData();
 #endif
-    void getManualScan();
+    void setManualScan();
+    void handleOptions();
     void StartChunkedContentTransfer(const char *contentType, bool zipped = false);
     void SendChunkedContent(const uint8_t *content, size_t size);
     void SendChunkedContent(const char *content);
     void FlushChunkedContent();
+    void SendDefaulHeaders();
+    void sendSysInfoData(bool trackerInfo = true, bool deviceList = true);
+    void getDevices();
 
     size_t append(uint8_t *dest, size_t buffsize, size_t destStartPos, const uint8_t *src, size_t srcSize, size_t srcStartPos = 0);
     size_t appendAndFlush(uint8_t *dest, size_t buffsize, size_t destStartPos, const uint8_t *src, size_t srcSize);
     WebServer server;
     String hostName;
-    String ssid;
-    String password;
     bool serverRunning;
     MyMutex dataBuffMutex;
 };

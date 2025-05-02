@@ -1,70 +1,143 @@
-$(document).ready(function () {
+
+$(() => { // Shorthand for $(document).ready()
   loadData();
   setInterval(loadData, 5000);
 });
 
-function readBattery(mac) {
-  now = new Date();
-  var url = "/updatebattery";
-  $.get(url, { mac: mac })
-    .done(function (data) {
-    });
-}
-
-function timeConverter(UNIX_timestamp) {
-  var a = new Date(UNIX_timestamp * 1000);
-  var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  var year = a.getFullYear();
-  var month = months[a.getMonth()];
-  var date = a.getDate();
-  var hour = a.getHours();
-  var min = a.getMinutes();
-  var sec = a.getSeconds();
-  var time = ("00" + date).slice(-2) + ' ' + month + ' ' + year + ' ' + ("00" + hour).slice(-2) + ':' + ("00" + min).slice(-2) + ':' + ("00" + sec).slice(-2);
-  return time;
-}
-
-function loadData() {
-  now = new Date();
-  var url = "/getsysinfodata?time=" + now.getTime();
-  $.get(url, function (data) {
-    $('#gateway').text(data.gateway);
-    $('#firmware').text(data.firmware);
-    $('#uptime').text(data.uptime);
-    $('#ssid').text(data.ssid);
-    $('#macaddr').text(data.macaddr);
-    if (data.build) { $('#build').text(data.build); }
-    else { $('#buildlbl').hide(); $('#build').hide(); }
-    if (data.memory) { $('#memory').text(data.memory); }
-    else { $('#memorylbl').hide(); $('#memory').hide(); }
-    if (!data.battery) {
-      $('#c1').hide();
+const readBattery = (mac) => {
+  getData("/updatebattery", { mac },
+    () => { }, // Empty success callback
+    (xhr, status, error) => {
+      console.error('Errore nel caricamento dei dati:', status, error);
     }
-    $("#devices > tbody").remove();
-    var table = $('#devices');
-    table.append($("<tbody/>"));
+  );
+};
 
-    data.devices.forEach(function (item, index) {
-      tmac = $("<td/>").text(item.name ? item.name : item.mac);
-      trssi = $("<td/>").text(item.rssi);
-      if (data.battery) {
-        tbtr = $("<td/>");
-        div = '<div>'
-          + '<p style="display : inline-block; width: fit-content; height: fit-content;">' + item.battery + '</p>'
-          + '<input type="button" value="Refresh" id="rbtn_' + item.mac + '" class=btn onclick="readBattery(\'' + item.mac + '\')"style="font-size : 0.8em; padding: 5px; display : inline-block; width: fit-content; width: -moz-fit-content;height: fit-content;float: right;">'
-          + '</br><p style="text-align: center; margin-top:4%;font-size : 0.8em;">' + (item.bttime ? timeConverter(item.bttime) : '') + '</p>'
-          + '</div>';
-        tbtr.append(div);
+const formatMacAddress = (mac) => {
+  return mac.includes(':') ? mac : mac.match(/.{1,2}/g)?.join(':') || '';
+};
+
+function updatePage(data) {
+  const fields = {
+    device: 'gateway',
+    firmware: 'firmware',
+    uptime: 'uptime',
+    ssid: 'ssid',
+    macaddr: 'macaddr',
+  };
+
+  for (const field in fields) {
+    let text = data[fields[field]] || ''; // Default to empty string if data is missing
+    if (field === 'firmware' && data.build) {
+      text += ` ${data.build}`;
+    }
+    $(`#${field}`).text(text);
+  }
+
+  $('#heap-div').toggle(!!data.memory);
+  if (data.memory) {
+    $('#heap').text(data.memory);
+  }
+
+  const $deviceTable = $('#devices-table');
+  const hasBattery = !!data.battery;
+  $deviceTable.find('th:nth-child(5), td:nth-child(5)').toggle(hasBattery);
+  $deviceTable.find('th:nth-child(6), td:nth-child(6)').toggle(hasBattery);
+
+  $("#devicesTableBody").empty();
+
+  if (window.innerWidth < 768) {
+    const $devicesCards = $("#devices-cards");
+    const $devicesTable = $("#devices-table");
+
+    $devicesTable.hide();
+    $devicesCards.show().empty();
+
+    data.devices.forEach(item => {
+      const $card = $("<div class='device-card'></div>");
+      const $header = $("<div class='device-card-header'></div>").append(`<h3>${item.name || "Unknown Device"}</h3>`);
+      const $content = $("<div class='device-card-content'></div>")
+        .append(`<div class='card-item'><strong>MAC:</strong> ${formatMacAddress(item.mac)}</div>`)
+        .append(`<div class='card-item'><strong>RSSI:</strong> ${item.rssi}</div>`)
+        .append(
+          item.state === 'Off'
+            ? '<div class="card-item"><strong>Status:</strong> <span class="status-away"><i class="fas fa-times-circle"></i> Away</span></div>'
+            : '<div class="card-item"><strong>Status:</strong> <span class="status-present"><i class="fas fa-check-circle"></i> Present</span></div>'
+        );
+
+      if (data.battery && item.battery) {
+        const batteryValue = item.battery < 0 ? "N/A" : `${item.battery}%`;
+        $content.append(
+          `<div class='card-item'>
+            <strong>Battery:</strong>
+            <div class='battery-info'>
+              <span class='battery-value'>${batteryValue}</span>
+              ${item.state === 'On' ? `<button class='btn-small refresh-battery' onclick="readBattery('${item.mac}')"><i class='fas fa-sync-alt'></i></button>` : ''}
+            </div>
+          </div>`
+        );
       }
-      tstate = $("<td/>").text(item.state);
-      var row = $("<tr/>").append(tmac);
-      row.append(trssi);
-      if (data.battery) {
-        row.append(tbtr);
+
+      if (data.battery && item.bttime && item.battery && item.battery > 0 && item.state === 'On') {
+        $content.append(`<div class='card-item'><strong>Last Battery Read:</strong> ${timeConverter(item.bttime)}</div>`);
       }
-      row.append(tstate);
-      table.append(row);
-      console.log(table);
+
+      $card.append($header, $content);
+      $devicesCards.append($card);
     });
-  });
+  } else {
+    const $table = $("#devicesTableBody");
+
+    data.devices.forEach(item => {
+      const $row = $("<tr/>");
+      $row.append($("<td/>").text(formatMacAddress(item.mac)));
+      $row.append($("<td/>").text(item.name || "Unknown"));
+      $row.append($("<td/>").text(item.rssi));
+
+      const $statusCell = $("<td/>").html(
+        item.state === 'Off'
+          ? '<span class="status-away"><i class="fas fa-times-circle"></i> Away</span>'
+          : '<span class="status-present"><i class="fas fa-check-circle"></i> Present</span>'
+      );
+      $row.append($statusCell);
+
+      const $batteryCell = $("<td/>");
+      if (data.battery) {
+        if (item.battery) {
+          const batteryValue = item.battery < 0 ? "N/A" : `${item.battery}%`;
+          $batteryCell.html(
+            `<div class='battery-info'>
+               <span class='battery-value'>${batteryValue}</span>
+               ${item.state === 'On' ? `<button class='btn-small refresh-battery' onclick="readBattery('${item.mac}')"><i class='fas fa-sync-alt'></i></button>` : ''}
+             </div>`
+          );
+        } else {
+          $batteryCell.html(
+            `<div class='battery-info'>
+               <span class='battery-value'>N/A</span>
+             </div>`
+          );
+        }
+        $row.append($batteryCell);
+
+        const $lastSeenCell = $("<td/>").text(
+          item.bttime && item.battery && item.battery > 0 ? timeConverter(item.bttime) : ""
+        );
+        $row.append($lastSeenCell);
+      }
+
+      $table.append($row);
+    });
+  }
 }
+
+const loadData = () => {
+  getData(
+    "/getsysinfodata",
+    null,
+    updatePage,
+    (xhr, status, error) => {
+      console.error('Errore nel caricamento dei dati:', status, error);
+    }
+  );
+};

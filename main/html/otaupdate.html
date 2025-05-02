@@ -1,20 +1,92 @@
-<html>
-
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-  <script src="otaupdate.js"></script>
-  <link rel="stylesheet" type="text/css" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OTA Update - ESP32 BLE Tracker</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="otaupdate.js"></script>
+    <script src="utility.js"></script>
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
 </head>
-
 <body>
-<form method='POST' action='#' enctype='multipart/form-data' id='upload_form'>
-    <input type='file' name='update' id='file' onchange='sub(this)' style=display:none>
-    <label id='file-input' for='file'>   Choose file...</label>
-    <input type='submit' class=fatbtn value='Update'>
-    <div id="errormsg" style="color:#d21f1b; visibility:hidden;">OTA Update Failed!!!</div>
-    <br>
-    <div id='prg'></div>
-    <br><div id='prgbar'><div id='bar'></div>
-    </div><br><br><br><label>by Shogunxam</label></form>
+    <div class="container">
+        <header>
+            <h1 class="title">OTA Update</h1>
+            <div class="nav-buttons">
+                <button onclick="window.open('/','_self')" class="btn btn-small">
+                    <i class="fas fa-home"></i> Home
+                </button>
+            </div>
+        </header>
+        
+        <div id="message" class="alert" style="display: none;"></div>
+        
+        <div class="card">
+            <h2 class="card-title">Firmware Information</h2>
+            <div class="info-section">
+                <div class="info-item">
+                    <span class="info-label"><i class="fas fa-code-branch"></i>Current Version:</span>
+                    <span id="version" class="info-value">Loading...</span>
+                </div>
+                
+                <div class="info-item" id="updateResult" style="display: none;">
+                    <span class="info-label"><i class="fas fa-tag"></i> Latest Version:</span>
+                    <span id="latestVersion" class="info-value">-</span>
+                </div>
+                
+                <div class="info-item" id="updateStatusContainer" style="display: none;">
+                    <span class="info-label"><i class="fas fa-info-circle"></i> Status:</span>
+                    <span id="updateStatus" class="info-value">-</span>
+                </div>
+            </div>
+            <div class="form-actions firmware-actions">
+                <a href="#" id="downloadLink" class="btn btn-small" style="display: none;">
+                    <i class="fas fa-download"></i> Download Latest
+                </a>
+            </div>            
+        </div>
+        
+        <div class="card">
+            <h2 class="card-title">Upload New Firmware</h2>
+            <div class="upload-section">
+                <div class="upload-info">
+                    <p><i class="fas fa-info-circle"></i> Select a firmware file (.bin) to upload to the device.</p>                    
+                </div>
+                
+                <form id="uploadForm" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label for="firmware"><i class="fas fa-file-code"></i> Firmware File:</label>
+                        <div class="file-input-container">
+                            <input type="file" id="firmware" name="firmware" accept=".bin" class="file-input">
+                            <div class="file-input-label">
+                                <i class="fas fa-upload"></i>
+                                <span id="file-name">Choose file...</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="progress-container" style="display: none;">
+                        <div class="progress-label">Upload Progress:</div>
+                        <div class="progress-bar-container">
+                            <div class="progress-bar" id="progressBar"></div>
+                        </div>
+                        <div class="progress-percentage" id="progressPercent">0%</div>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="button" id="uploadBtn" class="btn">
+                            <i class="fas fa-cloud-upload-alt"></i> Upload Firmware
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+                
+        <footer>
+            <p>by Shogunxam</p>
+        </footer>
+    </div>    
 </body>
 </html>

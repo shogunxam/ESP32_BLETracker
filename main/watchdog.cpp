@@ -13,8 +13,9 @@ namespace Watchdog
         {
             if (millis() > (WatchDogStartTime.load() + 120000))
             {
-                DEBUG_PRINTLN("INFO: Watchdog Reboot");
-                LOG_TO_FILE_E("Error: Watchdog Reboot");
+                const char *errMsg = "Error: Watchdog Reboot";
+                DEBUG_PRINTLN(errMsg);
+                LOG_TO_FILE_E(errMsg);
                 delay(100);
                 esp_restart();
             }

@@ -20,6 +20,7 @@
 extern std::vector<BLETrackedDevice> BLETrackedDevices;
 
 #include "html/style.css.gz.h"
+#include "html/utility.js.gz.h"
 #include "html/index.html.gz.h"
 #include "html/index.js.gz.h"
 #include "html/sysinfo.html.gz.h"
@@ -35,17 +36,21 @@ extern std::vector<BLETrackedDevice> BLETrackedDevices;
 #include "html/otaupdate.html.gz.h"
 #include "html/otaupdate.js.gz.h"
 
+#include "html/reset.html.gz.h"
+
+#include "ESPUtility.h"
+
 OTAWebServer::OTAWebServer()
     : server(80),
       dataBuffMutex("OTAWebServer_DataBuffer")
 {
 }
 
-const size_t maxdatasize = 5 * 1024; //5Kb
+const size_t maxdatasize = 5 * 1024; // 5Kb
 static uint8_t databuffer[maxdatasize];
 static size_t databufferStartPos;
 
-//Return the number of characters written
+// Return the number of characters written
 size_t OTAWebServer::append(uint8_t *dest, size_t buffsize, size_t destStartPos, const uint8_t *src, size_t srcSize, size_t srcStartPos)
 {
   size_t available = buffsize - destStartPos;
@@ -61,14 +66,14 @@ size_t OTAWebServer::append(uint8_t *dest, size_t buffsize, size_t destStartPos,
   return wrote;
 }
 
-//Return the current position in the destination;
+// Return the current position in the destination;
 size_t OTAWebServer::appendAndFlush(uint8_t *dest, size_t buffsize, size_t destStartPos, const uint8_t *src, size_t srcSize)
 {
   size_t wrote = append(dest, buffsize, destStartPos, src, srcSize);
   size_t totWrote = wrote;
   while (totWrote < srcSize)
   {
-    //The destintion buffer is full
+    // The destintion buffer is full
     server.sendContent_P((char *)dest, buffsize);
     destStartPos = 0;
     wrote = append(dest, buffsize, destStartPos, src, srcSize, wrote);
@@ -77,15 +82,23 @@ size_t OTAWebServer::appendAndFlush(uint8_t *dest, size_t buffsize, size_t destS
   return destStartPos + wrote;
 }
 
-void OTAWebServer::StartChunkedContentTransfer(const char *contentType, bool zipped)
+void OTAWebServer::SendDefaulHeaders()
 {
-  server.sendHeader(F("Cache-Control"), F("no-cache, no-store, must-revalidate, max-age=0"));
+  server.sendHeader(F("Access-Control-Allow-Origin"), F("*"));
+  server.sendHeader(F("Access-Control-Allow-Methods"), F("GET, POST, OPTIONS"));
+  server.sendHeader(F("Access-Control-Allow-Headers"), F("Content-Type, Authorization, Cache-Control, Pragma, Expires"));
+  server.sendHeader(F("Access-Control-Max-Age"), F("3600"));
+  server.sendHeader(F("Cache-Control"), F("no-cache, no-store, must-revalidate , max-age=0"));
   server.sendHeader(F("Pragma"), F("no-cache"));
   server.sendHeader(F("Expires"), F("-1"));
-  server.sendHeader(F("Access-Control-Allow-Origin"), F("*"));
-  server.sendHeader(F("Access-Control-Allow-Methods"), F("GET, POST"));
+  server.sendHeader(F("Connection"), F("close"));
+}
 
-  //Header "Transfer-Encoding:chunked" is automatically added when content length is set to unknown
+void OTAWebServer::StartChunkedContentTransfer(const char *contentType, bool zipped)
+{
+  SendDefaulHeaders();
+
+  // Header "Transfer-Encoding:chunked" is automatically added when content length is set to unknown
   if (zipped)
     server.sendHeader(F("Content-Encoding"), F("gzip"));
   server.setContentLength(CONTENT_LENGTH_UNKNOWN);
@@ -112,35 +125,38 @@ void OTAWebServer::FlushChunkedContent()
 
 void OTAWebServer::resetESP32Page()
 {
-  if (!server.authenticate(WEBSERVER_USER, WEBSERVER_PASSWORD))
+  if (!server.authenticate(SettingsMngr.wbsUser.c_str(), SettingsMngr.wbsPwd.c_str()))
   {
     return server.requestAuthentication();
   }
-  server.client().setNoDelay(true);
   LOG_TO_FILE_I("User request for restart...");
-  server.sendHeader("Connection", "close");
-  server.send(200, "text/html", F("<div align='center'>Resetting...<br><progress id='g' class='y' value='0' max='100' style='align-self:center; text-align:center;'/></div>"
-                                  "<script>window.onload=function(){};var progval=0;var myVar=setInterval(Prog,80);"
-                                  "function Prog(){progval++;document.getElementById('g').value=progval;"
-                                  "if (progval==100){clearInterval(myVar);setTimeout(Check, 3000);}}"
-                                  "function Check(){if (progval==100){clearInterval(myVar);var ftimeout=setTimeout(null,5000);"
-                                  "window.location='/';}}</script>"));
-  delay(500); //wait for the page to be sent
-  ESP.restart();
+
+  server.client().setNoDelay(true);
+  SendDefaulHeaders();
+  server.sendHeader(F("Content-Encoding"), F("gzip"));
+  server.send_P(200, "text/html", (const char *)reset_html_gz, reset_html_gz_size);
+  server.client().flush();
+
+  ESPUtility::scheduleReset(2000);
 }
 
 #if ENABLE_FILE_LOG
 void OTAWebServer::eraseLogs()
 {
+  if (!server.authenticate(SettingsMngr.wbsUser.c_str(), SettingsMngr.wbsPwd.c_str()))
+  {
+    return server.requestAuthentication();
+  }
+
   SPIFFSLogger.clearLog();
   server.client().setNoDelay(true);
-  server.sendHeader("Connection", "close");
+  SendDefaulHeaders();
   server.send(200, "text/html", "Ok");
 }
 
 void OTAWebServer::getLogsData()
 {
-  if (!server.authenticate(WEBSERVER_USER, WEBSERVER_PASSWORD))
+  if (!server.authenticate(SettingsMngr.wbsUser.c_str(), SettingsMngr.wbsPwd.c_str()))
   {
     return server.requestAuthentication();
   }
@@ -154,36 +170,36 @@ void OTAWebServer::getLogsData()
   int count = 0;
 
   SendChunkedContent("[");
-
+  char strbuff[20];
   while (SPIFFSLogger.read_next_entry(entry))
   {
     if (first)
       first = false;
     else
       SendChunkedContent(",");
-    SendChunkedContent(R"({"t":")");
-    SendChunkedContent(entry.timeStamp);
-    SendChunkedContent(R"(","m":")");
+    SendChunkedContent(R"({"t":)");
+    SendChunkedContent(itoa(entry.timeStamp, strbuff, 10));
+    SendChunkedContent(R"(,"m":")");
     SendChunkedContent(entry.msg);
-    SendChunkedContent(R"("})");
+    SendChunkedContent(R"(","l":)");
+    SendChunkedContent(itoa(entry.level, strbuff, 10));
+    SendChunkedContent(R"(})");
   }
 
   SendChunkedContent("]");
   FlushChunkedContent();
-  CRITICALSECTION_END; //dataBuffMutex
-  CRITICALSECTION_END; //SPIFFSLogger
+  CRITICALSECTION_END; // dataBuffMutex
+  CRITICALSECTION_END; // SPIFFSLogger
 }
 
 void OTAWebServer::getLogsJs()
 {
-  if (!server.authenticate(WEBSERVER_USER, WEBSERVER_PASSWORD))
+  if (!server.authenticate(SettingsMngr.wbsUser.c_str(), SettingsMngr.wbsPwd.c_str()))
   {
     return server.requestAuthentication();
   }
   server.client().setNoDelay(true);
-  server.sendHeader(F("Connection"), F("close"));
-  server.sendHeader(F("Access-Control-Allow-Origin"), F("*"));
-  server.sendHeader(F("Access-Control-Allow-Methods"), F("GET, POST"));
+  SendDefaulHeaders();
 
   server.sendHeader(F("Content-Encoding"), F("gzip"));
   server.send_P(200, "text/javascripthtml", (const char *)logs_js_gz, logs_js_gz_size);
@@ -191,7 +207,7 @@ void OTAWebServer::getLogsJs()
 
 void OTAWebServer::getLogs()
 {
-  if (!server.authenticate(WEBSERVER_USER, WEBSERVER_PASSWORD))
+  if (!server.authenticate(SettingsMngr.wbsUser.c_str(), SettingsMngr.wbsPwd.c_str()))
   {
     return server.requestAuthentication();
   }
@@ -203,7 +219,7 @@ void OTAWebServer::getLogs()
 
 void OTAWebServer::postLogs()
 {
-  if (!server.authenticate(WEBSERVER_USER, WEBSERVER_PASSWORD))
+  if (!server.authenticate(SettingsMngr.wbsUser.c_str(), SettingsMngr.wbsPwd.c_str()))
   {
     return server.requestAuthentication();
   }
@@ -238,7 +254,7 @@ void OTAWebServer::postLogs()
 
 void OTAWebServer::getStyle()
 {
-  if (!server.authenticate(WEBSERVER_USER, WEBSERVER_PASSWORD))
+  if (!server.authenticate(SettingsMngr.wbsUser.c_str(), SettingsMngr.wbsPwd.c_str()))
   {
     return server.requestAuthentication();
   }
@@ -249,8 +265,26 @@ void OTAWebServer::getStyle()
   server.send_P(200, "text/css", (const char *)style_css_gz, style_css_gz_size);
 }
 
+void OTAWebServer::getUtilityJs()
+{
+  if (!server.authenticate(SettingsMngr.wbsUser.c_str(), SettingsMngr.wbsPwd.c_str()))
+  {
+    return server.requestAuthentication();
+  }
+
+  server.client().setNoDelay(true);
+  server.sendHeader(F("Connection"), F("close"));
+  server.sendHeader(F("Content-Encoding"), F("gzip"));
+  server.send_P(200, "text/javascript", (const char *)utility_js_gz, utility_js_gz_size);
+}
+
 void OTAWebServer::getIndexJs()
 {
+  if (!server.authenticate(SettingsMngr.wbsUser.c_str(), SettingsMngr.wbsPwd.c_str()))
+  {
+    return server.requestAuthentication();
+  }
+
   server.client().setNoDelay(true);
   server.sendHeader(F("Connection"), F("close"));
   server.sendHeader(F("Content-Encoding"), F("gzip"));
@@ -259,26 +293,24 @@ void OTAWebServer::getIndexJs()
 
 void OTAWebServer::getIndex()
 {
-  if (!server.authenticate(WEBSERVER_USER, WEBSERVER_PASSWORD))
+  if (!server.authenticate(SettingsMngr.wbsUser.c_str(), SettingsMngr.wbsPwd.c_str()))
   {
     return server.requestAuthentication();
   }
   server.client().setNoDelay(true);
   server.sendHeader(F("Connection"), F("close"));
-  server.sendHeader(F("Access-Control-Allow-Origin"), F("*"));
-  server.sendHeader(F("Access-Control-Allow-Methods"), F("GET, POST"));
-
   server.sendHeader(F("Content-Encoding"), F("gzip"));
   server.send_P(200, "text/html", (const char *)index_html_gz, index_html_gz_size);
 }
 
 void OTAWebServer::getIndexData()
 {
-  if (!server.authenticate(WEBSERVER_USER, WEBSERVER_PASSWORD))
+  if (!server.authenticate(SettingsMngr.wbsUser.c_str(), SettingsMngr.wbsPwd.c_str()))
   {
     return server.requestAuthentication();
   }
   server.client().setNoDelay(true);
+
   CRITICALSECTION_START(dataBuffMutex)
   StartChunkedContentTransfer("text/json");
   SendChunkedContent(R"({"gateway":")");
@@ -296,7 +328,7 @@ void OTAWebServer::getIndexData()
 
 void OTAWebServer::getOTAUpdateJs()
 {
-  if (!server.authenticate(WEBSERVER_USER, WEBSERVER_PASSWORD))
+  if (!server.authenticate(SettingsMngr.wbsUser.c_str(), SettingsMngr.wbsPwd.c_str()))
   {
     return server.requestAuthentication();
   }
@@ -308,7 +340,7 @@ void OTAWebServer::getOTAUpdateJs()
 
 void OTAWebServer::getOTAUpdate()
 {
-  if (!server.authenticate(WEBSERVER_USER, WEBSERVER_PASSWORD))
+  if (!server.authenticate(SettingsMngr.wbsUser.c_str(), SettingsMngr.wbsPwd.c_str()))
   {
     return server.requestAuthentication();
   }
@@ -320,29 +352,39 @@ void OTAWebServer::getOTAUpdate()
 
 void OTAWebServer::getConfigData()
 {
-  if (!server.authenticate(WEBSERVER_USER, WEBSERVER_PASSWORD))
+  if (!server.authenticate(SettingsMngr.wbsUser.c_str(), SettingsMngr.wbsPwd.c_str()))
   {
     return server.requestAuthentication();
   }
   server.client().setNoDelay(true);
-  server.sendHeader(F("Connection"), F("close"));
-  server.sendHeader(F("Access-Control-Allow-Origin"), F("*"));
-  server.sendHeader(F("Access-Control-Allow-Methods"), F("GET, POST"));
+
+  CRITICALSECTION_START(dataBuffMutex)
+  char strbuff[20];
+
+  StartChunkedContentTransfer("text/json");
 
   DEBUG_PRINTLN(SettingsMngr.toJSON());
   if (server.args() > 0 && server.hasArg("factory") && server.arg("factory") == "true")
   {
     Settings factoryValues;
-    server.send(200, F("text/json"), factoryValues.toJSON());
-    return;
+    SendChunkedContent(factoryValues.toJSON().c_str());
   }
+  else
+  {
+    SendChunkedContent(SettingsMngr.toJSON().c_str());
+  }
+  FlushChunkedContent();
 
-  server.send(200, F("text/json"), SettingsMngr.toJSON());
-  //server.client().stop();
+  CRITICALSECTION_END
 }
 
 void OTAWebServer::getConfigJs()
 {
+  if (!server.authenticate(SettingsMngr.wbsUser.c_str(), SettingsMngr.wbsPwd.c_str()))
+  {
+    return server.requestAuthentication();
+  }
+
   server.client().setNoDelay(true);
   server.sendHeader(F("Connection"), F("close"));
   server.sendHeader(F("Content-Encoding"), F("gzip"));
@@ -351,7 +393,7 @@ void OTAWebServer::getConfigJs()
 
 void OTAWebServer::getConfig()
 {
-  if (!server.authenticate(WEBSERVER_USER, WEBSERVER_PASSWORD))
+  if (!server.authenticate(SettingsMngr.wbsUser.c_str(), SettingsMngr.wbsPwd.c_str()))
   {
     return server.requestAuthentication();
   }
@@ -363,10 +405,12 @@ void OTAWebServer::getConfig()
 
 void OTAWebServer::getUpdateBattery()
 {
-  if (!server.authenticate(WEBSERVER_USER, WEBSERVER_PASSWORD))
+  if (!server.authenticate(SettingsMngr.wbsUser.c_str(), SettingsMngr.wbsPwd.c_str()))
   {
     return server.requestAuthentication();
   }
+
+  SendDefaulHeaders();
 
   if (server.hasArg("mac"))
   {
@@ -381,7 +425,7 @@ void OTAWebServer::getUpdateBattery()
 
 void OTAWebServer::postUpdateConfig()
 {
-  if (!server.authenticate(WEBSERVER_USER, WEBSERVER_PASSWORD))
+  if (!server.authenticate(SettingsMngr.wbsUser.c_str(), SettingsMngr.wbsPwd.c_str()))
   {
     return server.requestAuthentication();
   }
@@ -390,12 +434,17 @@ void OTAWebServer::postUpdateConfig()
   Settings newSettings(SettingsMngr.GetSettingsFile(), true);
   for (int i = 0; i < server.args(); i++)
   {
-    if (server.argName(i) == "ssid")
+    DEBUG_PRINTF("%s = %s \n", server.argName(i).c_str(), server.arg(i).c_str());
+    if (server.argName(i) == "wbsusr")
+      newSettings.wbsUser = server.arg(i);
+    else if (server.argName(i) == "wbspwd")
+      newSettings.wbsPwd = server.arg(i);
+    else if (server.argName(i) == "ssid")
       newSettings.wifiSSID = server.arg(i);
     else if (server.argName(i) == "wifipwd")
       newSettings.wifiPwd = server.arg(i);
     else if (server.argName(i) == "gateway")
-      newSettings.gateway = server.arg(i);      
+      newSettings.gateway = server.arg(i);
     else if (server.argName(i) == "mqttsrvr")
       newSettings.mqttServer = server.arg(i);
     else if (server.argName(i) == "mqttport")
@@ -411,16 +460,16 @@ void OTAWebServer::postUpdateConfig()
     else if (server.argName(i) == "whiteList")
       newSettings.EnableWhiteList(server.arg(i) == "true");
     else if (server.argName(i) == "manualscan")
-        newSettings.EnableManualScan(server.arg(i) == "true");
-    else //other are mac address with properties in the form "MACADDRESS[property]":"value"
+      newSettings.EnableManualScan(server.arg(i) == "true");
+    else // other are mac address with properties in the form "MACADDRESS[property]":"value"
     {
-      char argName[20]; //MacAddress size (12 chars) + 2 square brackets + property name size (5 chars) + terminator
+      char argName[20]; // MacAddress size (12 chars) + 2 square brackets + property name size (5 chars) + terminator
       strncpy(argName, server.argName(i).c_str(), 20);
       char seps[] = "[]";
       char *token = strtok(argName, seps);
       if (token != nullptr)
       {
-        //First token is the Mac Address
+        // First token is the Mac Address
         DEBUG_PRINTF("Device: '%s'\n", token);
         Settings::KnownDevice *device = newSettings.GetDevice(token);
         if (nullptr == device)
@@ -436,7 +485,7 @@ void OTAWebServer::postUpdateConfig()
           token = strtok(nullptr, seps);
           if (token != nullptr)
           {
-            //Second token is the property name
+            // Second token is the property name
             DEBUG_PRINTF("Match: '%s' has value '%s' \n", token, server.arg(i).c_str());
             if (strcmp(token, "batt") == 0)
               device->readBattery = server.arg(i) == "true";
@@ -450,7 +499,7 @@ void OTAWebServer::postUpdateConfig()
 
   DEBUG_PRINTLN(newSettings.toJSON().c_str());
 
-  server.sendHeader(F("Connection"), F("close"));
+  SendDefaulHeaders();
   if (newSettings.Save())
   {
     LOG_TO_FILE_I("New configuration successfully saved.");
@@ -463,86 +512,226 @@ void OTAWebServer::postUpdateConfig()
   }
 }
 
-void OTAWebServer::getSysInfoData()
+void OTAWebServer::sendSysInfoData(bool trackerInfo, bool deviceList)
 {
+  if (!server.authenticate(SettingsMngr.wbsUser.c_str(), SettingsMngr.wbsPwd.c_str()))
+  {
+    return server.requestAuthentication();
+  }
+
   CRITICALSECTION_START(dataBuffMutex)
   char strbuff[20];
   server.client().setNoDelay(true);
+
   StartChunkedContentTransfer("text/json");
   SendChunkedContent("{");
-  SendChunkedContent(R"("gateway":")");
-  SendChunkedContent(SettingsMngr.gateway.c_str());
-  SendChunkedContent(R"(",)");
-  SendChunkedContent(R"("firmware":")" VERSION R"(",)");
+  if (trackerInfo)
+  {
+    SendChunkedContent(R"("gateway":")");
+    SendChunkedContent(SettingsMngr.gateway.c_str());
+    SendChunkedContent(R"(",)");
+    SendChunkedContent(R"("firmware":")" VERSION R"(",)");
 
 #if DEVELOPER_MODE
-  SendChunkedContent(R"("build":")");
-  SendChunkedContent(Firmware::BuildTime);
-  SendChunkedContent(R"(",)");
-  SendChunkedContent(R"("memory":")");
-  itoa(xPortGetFreeHeapSize(), strbuff, 10);
-  SendChunkedContent(strbuff);
-  SendChunkedContent(R"( bytes",)");
-#endif
-  SendChunkedContent(R"("uptime":")");
-  SendChunkedContent(formatMillis(millis(), strbuff));
-  SendChunkedContent(R"(",)");
-  SendChunkedContent(R"("ssid":")");
-  SendChunkedContent(SettingsMngr.wifiSSID.c_str());
-  SendChunkedContent(R"(",)");
-  SendChunkedContent(R"("macaddr":")");
-  SendChunkedContent(WiFi.macAddress().c_str());
-  SendChunkedContent(R"(",)");
-  SendChunkedContent(R"("battery":)" xstr(PUBLISH_BATTERY_LEVEL) R"(,)");
-  SendChunkedContent(R"("devices":[)");
-
-  bool first = true;
-  for (auto &trackedDevice : BLETrackedDevices)
-  {
-    if (first)
-      first = false;
-    else
-      SendChunkedContent(",");
-    SendChunkedContent(R"({"mac":")");
-    SendChunkedContent(trackedDevice.address);
+    SendChunkedContent(R"("build":")");
+    SendChunkedContent(Firmware::BuildTime);
     SendChunkedContent(R"(",)");
-    Settings::KnownDevice *device = SettingsMngr.GetDevice(trackedDevice.address);
-    if (device != nullptr && device->description[0] != '\0')
-    {
-      SendChunkedContent(R"("name":")");
-      SendChunkedContent(device->description);
-      SendChunkedContent(R"(",)");
-    }
+    SendChunkedContent(R"("memory":")");
+    itoa(xPortGetFreeHeapSize(), strbuff, 10);
+    SendChunkedContent(strbuff);
+    SendChunkedContent(R"( bytes",)");
+#endif
+    SendChunkedContent(R"("uptime":")");
+    SendChunkedContent(formatMillis(millis(), strbuff));
+    SendChunkedContent(R"(",)");
+    SendChunkedContent(R"("ssid":")");
+    SendChunkedContent(SettingsMngr.wifiSSID.c_str());
+    SendChunkedContent(R"(",)");
+    SendChunkedContent(R"("macaddr":")");
+    SendChunkedContent(WiFi.macAddress().c_str());
+    SendChunkedContent(R"(",)");
+    SendChunkedContent(R"("battery":)" xstr(PUBLISH_BATTERY_LEVEL));
+  }
+  if (trackerInfo && deviceList)
+  {
+    SendChunkedContent(",");
+  }
 
-    SendChunkedContent(R"("rssi":)");
-    itoa(trackedDevice.rssiValue, strbuff, 10);
-    SendChunkedContent(strbuff);
-    SendChunkedContent(R"(,)");
-#if PUBLISH_BATTERY_LEVEL
-    SendChunkedContent(R"("battery":)");
-    itoa(trackedDevice.batteryLevel, strbuff, 10);
-    SendChunkedContent(strbuff);
-    SendChunkedContent(R"(,)");
-    if (trackedDevice.lastBattMeasureTime > 0)
+  if (deviceList)
+  {
+    SendChunkedContent(R"("devices":[)");
+
+    bool first = true;
+    for (auto &trackedDevice : BLETrackedDevices)
     {
-      SendChunkedContent(R"("bttime":)");
-      itoa(trackedDevice.lastBattMeasureTime, strbuff, 10);
+      if (first)
+        first = false;
+      else
+        SendChunkedContent(",");
+      SendChunkedContent(R"({"mac":")");
+      SendChunkedContent(trackedDevice.address);
+      SendChunkedContent(R"(",)");
+      Settings::KnownDevice *device = SettingsMngr.GetDevice(trackedDevice.address);
+      if (device != nullptr && device->description[0] != '\0')
+      {
+        SendChunkedContent(R"("name":")");
+        SendChunkedContent(device->description);
+        SendChunkedContent(R"(",)");
+      }
+
+      SendChunkedContent(R"("rssi":)");
+      itoa(trackedDevice.rssiValue, strbuff, 10);
       SendChunkedContent(strbuff);
       SendChunkedContent(R"(,)");
-    }
+#if PUBLISH_BATTERY_LEVEL
+      SendChunkedContent(R"("battery":)");
+      if (SettingsMngr.InBatteryList(trackedDevice.address))
+      {
+        itoa(trackedDevice.batteryLevel, strbuff, 10);
+      }
+      else
+      {
+        strcpy(strbuff, "null");
+      }
+      SendChunkedContent(strbuff);
+      SendChunkedContent(R"(,)");
+      if (trackedDevice.lastBattMeasureTime > 0)
+      {
+        SendChunkedContent(R"("bttime":)");
+        itoa(trackedDevice.lastBattMeasureTime, strbuff, 10);
+        SendChunkedContent(strbuff);
+        SendChunkedContent(R"(,)");
+      }
 #endif
-    SendChunkedContent(R"("state":")");
-    SendChunkedContent(trackedDevice.isDiscovered ? "On" : "Off");
-    SendChunkedContent(R"("})");
+      SendChunkedContent(R"("state":")");
+      SendChunkedContent(trackedDevice.isDiscovered ? "On" : "Off");
+      SendChunkedContent(R"("})");
+    }
+    SendChunkedContent("]}");
   }
-  SendChunkedContent("]}");
+  FlushChunkedContent();
+  CRITICALSECTION_END
+}
+
+void OTAWebServer::getSysInfoData()
+{
+  sendSysInfoData(true, true);
+}
+
+void OTAWebServer::getDevices()
+{
+  return sendSysInfoData(false, true);
+}
+
+void OTAWebServer::getDeviceInfoData()
+{
+  if (!server.authenticate(SettingsMngr.wbsUser.c_str(), SettingsMngr.wbsPwd.c_str()))
+  {
+    return server.requestAuthentication();
+  }
+
+  // Verifica il parametro MAC
+  if (!server.hasArg("mac"))
+  {
+    server.sendHeader(F("Connection"), F("close"));
+    server.send(400, F("application/json"), F("{\"error\":\"Missing mac parameter\"}"));
+    return;
+  }
+
+  String macAddress = server.arg("mac");
+
+  // Trova il dispositivo nell'elenco dei dispositivi tracciati
+  BLETrackedDevice *targetDevice = nullptr;
+  for (auto &trackedDevice : BLETrackedDevices)
+  {
+    if (strcasecmp(trackedDevice.address, macAddress.c_str()) == 0)
+    {
+      targetDevice = &trackedDevice;
+      break;
+    }
+  }
+
+  // Se il dispositivo non è stato trovato
+  if (targetDevice == nullptr)
+  {
+    server.sendHeader(F("Connection"), F("close"));
+    server.send(404, F("application/json"), F("{\"error\":\"Device not found\"}"));
+    return;
+  }
+
+  char strbuff[20];
+
+  // Inizia il trasferimento chunked
+  CRITICALSECTION_START(dataBuffMutex)
+  server.client().setNoDelay(true);
+  StartChunkedContentTransfer("application/json");
+
+  // Ottieni informazioni aggiuntive dal registro dei dispositivi noti
+  Settings::KnownDevice *knownDevice = SettingsMngr.GetDevice(targetDevice->address);
+
+  // Inizia il JSON
+  SendChunkedContent("{");
+
+  // MAC
+  SendChunkedContent(R"("mac":")");
+  SendChunkedContent(targetDevice->address);
+  SendChunkedContent(R"(",)");
+
+  // Stato
+  SendChunkedContent(R"("state":")");
+  SendChunkedContent(targetDevice->isDiscovered ? "On" : "Off");
+  SendChunkedContent(R"(",)");
+
+  // RSSI
+  SendChunkedContent(R"("rssi":)");
+  itoa(targetDevice->rssiValue, strbuff, 10);
+  SendChunkedContent(strbuff);
+
+  // Nome/descrizione se disponibile
+  if (knownDevice != nullptr && knownDevice->description[0] != '\0')
+  {
+    SendChunkedContent(R"(,)");
+    SendChunkedContent(R"("name":")");
+    SendChunkedContent(knownDevice->description);
+    SendChunkedContent(R"(")");
+  }
+
+#if PUBLISH_BATTERY_LEVEL
+  // Livello batteria
+  SendChunkedContent(R"(,)");
+  SendChunkedContent(R"("battery":)");
+  itoa(targetDevice->batteryLevel, strbuff, 10);
+  SendChunkedContent(strbuff);
+
+  // Timestamp dell'ultima lettura della batteria
+  if (targetDevice->lastBattMeasureTime > 0)
+  {
+    SendChunkedContent(R"(,)");
+    SendChunkedContent(R"("lastBatteryReading":)");
+    itoa(targetDevice->lastBattMeasureTime, strbuff, 10);
+    SendChunkedContent(strbuff);
+  }
+
+  // Indica se la lettura della batteria è configurata
+  if (knownDevice != nullptr)
+  {
+    SendChunkedContent(R"(,)");
+    SendChunkedContent(R"("batteryReadingEnabled":)");
+    SendChunkedContent(knownDevice->readBattery ? "true" : "false");
+  }
+#endif
+
+  // Chiudi il JSON
+  SendChunkedContent("}");
+
+  // Concludi il trasferimento chunked
   FlushChunkedContent();
   CRITICALSECTION_END
 }
 
 void OTAWebServer::getSysInfoJs()
 {
-  if (!server.authenticate(WEBSERVER_USER, WEBSERVER_PASSWORD))
+  if (!server.authenticate(SettingsMngr.wbsUser.c_str(), SettingsMngr.wbsPwd.c_str()))
   {
     return server.requestAuthentication();
   }
@@ -554,7 +743,7 @@ void OTAWebServer::getSysInfoJs()
 
 void OTAWebServer::getSysInfo()
 {
-  if (!server.authenticate(WEBSERVER_USER, WEBSERVER_PASSWORD))
+  if (!server.authenticate(SettingsMngr.wbsUser.c_str(), SettingsMngr.wbsPwd.c_str()))
   {
     return server.requestAuthentication();
   }
@@ -564,108 +753,201 @@ void OTAWebServer::getSysInfo()
   server.send_P(200, "text/html", (const char *)sysinfo_html_gz, sysinfo_html_gz_size);
 }
 
-void OTAWebServer::getManualScan()
+void OTAWebServer::setManualScan()
 {
-  if (!server.authenticate(WEBSERVER_USER, WEBSERVER_PASSWORD))
+  if (!server.authenticate(SettingsMngr.wbsUser.c_str(), SettingsMngr.wbsPwd.c_str()))
   {
     return server.requestAuthentication();
   }
-  
-  if(SettingsMngr.manualScan != eManualSCanMode::eManualSCanModeDisabled) // Manual scan is enabled
+
+  server.client().setNoDelay(true);
+  SendDefaulHeaders();
+
+  if (SettingsMngr.manualScan != eManualSCanMode::eManualSCanModeDisabled) // Manual scan is enabled
   {
-    if (server.hasArg("on"))
+    String url = server.uri();
+    DEBUG_PRINTF("Manual Scan URL: %s", url.c_str());
+    
+    if (url == "/api/scan/on")
     {
       SettingsMngr.manualScan = eManualSCanMode::eManualSCanModeOn;
+      server.send(200, "text/html", "Manual Scan On");
+    }
+    else if (url == "/api/scan/off")
+    {
+      SettingsMngr.manualScan = eManualSCanMode::eManualSCanModeOff;
+      server.send(200, "text/html", "Manual Scan Off");
     }
     else
     {
-      SettingsMngr.manualScan = eManualSCanMode::eManualSCanModeOff;
+      server.send(400, "text/html", "Bad Request");
+    }
+  }
+  else
+  {
+    server.send(400, "text/html", "Manual Scan not enabled");
+  }
+}
+
+void OTAWebServer::handleOptions()
+{
+  SendDefaulHeaders();
+  server.send(204); // Risposta "No Content" per la preflight
+}
+
+static String sanitizeHostname(String hostname)
+{
+  hostname.toLowerCase();
+  String sanitizedHostname = "";
+  for (int i = 0; i < hostname.length(); i++)
+  {
+    char c = hostname.charAt(i);
+    if (std::isalnum(c) || c == '-')
+    {
+      sanitizedHostname += c;
     }
   }
 
-  server.client().setNoDelay(true);
-  server.sendHeader(F("Connection"), F("close"));
-  server.sendHeader(F("Content-Encoding"), F("gzip"));
-  server.send_P(200, "text/html", (const char *)sysinfo_html_gz, sysinfo_html_gz_size);
+  while (sanitizedHostname.startsWith("-"))
+  {
+    sanitizedHostname.remove(0, 1);
+  }
+  while (sanitizedHostname.endsWith("-") && sanitizedHostname.length() > 0)
+  {
+    sanitizedHostname.remove(sanitizedHostname.length() - 1, 1);
+  }
+
+  return sanitizedHostname;
 }
+
+void OTAWebServer::enableMDNS()
+{
+  if (MDNS.begin(hostName.c_str()))
+  {
+    MDNS.addService("http", "tcp", 80);
+    DEBUG_PRINTF("mDNS responder started  %s\n", hostName.c_str());
+  }
+  else
+  {
+    DEBUG_PRINTLN("Error setting up MDNS responder!");
+  }
+}
+
 /*
  * setup function
  */
-void OTAWebServer::setup(const String &hN, const String &_ssid_, const String &_password_)
+void OTAWebServer::setup(const String &hN)
 {
-
-  hostName = hN;
-  ssid = _ssid_;
-  password = _password_;
-
+  hostName = sanitizeHostname(hN);
   DEBUG_PRINTLN("WebServer Setup");
-  if(ssid.isEmpty())
-  {
-    StartAccessPointMode();
-  }
-  else
-  {
-    WiFiConnect(ssid, password);
-  }
 
   /*use mdns for host name resolution*/
-  if (!MDNS.begin(hostName.c_str()))
-  { //http://bletracker
-    DEBUG_PRINTLN("Error setting up MDNS responder!");
-  }
-  else
-    DEBUG_PRINTLN("mDNS responder started");
+  auto callback = std::bind(&OTAWebServer::enableMDNS, this);
+  WiFiManager::AddWiFiConnectedCallback(callback);
 
   /*return index page which is stored in serverIndex */
-  server.on(F("/"), HTTP_GET, [&]() { getIndex(); });
+  server.on(F("/"), HTTP_GET, [&]()
+            { getIndex(); });
+  server.on(F("/"), HTTP_OPTIONS, [&]()
+            { handleOptions(); });
 
-  server.on(F("/index.js"), HTTP_GET, [&]() { getIndexJs(); });
+  server.on(F("/utility.js"), HTTP_GET, [&]()
+            { getUtilityJs(); });
 
-  server.on(F("/style.css"), HTTP_GET, [&]() { getStyle(); });
+  server.on(F("/index.js"), HTTP_GET, [&]()
+            { getIndexJs(); });
 
-  server.on(F("/getindexdata"), HTTP_GET, [&]() { getIndexData(); });
+  server.on(F("/style.css"), HTTP_GET, [&]()
+            { getStyle(); });
 
-  server.on(F("/config"), HTTP_GET, [&]() { getConfig(); });
+  server.on(F("/getindexdata"), HTTP_GET, [&]()
+            { getIndexData(); });
+  server.on(F("/getindexdata"), HTTP_OPTIONS, [&]()
+            { handleOptions(); });
 
-  server.on(F("/config.js"), HTTP_GET, [&]() { getConfigJs(); });
+  server.on(F("/config"), HTTP_GET, [&]()
+            { getConfig(); });
 
-  server.on(F("/getconfigdata"), HTTP_GET, [&]() { getConfigData(); });
+  server.on(F("/config.js"), HTTP_GET, [&]()
+            { getConfigJs(); });
 
-  server.on(F("/updatebattery"), HTTP_GET, [&]() { getUpdateBattery(); });
+  server.on(F("/getconfigdata"), HTTP_GET, [&]()
+            { getConfigData(); });
+  server.on(F("/getconfigdata"), HTTP_OPTIONS, [&]()
+            { handleOptions(); });
 
-  server.on(F("/updateconfig"), HTTP_POST, [&]() { postUpdateConfig(); });
+  server.on(F("/updatebattery"), HTTP_GET, [&]()
+            { getUpdateBattery(); });
+  server.on(F("/updatebattery"), HTTP_OPTIONS, [&]()
+            { handleOptions(); });
 
-  server.on(F("/sysinfo"), HTTP_GET, [&]() { getSysInfo(); });
+  server.on(F("/updateconfig"), HTTP_POST, [&]()
+            { postUpdateConfig(); });
+  server.on(F("/updateconfig"), HTTP_OPTIONS, [&]()
+            { handleOptions(); });
 
-  server.on(F("/sysinfo.js"), HTTP_GET, [&]() { getSysInfoJs(); });
+  server.on(F("/sysinfo"), HTTP_GET, [&]()
+            { getSysInfo(); });
 
-  server.on(F("/getsysinfodata"), HTTP_GET, [&]() { getSysInfoData(); });
+  server.on(F("/sysinfo.js"), HTTP_GET, [&]()
+            { getSysInfoJs(); });
 
-  server.on(F("/restart"), HTTP_GET, [&]() { resetESP32Page(); });
+  server.on(F("/getsysinfodata"), HTTP_GET, [&]()
+            { getSysInfoData(); });
+  server.on(F("/getsysinfodata"), HTTP_OPTIONS, [&]()
+            { handleOptions(); });
+  server.on(F("/api/devices"), HTTP_GET, [&]()
+            { getDevices(); });
 
-  server.on(F("/scan"), HTTP_GET, [&]() { getManualScan(); });
+  server.on(F("/restart"), HTTP_GET, [&]()
+            { resetESP32Page(); });
+  server.on(F("/restart"), HTTP_OPTIONS, [&]()
+            { handleOptions(); });
+
+  server.on(F("/api/scan/on"), HTTP_POST, [&]()
+            { setManualScan(); });
+  server.on(F("/api/scan/off"), HTTP_POST, [&]()
+            { setManualScan(); });
+
+  server.on(F("/api/device"), HTTP_GET, [&]()
+            { getDeviceInfoData(); });
+  server.on(F("/api/device"), HTTP_OPTIONS, [&]()
+            { handleOptions(); });
 
 #if ENABLE_FILE_LOG
-  server.on(F("/logs"), HTTP_GET, [&] { getLogs(); });
+  server.on(F("/logs"), HTTP_GET, [&]
+            { getLogs(); });
 
-  server.on(F("/logs"), HTTP_POST, [&] { postLogs(); });
+  server.on(F("/logs"), HTTP_POST, [&]
+            { postLogs(); });
 
-  server.on(F("/logs.js"), HTTP_GET, [&] { getLogsJs(); });
+  server.on(F("/logs.js"), HTTP_GET, [&]
+            { getLogsJs(); });
 
-  server.on(F("/eraselogs"), HTTP_GET, [&] { eraseLogs(); });
+  server.on(F("/eraselogs"), HTTP_GET, [&]
+            { eraseLogs(); });
+  server.on(F("/eraselogs"), HTTP_OPTIONS, [&]()
+            { handleOptions(); });
 
-  server.on(F("/getlogsdata"), HTTP_GET, [&] { getLogsData(); });
+  server.on(F("/getlogsdata"), HTTP_GET, [&]
+            { getLogsData(); });
+  server.on(F("/getlogsdata"), HTTP_OPTIONS, [&]()
+            { handleOptions(); });
 #endif
 
-  server.on(F("/otaupdate"), HTTP_GET, [&]() { getOTAUpdate(); });
-  server.on(F("/otaupdate.js"), HTTP_GET, [&]() { getOTAUpdateJs(); });
+  server.on(F("/otaupdate"), HTTP_GET, [&]()
+            { getOTAUpdate(); });
+  server.on(F("/otaupdate.js"), HTTP_GET, [&]()
+            { getOTAUpdateJs(); });
 
   /*handling uploading firmware file */
   server.on(
-      F("/update"), HTTP_POST, [&]() {
+      F("/update"), HTTP_POST, [&]()
+      {
     server.sendHeader(F("Connection"), F("close"));
     server.send(200, F("text/plain"), (Update.hasError()) ? F("FAIL") : F("OK"));
-    ESP.restart(); }, [&]() {
+    ESPUtility::scheduleReset(300); }, [&]()
+      {
 #if ENABLE_FILE_LOG
       if(SPIFFSLogger.isEnabled())
         {
@@ -692,8 +974,6 @@ void OTAWebServer::setup(const String &hN, const String &_ssid_, const String &_
         Update.printError(Serial);
       }
     } });
-
-  server.begin();
 }
 
 static std::atomic_ulong WebServerWatchDogStartTime(0);
@@ -707,8 +987,9 @@ void WebServerWatchDogloop(void *param)
     {
       server->stop();
       server->begin();
-      DEBUG_PRINTLN("INFO: WebServerWatchdog resart server");
-      LOG_TO_FILE_E("Error: WebServerWatchdog resart server");
+      const char *errMsg = "Error: WebServerWatchdog resart server";
+      DEBUG_PRINTLN(errMsg);
+      LOG_TO_FILE_E(errMsg);
     }
     delay(1000);
   };
@@ -726,6 +1007,7 @@ void WebServerLoop(void *param)
     return;
 
   WebServer *server = (WebServer *)param;
+  server->begin();
   while (true)
   {
     try
@@ -743,14 +1025,16 @@ void WebServerLoop(void *param)
     catch (std::exception &e)
     {
       restart = true;
-      DEBUG_PRINTF("Error Caught Exception %s", e.what());
-      LOG_TO_FILE_E("Error Caught Exception %s", e.what());
+      const char *errMsg = "Error Caught Exception %s";
+      DEBUG_PRINTF(errMsg, e.what());
+      LOG_TO_FILE_E(errMsg, e.what());
     }
     catch (...)
     {
       restart = true;
-      DEBUG_PRINTLN("Error Unhandled exception trapped in webserver loop");
-      LOG_TO_FILE_E("Error Unhandled exception trapped in webserver loop");
+      const char *errMsg = "Error Unhandled exception trapped in webserver loop";
+      DEBUG_PRINTLN(errMsg);
+      LOG_TO_FILE_E(errMsg);
     }
   }
 }
