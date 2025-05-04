@@ -88,8 +88,8 @@ def bin2c(filename, outfilename):
     varname_size = varname+'_size'
     with open(outfilename,'wb') as result_file:
         result_file.write(b"//Don't edit this file, it's automatically generated\n")
-        result_file.write(b'const long int %s = %d;\n' % (varname_size.encode('utf-8'), os.stat(filename).st_size))
-        result_file.write(b'const unsigned char %s[] = {\n' % varname.encode('utf-8'))
+        result_file.write(b'static const long int %s = %d;\n' % (varname_size.encode('utf-8'), os.stat(filename).st_size))
+        result_file.write(b'static const unsigned char %s[] = {\n' % varname.encode('utf-8'))
         counter = 0
         first = True
         for b in open(filename, 'rb').read():

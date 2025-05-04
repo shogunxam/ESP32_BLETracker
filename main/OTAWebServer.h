@@ -45,6 +45,8 @@ private:
     void SendDefaulHeaders();
     void sendSysInfoData(bool trackerInfo = true, bool deviceList = true);
     void getDevices();
+    void handleMQTTFrag();
+    void handleUDPFrag();
 
     size_t append(uint8_t *dest, size_t buffsize, size_t destStartPos, const uint8_t *src, size_t srcSize, size_t srcStartPos = 0);
     size_t appendAndFlush(uint8_t *dest, size_t buffsize, size_t destStartPos, const uint8_t *src, size_t srcSize);

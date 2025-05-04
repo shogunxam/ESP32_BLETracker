@@ -27,6 +27,10 @@
 #define MQTT_SERVER       "" /*Your MQTT server address*/
 #define MQTT_SERVER_PORT  1883
 
+//UDP
+#define UDP_SERVER        "" /*IP of the UDP server*/
+#define UDP_SERVER_PORT   1234
+
 #define WEBSERVER_USER        "admin"
 #define WEBSERVER_PASSWORD    "admin"
 

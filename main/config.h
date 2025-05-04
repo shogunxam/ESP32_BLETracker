@@ -40,6 +40,13 @@
 #define USE_MQTT true
 #endif
 
+#if USE_MQTT
+#define  SERVER_USERNAME MQTT_USERNAME
+#define  SERVER_PASSWORD MQTT_PASSWORD
+#define  SERVER_ADDRESS  MQTT_SERVER
+#define  SERVER_PORT     MQTT_SERVER_PORT  
+#endif 
+
 //If the MQTT_CONNECTION_TIME_OUT is expired the availability topic is re-published
 #define MQTT_CONNECTION_TIME_OUT 5 // [seconds]
 
@@ -66,11 +73,36 @@
 #endif
 /////////////////////////
 
+#ifndef USE_UDP
+#define USE_UDP false
+#endif
+
+#if USE_UDP
+#define  SERVER_ADDRESS  UDP_SERVER
+#define  SERVER_PORT     UDP_SERVER_PORT  
+#endif 
+
 #if USE_FHEM_LEPRESENCE_SERVER
 #define PROGRESSIVE_SCAN true
 #else
 #define PROGRESSIVE_SCAN false
 #endif
+
+
+#ifndef  SERVER_USERNAME
+#define  SERVER_USERNAME ""
+#endif
+#ifndef  SERVER_PASSWORD
+#define  SERVER_PASSWORD ""
+#endif
+#ifndef  SERVER_ADDRESS
+#define  SERVER_ADDRESS ""
+#endif
+#ifndef  SERVER_PORT
+#define  SERVER_PORT  0
+#endif
+
+
 
 #define ENABLE_OTA_WEBSERVER    true
 
@@ -94,7 +126,10 @@
 #define NUM_OF_ADVERTISEMENT_IN_SCAN 1
 
 
-#if USE_MQTT && USE_FHEM_LEPRESENCE_SERVER
-#error MQTT and FHEM LE Presence Server are mutually exclusive
+#define COUNT_ENABLED(a, b, c) ( a + b + c)
+
+#if COUNT_ENABLED(USE_MQTT, USE_FHEM_LEPRESENCE_SERVER, USE_UDP) > 1
+  #error Module conflict: Only one of MQTT, FHEM LE Presence Server or UDP can be enabled at a time
 #endif
+
 #endif /*CONFIG_ESP32_BLETRACKER*/

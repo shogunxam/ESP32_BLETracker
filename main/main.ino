@@ -26,6 +26,10 @@
 #include "mqtt_client.h"
 #endif
 
+#if USE_UDP
+#include "udp_client.h"
+#endif
+
 #if USE_FHEM_LEPRESENCE_SERVER
 #include "fhem_lepresence_server.h"
 #endif
@@ -365,6 +369,7 @@ void setup()
 {
 #if defined(DEBUG_SERIAL)
   Serial.begin(115200);
+  while(!Serial) ;
 #endif
 
   Serial.println("INFO: Running setup");
@@ -446,17 +451,22 @@ void setup()
     pBLEScan->setWindow(50);
 
 #if USE_MQTT
-    initializeMQTT();
-    connectToMQTT();
+    MQTTClient::initializeMQTT();
+    MQTTClient::connectToMQTT();
     #if ENABLE_HOME_ASSISTANT_MQTT_DISCOVERY
-    if (connectToMQTT()) {
-      publishTrackerDeviceDiscovery();
-      publishDevicesListSensorDiscovery();
+    if ( MQTTClient::connectToMQTT())
+    {
+      MQTTClient::publishTrackerDeviceDiscovery();
+      MQTTClient::publishDevicesListSensorDiscovery();
       
-      publishTrackerStatus();
-      publishDevicesList();
-  }
+      MQTTClient::publishTrackerStatus();
+      MQTTClient::publishDevicesList();
+    }
   #endif // ENABLE_HOME_ASSISTANT_MQTT_DISCOVERY
+#endif
+
+#if USE_UDP
+    UDPClient::initializeUDP();
 #endif
 
 #if USE_FHEM_LEPRESENCE_SERVER
@@ -477,6 +487,14 @@ char *formatMillis(unsigned long milliseconds, char outstr[20])
   return outstr;
 }
 
+#if USE_MQTT
+std::function<void(const BLETrackedDevice &)> publishBLEState= [](const BLETrackedDevice &device) { MQTTClient::publishBLEState(device);};
+std::function<void(void)>  publishSySInfo = MQTTClient::publishSySInfo;
+#elif USE_UDP
+std::function<void(const BLETrackedDevice &)> publishBLEState = UDPClient::publishBLEState;
+std::function<void(void)>  publishSySInfo = UDPClient::publishSySInfo;
+#endif
+
 void loop()
 {
   try
@@ -488,7 +506,7 @@ void loop()
 #if USE_MQTT
     else
     {
-      mqttLoop();
+      MQTTClient::mqttLoop();
     }
 #endif
 
@@ -594,8 +612,7 @@ void loop()
         batteryTask();
 #endif
 
-#if USE_MQTT
-
+#if USE_MQTT || USE_UDP
       bool publishSystemInfo = ((lastSySInfoTime + SYS_INFORMATION_DELAY) < NTPTime::seconds()) || (lastSySInfoTime == 0);
 
       if (scanEnabled || publishSystemInfo)
