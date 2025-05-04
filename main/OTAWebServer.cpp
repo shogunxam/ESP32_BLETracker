@@ -28,6 +28,13 @@ extern std::vector<BLETrackedDevice> BLETrackedDevices;
 #include "html/config.html.gz.h"
 #include "html/config.js.gz.h"
 
+#if USE_MQTT
+#include "html/config_mqtt.html.gz.h"
+#endif
+#if USE_UDP
+#include "html/config_udp.html.gz.h"
+#endif
+
 #if ENABLE_FILE_LOG
 #include "html/logs.html.gz.h"
 #include "html/logs.js.gz.h"
@@ -789,6 +796,38 @@ void OTAWebServer::setManualScan()
   }
 }
 
+void OTAWebServer::handleMQTTFrag()
+ {
+  if (!server.authenticate(SettingsMngr.wbsUser.c_str(), SettingsMngr.wbsPwd.c_str()))
+  {
+    return server.requestAuthentication();
+  }
+  server.client().setNoDelay(true);
+  SendDefaulHeaders();
+  #if USE_MQTT
+    server.sendHeader("Content-Encoding", "gzip");
+    server.send_P(200, "text/html", (const char *)config_mqtt_html_gz, config_mqtt_html_gz_size);
+  #else
+    server.send(204, "text/plain", "");
+  #endif
+  }
+  
+  void OTAWebServer::handleUDPFrag()
+  {
+    if (!server.authenticate(SettingsMngr.wbsUser.c_str(), SettingsMngr.wbsPwd.c_str()))
+    {
+      return server.requestAuthentication();
+    }
+    server.client().setNoDelay(true);
+    SendDefaulHeaders();
+   #if USE_UDP
+     server.sendHeader("Content-Encoding", "gzip");
+     server.send_P(200, "text/html", (const char *)config_udp_html_gz, config_udp_html_gz_size);
+   #else
+     server.send(204, "text/plain", "");
+   #endif
+   }  
+
 void OTAWebServer::handleOptions()
 {
   SendDefaulHeaders();
@@ -914,6 +953,12 @@ void OTAWebServer::setup(const String &hN)
   server.on(F("/api/device"), HTTP_OPTIONS, [&]()
             { handleOptions(); });
 
+  server.on("/mqtt_config_fragment", HTTP_GET,  [&](){handleMQTTFrag();});
+  server.on(F("/mqtt_config_fragment"), HTTP_OPTIONS, [&]()
+  { handleOptions(); });
+  server.on("/udp_config_fragment", HTTP_GET,  [&](){handleUDPFrag();});
+  server.on(F("/udp_config_fragment"), HTTP_OPTIONS, [&]()
+  { handleOptions(); });
 #if ENABLE_FILE_LOG
   server.on(F("/logs"), HTTP_GET, [&]
             { getLogs(); });

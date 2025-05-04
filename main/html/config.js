@@ -1,5 +1,36 @@
+$(document).ready(() => {
 
-$(document).ready(function () {
+  // Carica il Tab MQTT se disponibile
+  getData(
+    '/mqtt_config_fragment',
+    null,
+    (html, status, xhr) => {
+      if(xhr.status === 204) return;
+      $('#mqtt-btn').show();
+      document.getElementById('mqtt').innerHTML = html;
+    },
+    (xhr, status, error) => {
+      console.error('Errore nel caricamento del fragment UDP:', error);
+      // Puoi anche mostrare un messaggio all'utente se vuoi
+    }
+  );
+
+  // Carica il Tab UDP se disponibile
+  getData(
+    '/udp_config_fragment',
+    null,
+    (html, status, xhr) => {
+      // Success callback: inserisci l'HTML ricevuto nel DOM
+      if(xhr.status === 204) return;
+      $('#udp-btn').show();
+      document.getElementById('udp').innerHTML = html;
+    },
+    (xhr, status, error) => {
+      console.error('Errore nel caricamento del fragment UDP:', error);
+      // Puoi anche mostrare un messaggio all'utente se vuoi
+    }
+  );
+
   let factory = getUrlParameter('factory');
   var param = null;
   if (typeof factory !== 'undefined' && factory === 'true') {
@@ -129,14 +160,8 @@ function PopulatePage(data) {
     $(`#${field}`).val(data[fields[field]]);
   }
 
-  $('#mqttEnabled').prop('checked', data.mqtt_enabled);
   $('#whiteList').prop('checked', data.whiteList);
   $('#manualscan').prop('checked', data.manualscan);
-
-  if (!data.mqtt_enabled) {
-    $('button.tab-btn[onclick="openTab(event, \'mqtt\')"]').hide();
-    $('#mqtt').hide();
-  }
 
   $('#devices-table tbody').empty();
 
