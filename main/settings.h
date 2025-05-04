@@ -45,10 +45,10 @@ public:
     void EnableManualScan(bool enable);
     bool IsManualScanEnabled();
     bool IsManualScanOn();
-    String mqttUser;
-    String mqttPwd;
-    String mqttServer;
-    uint16_t mqttPort;
+    String serverUser;
+    String serverPwd;
+    String serverAddr;
+    uint16_t serverPort;
     uint32_t scanPeriod;
     uint32_t maxNotAdvPeriod;
     uint8_t logLevel;

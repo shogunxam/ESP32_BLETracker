@@ -221,6 +221,26 @@ Since version 3.8, the application supports automatic device discovery in Home A
 
 For older versions without auto-discovery, see the [example configuration](Doc/) in the Doc folder.
 
+### UDP Protocol Support
+
+As an alternative to MQTT, the BLETracker can send UDP packets to a server.
+UDP server and port can be configured in the `user_config.h` file or in the web interface.
+
+- **Device status message**:  
+  The UDP packet contains the device status and RSSI value. The message format is:
+  ```
+  module:<location>.<gateway_name> <BLE_ADDRESS>:<state> rssi:<rssi> timestamp:<timestamp>
+  i.e.
+  module=home.roomA 00:11:22:33:44:55=1 rssi=-65 timestamp=1718000000
+  ```
+- **System information message**:  
+  The UDP packet contains the system information. The message format is:
+  ```
+  module:<location>.<gateway_name> uptime:<uptime> SSID:<wifi_ssid> rssi:<wifi_rssi> IP:<bletracker_ip> MAC:<bletracker_macaddress> timestamp:<timestamp>
+  i.e.
+  module=home.roomA uptime=1.00:00 SSID=mywifi rssi=-65 IP=192.168.1.100 MAC=00:11:22:33:44:55 timestamp=1718000000
+  ```
+
 ### FHEM Support
 
 As an alternative to MQTT, the BLETracker can integrate with FHEM:

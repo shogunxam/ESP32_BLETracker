@@ -453,13 +453,13 @@ void OTAWebServer::postUpdateConfig()
     else if (server.argName(i) == "gateway")
       newSettings.gateway = server.arg(i);
     else if (server.argName(i) == "mqttsrvr")
-      newSettings.mqttServer = server.arg(i);
+      newSettings.serverAddr = server.arg(i);
     else if (server.argName(i) == "mqttport")
-      newSettings.mqttPort = server.arg(i).toInt();
+      newSettings.serverPort = server.arg(i).toInt();
     else if (server.argName(i) == "mqttusr")
-      newSettings.mqttUser = server.arg(i);
+      newSettings.serverUser = server.arg(i);
     else if (server.argName(i) == "mqttpwd")
-      newSettings.mqttPwd = server.arg(i);
+      newSettings.serverPwd = server.arg(i);
     else if (server.argName(i) == "scanperiod")
       newSettings.scanPeriod = server.arg(i).toInt();
     else if (server.argName(i) == "maxNotAdvPeriod")
