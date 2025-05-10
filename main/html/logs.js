@@ -36,6 +36,15 @@ $(document).ready(function() {
       $('#clearLogsModal').css('display', 'none');
     });
   
+    $('#setLogLevel').click(function() {
+      const level = $('#logLevel').val();
+      sendData(`/logs?loglevel=${level}`, null,
+          () => showPopup('Log level updated successfully', '#2ecc71'),
+          () => showPopup('Failed to update log level')
+      );
+      filterLogs();
+    });
+
     const $autoRefresh = $('#autoRefresh');
     const $refreshStatus = $('#refreshStatus');
     let autoRefreshInterval;
@@ -106,6 +115,9 @@ const filterLogs = () => {
   updateLogStats();
 };
 
+const getLogLevelIndicator = (level) =>
+  ['E', 'W', 'I', 'D', 'V'][level] ?? '?';
+
 const displayLogs = () => {
   const startIndex = (currentPage - 1) * logsPerPage;
   const endIndex = Math.min(startIndex + logsPerPage, filteredLogs.length);
@@ -123,6 +135,7 @@ const displayLogs = () => {
   const logElements = pageEntries.map(log => {
     const $logEntry = $('<div class="log-entry"></div>');
     const $timestamp = $('<span class="log-timestamp"></span>').text(timeConverter(log.t));
+    const $level = $('<span class="log-level"></span>').text(getLogLevelIndicator(log.l));
     const $message = $('<span class="log-message"></span>').text(log.m);
 
     if (log.m.startsWith('Error')) {
@@ -131,7 +144,7 @@ const displayLogs = () => {
       $message.addClass('log-level-tracker');
     }
 
-    $logEntry.append($timestamp, $message);
+    $logEntry.append($timestamp, ' ', $level, ' ', $message);
     return $logEntry;
   });
 
