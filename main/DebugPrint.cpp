@@ -1,3 +1,3 @@
-#include <mutex>
+#include "myMutex.h"
 char _printbuffer_[256];
-std::mutex _printLock_;
+MyMutex _printMutex_("printMutex");

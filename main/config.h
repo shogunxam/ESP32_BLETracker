@@ -117,7 +117,7 @@
 #define ERASE_DATA_AFTER_FLASH false
 
 //Enable persistent logs on File System
-#define ENABLE_FILE_LOG true
+#define ENABLE_FILE_LOG false
 #define DEFAULT_FILE_LOG_LEVEL 2 /*Error = 0, Warning = 1, Info = 2, Debug = 3, Verbose = 4*/
 #define MAX_NUM_OF_SAVED_LOGS 200
 

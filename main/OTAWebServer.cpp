@@ -1,4 +1,6 @@
-#include "main.h"
+#include "utility.h"
+#include "BLEScanTask.h"
+#include "firmwarever.h"
 #include "config.h"
 
 #if ENABLE_OTA_WEBSERVER
@@ -17,8 +19,8 @@
 #include "macro_utility.h"
 #include "settings.h"
 #include "SPIFFSLogger.h"
-
-extern std::vector<BLETrackedDevice> BLETrackedDevices;
+#include "TrackedDeviceList.h"
+#include "BLEScanTask.h"
 
 #include "html/style.css.gz.h"
 #include "html/utility.js.gz.h"
@@ -424,7 +426,7 @@ void OTAWebServer::getUpdateBattery()
   if (server.hasArg("mac"))
   {
     DEBUG_PRINTF("Force Battery Update for: %s\n", server.arg("mac").c_str());
-    ForceBatteryRead(server.arg("mac").c_str());
+    BLEScanTask::ForceBatteryRead(server.arg("mac").c_str());
   }
 
   server.client().setNoDelay(true);
@@ -604,7 +606,10 @@ void OTAWebServer::sendSysInfoData(bool trackerInfo, bool deviceList)
     SendChunkedContent(R"("devices":[)");
 
     bool first = true;
-    for (auto &trackedDevice : BLETrackedDevices)
+    std::vector<BLETrackedDevice> trackedDevices;
+    BLEScanTask::GetTrackedDevices(trackedDevices);
+
+    for (auto &trackedDevice : trackedDevices)
     {
       if (first)
         first = false;
@@ -683,8 +688,11 @@ void OTAWebServer::getDeviceInfoData()
   String macAddress = server.arg("mac");
 
   // Trova il dispositivo nell'elenco dei dispositivi tracciati
+
+  std::vector<BLETrackedDevice> trackedDevices;
+  BLEScanTask::GetTrackedDevices(trackedDevices);
   BLETrackedDevice *targetDevice = nullptr;
-  for (auto &trackedDevice : BLETrackedDevices)
+  for (auto &trackedDevice : trackedDevices)
   {
     if (strcasecmp(trackedDevice.address, macAddress.c_str()) == 0)
     {

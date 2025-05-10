@@ -1,6 +1,7 @@
 #ifndef MYRWMUTEX_H
 #define MYRWMUTEX_H
 #include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include "DebugPrint.h"
 #include <WString.h>
 #include <esp32-hal-log.h>
@@ -94,9 +95,4 @@ private:
     MyRWMutex& mutex;
 };
 
-#define CRITICALSECTION_READSTART(x) { ReadLocker __lock__(x);
-#define CRITICALSECTION_READEND }
-
-#define CRITICALSECTION_WRITESTART(x) { WriteLocker __lock__(x);
-#define CRITICALSECTION_WRITEEND }
 #endif

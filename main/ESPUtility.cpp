@@ -1,6 +1,6 @@
 #include <esp_timer.h>
 #include  "SPIFFSLogger.h"
-
+#include <esp_system.h>
 namespace ESPUtility {
 
   #include <esp_timer.h>

@@ -1,7 +1,7 @@
 #ifndef MYMUTEX_H
 #define MYMUTEX_H
 #include "freertos/FreeRTOS.h"
-#include "DebugPrint.h"
+#include "freertos/semphr.h"
 #include <WString.h>
 #include <esp32-hal-log.h>
 

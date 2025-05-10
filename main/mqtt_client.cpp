@@ -7,6 +7,9 @@
 #include "WiFiManager.h"
 #include "watchdog.h"
 #include "settings.h"
+#include "utility.h"
+#include "BLEScanTask.h"
+#include "firmwarever.h"
 
 // MQTT_KEEPALIVE : keepAlive interval in Seconds
 // Keepalive timeout for default MQTT Broker is 10s
@@ -589,15 +592,11 @@ namespace MQTTClient
     {
       _publishToMQTT(discoveryTopic, discoveryPayload, true);
       DEBUG_PRINTF("INFO: Home Assistant discovery payload sent for BLE Device %s sensor\n", device.address);
-
-      for (auto &trackedDevice : BLETrackedDevices)
-      {
-        if (strcmp(trackedDevice.address, device.address) == 0)
+      auto& BLETrackedDevices = BLEScanTask::GetTrackedDeviceList();
+      BLETrackedDevices.ExcuteFunctionOnDevice(device.address, [](BLETrackedDevice &trackedDevice)
         {
           trackedDevice.haDiscoveryPublished = true;
-          break;
-        }
-      }
+        });
 
       return true;
     }
@@ -623,7 +622,7 @@ namespace MQTTClient
              "}",
              formatMillis(millis(), strmilli),
              WiFi.localIP().toString().c_str(),
-             BLETrackedDevices.size());
+             BLEScanTask::GetTrackedDevicesCount());
 
     publishToMQTT(stateTopic, statusPayload, false);
   }
@@ -636,8 +635,10 @@ namespace MQTTClient
              "%s/devices",
              getMQTTBaseSensorTopic());
 
+    std::vector<BLETrackedDevice> trackedDevices;
+    BLEScanTask::GetTrackedDevices(trackedDevices);
     // Create a buffer for the JSON payload
-    const size_t maxPayloadSize = 128 + (BLETrackedDevices.size() * 50);
+    const size_t maxPayloadSize = 128 + (trackedDevices.size() * 50);
     char *payload = new char[maxPayloadSize];
 
     // Start the JSON payload
@@ -645,11 +646,11 @@ namespace MQTTClient
                            "{"
                            "\"count\":%zu,"
                            "\"devices\":[",
-                           BLETrackedDevices.size());
+                           trackedDevices.size());
 
     // Add each device to the JSON
     bool firstDevice = true;
-    for (const auto &device : BLETrackedDevices)
+    for (const auto &device : trackedDevices)
     {
       if (!firstDevice)
       {

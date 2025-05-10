@@ -1,0 +1,7 @@
+#ifndef CONSTANTS_H
+#define CONSTANTS_H
+
+#define ADDRESS_STRING_SIZE 13
+#define DESCRIPTION_STRING_SIZE 21
+
+#endif // CONSTANTS_H

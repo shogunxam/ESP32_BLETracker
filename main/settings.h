@@ -3,7 +3,7 @@
 #include <SPIFFS.h>
 #include <WString.h>
 #include <vector>
-#include "main.h"
+#include "constants.h"
 
 enum eManualSCanMode
 {

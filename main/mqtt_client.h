@@ -1,6 +1,8 @@
 #ifndef _MQTT_CLIENT_H__
 #define _MQTT_CLIENT_H__
-#include "main.h"
+#include "constants.h"
+#include "TrackedDeviceList.h"
+
 namespace MQTTClient
 {
     void initializeMQTT();

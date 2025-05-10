@@ -40,3 +40,13 @@ void NormalizeAddress(const std::string &in, char out[ADDRESS_STRING_SIZE])
 {
   NormalizeAddress(in.c_str(),out);
 }
+
+char *formatMillis(unsigned long milliseconds, char outstr[20])
+{
+  unsigned long seconds = milliseconds / 1000;
+  unsigned long minutes = seconds / 60;
+  unsigned long hours = minutes / 60;
+  unsigned long days = hours / 24;
+  snprintf(outstr, 20, "%d.%02d:%02d:%02d", days, hours % 24, minutes % 60, seconds % 60);
+  return outstr;
+}
