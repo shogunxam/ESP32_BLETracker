@@ -9,6 +9,7 @@
 #include <Update.h>
 #include <string>
 #include <atomic>
+#include <map>
 
 #include "WiFiManager.h"
 #include "DebugPrint.h"
@@ -239,10 +240,11 @@ void OTAWebServer::postLogs()
     newSettings.logLevel = server.arg("loglevel").toInt();
     SettingsMngr.logLevel = newSettings.logLevel;
     SPIFFSLogger.setLogLevel(SPIFFSLoggerClass::LogLevel(SettingsMngr.logLevel));
-    server.sendHeader(F("Connection"), F("close"));
+    SendDefaulHeaders();
     if (newSettings.Save())
     {
       LOG_TO_FILE_I("New LogLevel configuration successfully saved.");
+      DEBUG_PRINTF("Log level set to %d\n", newSettings.logLevel);
       server.send(200, F("text/html"), "Ok");
     }
     else
@@ -430,6 +432,8 @@ void OTAWebServer::getUpdateBattery()
   server.send(200, F("text/html"), "Ok");
 }
 
+using ParamHandler = std::function<void(const String &)>;
+
 void OTAWebServer::postUpdateConfig()
 {
   if (!server.authenticate(SettingsMngr.wbsUser.c_str(), SettingsMngr.wbsPwd.c_str()))
@@ -439,71 +443,102 @@ void OTAWebServer::postUpdateConfig()
 
   server.client().setNoDelay(true);
   Settings newSettings(SettingsMngr.GetSettingsFile(), true);
+
+  std::map<String, ParamHandler> paramHandlers = {
+      {"wbsusr", [&](const String &val)
+       { newSettings.wbsUser = val; }},
+      {"wbspwd", [&](const String &val)
+       { newSettings.wbsPwd = val; }},
+      {"ssid", [&](const String &val)
+       { newSettings.wifiSSID = val; }},
+      {"wifipwd", [&](const String &val)
+       { newSettings.wifiPwd = val; }},
+      {"gateway", [&](const String &val)
+       { newSettings.gateway = val; }},
+      {"mqttsrvr", [&](const String &val)
+       { newSettings.serverAddr = val; }},
+      {"mqttport", [&](const String &val)
+       { newSettings.serverPort = atoi(val.c_str()); }},
+      {"mqttusr", [&](const String &val)
+       { newSettings.serverUser = val; }},
+      {"mqttpwd", [&](const String &val)
+       { newSettings.serverPwd = val; }},
+      {"scanperiod", [&](const String &val)
+       { newSettings.scanPeriod = atoi(val.c_str()); }},
+      {"maxNotAdvPeriod", [&](const String &val)
+       { newSettings.maxNotAdvPeriod = atoi(val.c_str()); }},
+      {"whiteList", [&](const String &val)
+       { newSettings.EnableWhiteList(val == "true"); }},
+      {"manualscan", [&](const String &val)
+       { newSettings.EnableManualScan(val == "true"); }}};
+
   for (int i = 0; i < server.args(); i++)
   {
-    DEBUG_PRINTF("%s = %s \n", server.argName(i).c_str(), server.arg(i).c_str());
-    if (server.argName(i) == "wbsusr")
-      newSettings.wbsUser = server.arg(i);
-    else if (server.argName(i) == "wbspwd")
-      newSettings.wbsPwd = server.arg(i);
-    else if (server.argName(i) == "ssid")
-      newSettings.wifiSSID = server.arg(i);
-    else if (server.argName(i) == "wifipwd")
-      newSettings.wifiPwd = server.arg(i);
-    else if (server.argName(i) == "gateway")
-      newSettings.gateway = server.arg(i);
-    else if (server.argName(i) == "mqttsrvr")
-      newSettings.serverAddr = server.arg(i);
-    else if (server.argName(i) == "mqttport")
-      newSettings.serverPort = server.arg(i).toInt();
-    else if (server.argName(i) == "mqttusr")
-      newSettings.serverUser = server.arg(i);
-    else if (server.argName(i) == "mqttpwd")
-      newSettings.serverPwd = server.arg(i);
-    else if (server.argName(i) == "scanperiod")
-      newSettings.scanPeriod = server.arg(i).toInt();
-    else if (server.argName(i) == "maxNotAdvPeriod")
-      newSettings.maxNotAdvPeriod = server.arg(i).toInt();
-    else if (server.argName(i) == "whiteList")
-      newSettings.EnableWhiteList(server.arg(i) == "true");
-    else if (server.argName(i) == "manualscan")
-      newSettings.EnableManualScan(server.arg(i) == "true");
-    else // other are mac address with properties in the form "MACADDRESS[property]":"value"
-    {
-      char argName[20]; // MacAddress size (12 chars) + 2 square brackets + property name size (5 chars) + terminator
-      strncpy(argName, server.argName(i).c_str(), 20);
-      char seps[] = "[]";
-      char *token = strtok(argName, seps);
-      if (token != nullptr)
-      {
-        // First token is the Mac Address
-        DEBUG_PRINTF("Device: '%s'\n", token);
-        Settings::KnownDevice *device = newSettings.GetDevice(token);
-        if (nullptr == device)
-        {
-          Settings::KnownDevice tDev;
-          strncpy(tDev.address, token, ADDRESS_STRING_SIZE);
-          newSettings.AddDeviceToList(tDev);
-          device = newSettings.GetDevice(token);
-        }
+    const auto argName = server.argName(i);
+    const auto argValue = server.arg(i);
+    DEBUG_PRINTF("%s = %s \n", argName.c_str(), argValue.c_str());
 
-        if (nullptr != device)
-        {
-          token = strtok(nullptr, seps);
-          if (token != nullptr)
-          {
-            // Second token is the property name
-            DEBUG_PRINTF("Match: '%s' has value '%s' \n", token, server.arg(i).c_str());
-            if (strcmp(token, "batt") == 0)
-              device->readBattery = server.arg(i) == "true";
-            else if (strcmp(token, "desc") == 0)
-              strncpy(device->description, server.arg(i).c_str(), DESCRIPTION_STRING_SIZE);
-          }
-        }
+    auto it = paramHandlers.find(argName);
+    if (it != paramHandlers.end())
+    {
+      it->second(argValue);
+    }
+    else
+    {
+      const char *input = argName.c_str();
+
+      // Find opening bracket '['
+      const char *openBracket = static_cast<const char *>(memchr(input, '[', strlen(input)));
+      if (!openBracket)
+        continue;
+
+      // Find closing bracket ']'
+      const char *closeBracket = static_cast<const char *>(memchr(openBracket, ']', strlen(openBracket)));
+      if (!closeBracket || closeBracket <= openBracket)
+        continue;
+
+      // Extract MAC address (before '[')
+      size_t macLen = openBracket - input;
+      char mac[ADDRESS_STRING_SIZE];
+      memcpy(mac, input, macLen);
+      mac[macLen] = '\0'; // Null-terminate
+
+      // Get or create device by MAC address
+      Settings::KnownDevice *device = newSettings.GetDevice(mac);
+      if (!device)
+      {
+        Settings::KnownDevice tDev;
+        memcpy(tDev.address, mac, std::min(sizeof(tDev.address) - 1, macLen));
+        tDev.address[std::min(sizeof(tDev.address) - 1, macLen)] = '\0';
+        newSettings.AddDeviceToList(tDev);
+        device = newSettings.GetDevice(mac);
+      }
+
+      if (!device)
+        continue;
+
+      // Extract property name between '[' and ']'
+      size_t propLen = closeBracket - openBracket - 1;
+      const char *prop = openBracket + 1;
+
+      // Get value of the parameter
+      const char *value = argValue.c_str();
+
+      // Fast property check using memcmp instead of strcmp
+      if (propLen == 4 && memcmp(prop, "desc", 4) == 0)
+      {
+        // Set description safely
+        strncpy(device->description, value, DESCRIPTION_STRING_SIZE - 1);
+        device->description[DESCRIPTION_STRING_SIZE - 1] = '\0';
+      }
+      else if (propLen == 4 && memcmp(prop, "batt", 4) == 0)
+      {
+        // Set readBattery flag with minimal comparison
+        device->readBattery = (value[0] == 't' || value[0] == 'T');
       }
     }
   }
-
+  
   DEBUG_PRINTLN(newSettings.toJSON().c_str());
 
   SendDefaulHeaders();
@@ -774,7 +809,7 @@ void OTAWebServer::setManualScan()
   {
     String url = server.uri();
     DEBUG_PRINTF("Manual Scan URL: %s", url.c_str());
-    
+
     if (url == "/api/scan/on")
     {
       SettingsMngr.manualScan = eManualSCanMode::eManualSCanModeOn;
@@ -797,36 +832,36 @@ void OTAWebServer::setManualScan()
 }
 
 void OTAWebServer::handleMQTTFrag()
- {
+{
   if (!server.authenticate(SettingsMngr.wbsUser.c_str(), SettingsMngr.wbsPwd.c_str()))
   {
     return server.requestAuthentication();
   }
   server.client().setNoDelay(true);
   SendDefaulHeaders();
-  #if USE_MQTT
-    server.sendHeader("Content-Encoding", "gzip");
-    server.send_P(200, "text/html", (const char *)config_mqtt_html_gz, config_mqtt_html_gz_size);
-  #else
-    server.send(204, "text/plain", "");
-  #endif
-  }
-  
-  void OTAWebServer::handleUDPFrag()
+#if USE_MQTT
+  server.sendHeader("Content-Encoding", "gzip");
+  server.send_P(200, "text/html", (const char *)config_mqtt_html_gz, config_mqtt_html_gz_size);
+#else
+  server.send(204, "text/plain", "");
+#endif
+}
+
+void OTAWebServer::handleUDPFrag()
+{
+  if (!server.authenticate(SettingsMngr.wbsUser.c_str(), SettingsMngr.wbsPwd.c_str()))
   {
-    if (!server.authenticate(SettingsMngr.wbsUser.c_str(), SettingsMngr.wbsPwd.c_str()))
-    {
-      return server.requestAuthentication();
-    }
-    server.client().setNoDelay(true);
-    SendDefaulHeaders();
-   #if USE_UDP
-     server.sendHeader("Content-Encoding", "gzip");
-     server.send_P(200, "text/html", (const char *)config_udp_html_gz, config_udp_html_gz_size);
-   #else
-     server.send(204, "text/plain", "");
-   #endif
-   }  
+    return server.requestAuthentication();
+  }
+  server.client().setNoDelay(true);
+  SendDefaulHeaders();
+#if USE_UDP
+  server.sendHeader("Content-Encoding", "gzip");
+  server.send_P(200, "text/html", (const char *)config_udp_html_gz, config_udp_html_gz_size);
+#else
+  server.send(204, "text/plain", "");
+#endif
+}
 
 void OTAWebServer::handleOptions()
 {
@@ -953,12 +988,14 @@ void OTAWebServer::setup(const String &hN)
   server.on(F("/api/device"), HTTP_OPTIONS, [&]()
             { handleOptions(); });
 
-  server.on("/mqtt_config_fragment", HTTP_GET,  [&](){handleMQTTFrag();});
+  server.on("/mqtt_config_fragment", HTTP_GET, [&]()
+            { handleMQTTFrag(); });
   server.on(F("/mqtt_config_fragment"), HTTP_OPTIONS, [&]()
-  { handleOptions(); });
-  server.on("/udp_config_fragment", HTTP_GET,  [&](){handleUDPFrag();});
+            { handleOptions(); });
+  server.on("/udp_config_fragment", HTTP_GET, [&]()
+            { handleUDPFrag(); });
   server.on(F("/udp_config_fragment"), HTTP_OPTIONS, [&]()
-  { handleOptions(); });
+            { handleOptions(); });
 #if ENABLE_FILE_LOG
   server.on(F("/logs"), HTTP_GET, [&]
             { getLogs(); });
@@ -969,6 +1006,8 @@ void OTAWebServer::setup(const String &hN)
   server.on(F("/logs.js"), HTTP_GET, [&]
             { getLogsJs(); });
 
+  server.on(F("/logs"), HTTP_OPTIONS, [&]()
+            { handleOptions(); });
   server.on(F("/eraselogs"), HTTP_GET, [&]
             { eraseLogs(); });
   server.on(F("/eraselogs"), HTTP_OPTIONS, [&]()

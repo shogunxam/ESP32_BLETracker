@@ -7,7 +7,7 @@
 #define BACK_CIRCULAR_INDEX(x) x = x <= 0 ? (mHeader.mNumWrittenLogs - 1) : (x - 1)
 #define RECORD_POSITION(x) (cHeaderSize + (x * cRecordSize))
 
-SPIFFSLoggerClass::SPIFFSLoggerClass() : MyMutex("SPIFFSLogger"),mLogLevel(LogLevel::Info) {}
+SPIFFSLoggerClass::SPIFFSLoggerClass() : MyMutex("SPIFFSLogger"), mLogLevel(LogLevel::Info) {}
 
 void SPIFFSLoggerClass::Initialize(const String &fileName, int max_records)
 {
@@ -23,7 +23,7 @@ void SPIFFSLoggerClass::Initialize(const String &fileName, int max_records)
         mLogFile.close();
         if (mHeader.mMaxLogsNumber != max_records || (mHeader.mLogStartIndex == -1 && mHeader.mNumWrittenLogs == 0))
         {
-            //Clear the existing file
+            // Clear the existing file
             mHeader.mMaxLogsNumber = max_records;
             clearLog();
         }
@@ -39,7 +39,7 @@ void SPIFFSLoggerClass::Initialize(const String &fileName, int max_records)
             DEBUG_PRINTF("File %s not exists\n", fileName.c_str());
         }
 
-        //Clear the existing file
+        // Clear the existing file
         mHeader.mMaxLogsNumber = max_records;
         clearLog();
     }
@@ -99,7 +99,7 @@ bool SPIFFSLoggerClass::writeHeader()
 
     return bytes == cHeaderSize;
 }
-void SPIFFSLoggerClass::writeLog(LogLevel logLevel,const char *msg, ...)
+void SPIFFSLoggerClass::writeLog(LogLevel logLevel, const char *msg, ...)
 {
     va_list args;
     va_start(args, msg);
@@ -111,14 +111,17 @@ void SPIFFSLoggerClass::write_next_entry(LogLevel logLevel, const char *msg, ...
 {
     va_list args;
     va_start(args, msg);
-    write_next_entry(logLevel,msg, args);
+    write_next_entry(logLevel, msg, args);
     va_end(args);
 }
 
 void SPIFFSLoggerClass::write_next_entry(LogLevel logLevel, const char *msg, va_list args)
 {
+    if (logLevel > mLogLevel)
+        return;
+
     locker guard(*this);
-    
+
     if (!mEnabled)
         return;
 
@@ -131,18 +134,18 @@ void SPIFFSLoggerClass::write_next_entry(LogLevel logLevel, const char *msg, va_
     memset(&ent, 0x0, sizeof(ent));
 
     // format message into entry
-    //The generated string has a length of at sizeof(ent.msg)-1, leaving space for the additional terminating null character.
+    // The generated string has a length of at sizeof(ent.msg)-1, leaving space for the additional terminating null character.
     vsnprintf(ent.msg, sizeof(ent.msg), msg, args);
 
-    //struct tm timeInfo;
-    //NTPTime::getLocalTime(timeInfo);
-    //NTPTime::strftime("%Y-%m-%d %H:%M:%S", timeInfo, ent.timeStamp, sizeof(ent.timeStamp));
+    // struct tm timeInfo;
+    // NTPTime::getLocalTime(timeInfo);
+    // NTPTime::strftime("%Y-%m-%d %H:%M:%S", timeInfo, ent.timeStamp, sizeof(ent.timeStamp));
     ent.timeStamp = NTPTime::getTimeStamp();
 
     size_t bytes = 0;
     log_i("Writing to record %d T:%s, M:%s", mNextWriteLogIndex, ent.timeStamp, ent.msg);
     ent.level = char(logLevel);
-    
+
     int overwrittenElemSize = 0;
     if (mHeader.mNumWrittenLogs == mHeader.mMaxLogsNumber)
     {
