@@ -3,8 +3,8 @@
 
 // Location name maximum length is 32 characters
 #define LOCATION "home"
-// Gateway name maximum length is 32 characters
-#define GATEWAY_NAME "BLETracker"
+// Gateway name maximum length is 32 characters. If empty, the device will use the MAC address as gateway name
+#define GATEWAY_NAME ""
 
 // Wi-Fi credentials
 // NOTE: If you set them the WiFi credential AcessPoint Mode will not work and BLETracker will connect always to this WiFi
@@ -22,10 +22,14 @@
 #endif
 
 // MQTT
-#define MQTT_USERNAME     "YOUR_MQTT_USERNAME"
-#define MQTT_PASSWORD     "YOUR_MQTT_PASSWORD"
-#define MQTT_SERVER       "YOUR_MQTT_SERVER_IP_ADDRESS"
+#define MQTT_USERNAME     "" /*Your MQTT username*/
+#define MQTT_PASSWORD     "" /*Your MQTT password*/
+#define MQTT_SERVER       "" /*Your MQTT server address*/
 #define MQTT_SERVER_PORT  1883
+
+//UDP
+#define UDP_SERVER        "" /*IP of the UDP server*/
+#define UDP_SERVER_PORT   1234
 
 #define WEBSERVER_USER        "admin"
 #define WEBSERVER_PASSWORD    "admin"

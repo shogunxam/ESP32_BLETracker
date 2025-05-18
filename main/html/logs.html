@@ -1,36 +1,131 @@
-<html>
-
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-  <script src="logs.js"></script>
-  <link rel="stylesheet" type="text/css" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Logs - ESP32 BLE Tracker</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="logs.js"></script>
+    <script src="utility.js"></script>
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
 </head>
-
 <body>
-<form id=logform>
-  <h1>System Logs</h1>
-  <div id="logmsg" style="color:#d21f1b; visibility:hidden;">Error reading logs!!!</div>
-  <div id="devListContainer" name="devListContainer" class="table-wrapper" width="135px">
-    <table id="logs" style='width:100%' class="scroll-table">
-      <thead>
-        <th style="text-align: left">Timestamp</th><th style="text-align: left">Message</th>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </div><br>
-  <label for="loglevel"> Log Level</label>
-  <select name=loglevel id=loglevel onchange=logLevelChanged(this)>
-    <option value="" selected disabled hidden></option>
-    <option value=0>Error</option>
-    <option value=1>Warning</option>
-    <option value=2>Info</option>
-    <option value=3>Debug</option>
-    <option value=4>Verbose</option>
-  </select><br>
-  <input type=button id="refresh" class='btn' value="Refresh" style="width:49%">
-  <input type=button id="clear" class='btn' value="Clear" style="width:49%">
-  <br><input type=button onclick="window.open('/','_self')" class='fatbtn' value="Back">
-  <br><br><label>by Shogunxam</label>
-  </form>
-  </body>
+    <div class="container">
+        <header>
+            <h1 class="title">System Logs</h1>
+            <div class="nav-buttons">
+                <button onclick="window.open('/','_self')" class="btn btn-small">
+                    <i class="fas fa-home"></i> Home
+                </button>
+            </div>
+        </header>
+        
+        <div class="card">
+            <h2 class="card-title">Log Settings</h2>
+            <div class="log-controls">
+                <div class="form-row">
+                    <div class="form-col">
+                        <div class="form-group">
+                            <label for="logLevel"><i class="fas fa-filter"></i> Log Level:</label>
+                            <select id="logLevel" class="form-control">
+                                <option value="0">Error</option>
+                                <option value="1">Warning</option>
+                                <option value="2">Info</option>
+                                <option value="3">Debug</option>
+                                <option value="4" selected>Verbose</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-col">
+                        <div class="form-group">
+                            <label for="autoRefresh"><i class="fas fa-sync-alt"></i> Auto Refresh:</label>
+                            <div class="toggle-container">
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="autoRefresh">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                                <span id="refreshStatus">Off</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="log-actions">
+                    <button id="refreshBtn" class="btn btn-small">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+                    <button id="setLogLevel" class="btn btn-small" title="Save only selected log level and above">
+                        <i class="fas fa-filter"></i> Set Filer
+                    </button>                    
+                    <button id="clearBtn" class="btn btn-small btn-danger">
+                        <i class="fas fa-trash-alt"></i> Clear Logs
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2 class="card-title">Log Entries</h2>
+            <div class="log-stats">
+                <div class="stat-item">
+                    <span class="stat-label"><i class="fas fa-list-alt"></i> Total Entries:</span>
+                    <span id="totalLogs" class="stat-value">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label"><i class="fas fa-filter"></i> Filtered:</span>
+                    <span id="filteredLogs" class="stat-value">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label"><i class="fas fa-hdd"></i> Log Size:</span>
+                    <span id="logSize" class="stat-value">0 KB</span>
+                </div>
+            </div>
+            
+            <div class="log-container">
+                <div id="logsLoading" class="logs-loading">
+                    <i class="fas fa-circle-notch fa-spin"></i> Loading logs...
+                </div>
+                <div id="logEntries" class="log-entries"></div>
+                <div id="noLogs" class="no-logs" style="display: none;">
+                    <i class="fas fa-info-circle"></i> No log entries found.
+                </div>
+            </div>
+            
+            <div class="pagination">
+                <button id="prevPage" class="btn btn-small btn-secondary" disabled>
+                    <i class="fas fa-chevron-left"></i> Previous
+                </button>
+                <span id="pageInfo">Page 1 of 1</span>
+                <button id="nextPage" class="btn btn-small btn-secondary" disabled>
+                    Next <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+        
+        <div id="clearLogsModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3><i class="fas fa-exclamation-triangle"></i> Confirm Clear Logs</h3>
+                    <span class="close-modal">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to clear all log entries? This action cannot be undone.</p>
+                </div>
+                <div class="modal-footer">
+                    <button id="confirmClearBtn" class="btn btn-danger">
+                        <i class="fas fa-trash-alt"></i> Clear Logs
+                    </button>
+                    <button id="cancelClearBtn" class="btn btn-secondary">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            <p>by Shogunxam</p>
+        </footer>
+    </div>    
+</body>
 </html>

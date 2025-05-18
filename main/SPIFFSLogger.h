@@ -14,8 +14,9 @@ class SPIFFSLoggerClass: public MyMutex
 public:
     struct logEntry
     {
-        char timeStamp[20];
+        time_t timeStamp;
         char msg[100];
+        char level;
     };
 
     enum class LogLevel
@@ -32,7 +33,7 @@ public:
     void Initialize(const String& filename, int max_records);
     void setLogLevel(LogLevel logLevel){mLogLevel = logLevel;}
     void writeLog(LogLevel logLevel,const char *msg, ...);
-    void write_next_entry(const char *msg, ...);
+    void write_next_entry(LogLevel logLevel,const char *msg, ...);
     void read_logs_start(bool reverseMode = false);
     bool read_next_entry(SPIFFSLoggerClass::logEntry& ent);
     void read_logs_end();
@@ -51,10 +52,9 @@ private:
         int mRealLogsSize;
     };
     bool read_entry (int recnum, SPIFFSLoggerClass::logEntry& ent);
-    void write_next_entry(const char *msg, va_list args);
+    void write_next_entry(LogLevel logLevel, const char *msg, va_list args);
     bool readHeader();
     bool writeHeader();
-    bool read_log_in_memory();
     void initLog(int maxlog);
     int mNextWriteLogIndex;  // next record number to write
     Header mHeader;
@@ -77,7 +77,7 @@ extern SPIFFSLoggerClass SPIFFSLogger;
 #define LOG_TO_FILE_I(x,...) SPIFFSLogger.writeLog(SPIFFSLoggerClass::LogLevel::Info,(x),##__VA_ARGS__)
 #define LOG_TO_FILE_D(x,...) SPIFFSLogger.writeLog(SPIFFSLoggerClass::LogLevel::Debug,(x),##__VA_ARGS__)
 #define LOG_TO_FILE_V(x,...) SPIFFSLogger.writeLog(SPIFFSLoggerClass::LogLevel::Verbose,(x),##__VA_ARGS__)
-#define LOG_TO_FILE(x,...)   SPIFFSLogger.write_next_entry(_RF_(x),##__VA_ARGS__)
+#define LOG_TO_FILE(x,...)   SPIFFSLogger.write_next_entry(SPIFFSLoggerClass::LogLevel::Verbose,_RF_(x),##__VA_ARGS__)
 #else
 #define LOG_TO_FILE(x,...)
 #define LOG_TO_FILE_E(x,...)

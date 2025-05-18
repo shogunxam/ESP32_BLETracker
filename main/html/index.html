@@ -1,21 +1,52 @@
-<html>
-
+<!DOCTYPE html>
+<html lang="en">
 <head>
-	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-	<script src="index.js"></script>
-	<link rel="stylesheet" type="text/css" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 BLE Tracker</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="index.js"></script>
+    <script src="utility.js"></script>
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
 </head>
-
 <body>
-	<form name=indexForm>
-		<a hidden href="https://github.com/shogunxam/ESP32_BLETracker/releases/latest" class=blinking id="newver" style="width:fit-content">New Version Available</a>
-		<h1 id="gateway"></h1>
-		<h2>Index</h2>
-		<input type=button onclick="window.open('/sysinfo','_self')" class=fatbtn value="System Information"><br>
-		<input type=button onclick="window.open('/config','_self')" class=fatbtn value="Configure">
-		<input id="logs" type=button onclick="window.open('/logs','_self')" class=fatbtn value="Logs">
-		<input type=button onclick="window.open('/otaupdate','_self')" class=fatbtn value="OTA Update">
-		<br><br><label>by Shogunxam</label>
-	</form>
+    <div class="container">
+        <header>
+            <h1 id="gateway" class="title">ESP32 BLE Tracker</h1>
+        </header>
+        
+        <div class="card">
+            <h2 class="card-title">Dashboard</h2>
+            <div class="button-grid">
+                <button onclick="window.open('/sysinfo','_self')" class="btn">
+                    <i class="fas fa-info-circle"></i>
+                    <span>System Information</span>
+                </button>
+                <button onclick="window.open('/config','_self')" class="btn">
+                    <i class="fas fa-cog"></i>
+                    <span>Configure</span>
+                </button>
+                <button id="logs" onclick="window.open('/logs','_self')" class="btn">
+                    <i class="fas fa-list-alt"></i>
+                    <span>Logs</span>
+                </button>
+                <button onclick="window.open('/otaupdate','_self')" class="btn">
+                    <i class="fas fa-upload"></i>
+                    <span>OTA Update</span>
+                </button>
+            </div>
+        </div>
+        
+        <div class="restart-container">
+            <button id="restartBtn" onclick="confirmRestart()" class="btn btn-danger">
+                <i class="fas fa-power-off"></i>
+                <span>Restart Device</span>
+            </button>
+        </div>
+        <footer>
+            <p>by Shogunxam</p>
+        </footer>
+    </div>
 </body>
-<html>
+</html>

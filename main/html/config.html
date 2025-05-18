@@ -1,92 +1,194 @@
-<html>
-
+<!DOCTYPE html>
+<html lang="en">
 <head>
-	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-	<script src="config.js"></script>
-	<link rel="stylesheet" type="text/css" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configuration - ESP32 BLE Tracker</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="config.js"></script>
+    <script src="utility.js"></script>
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 </head>
-
 <body>
-	<form id="configform" name="config" action="">
-		<div id="wifi">
-			<fieldset>
-				<legend>WiFi Network</legend>
-				<table>
-					<tr>
-						<td><label for="ssid">SSID:</label></td>
-						<td><input type="text" id="ssid" name="ssid"></td>
-					</tr>
-					<tr>
-						<td><label for="wifipwd">Password:</label></td>
-						<td><input type="password" id="wifipwd" name="wifipwd"> </td>
-            			<td><input class="eyebtn" type="button" id="togglewifipwd" margin=30 value="&#x1F441"></td>
-					</tr>
-					<tr>
-						<td><label for="gateway">Tracker ID:</label></td>
-						<td><input type="text" id="gateway" name="gateway" maxlength="32"></td>
-					</tr>
-				</table>
-			</fieldset>
+    <div class="container">
+        <header>
+            <h1 class="title">Configuration</h1>
+            <div class="nav-buttons">
+                <button onclick="window.open('/','_self')" class="btn btn-small">
+                    <i class="fas fa-home"></i> Home
+                </button>
+            </div>
+        </header>
+        
+        <div id="message" class="alert" style="display: none;"></div>
+        
+		<div class="tabs">
+			<button class="tab-btn active" onclick="openTab(event, 'network')">
+				<i class="fas fa-wifi"></i> Network
+			</button>
+			<button class="tab-btn" id="mqtt-btn" onclick="openTab(event, 'mqtt')" style="display: none;">
+				<i class="fas fa-broadcast-tower"></i> MQTT
+			</button>
+            <button class="tab-btn" id="udp-btn" onclick="openTab(event, 'udp')"  style="display: none;">
+				<i class="fas fa-broadcast-tower"></i> UDP
+			</button>
+			<button class="tab-btn" onclick="openTab(event, 'general')">
+				<i class="fas fa-search-location"></i> Scan Settings
+			</button>
+			<button class="tab-btn" onclick="openTab(event, 'devices')">
+				<i class="fab fa-bluetooth"></i> Devices
+			</button>
 		</div>
-		<div id="mqttbroker">
-			<fieldset>
-				<legend>MQTT Broker:</legend>
-				<table>
-					<tr>
-						<td><label for="mqttsrvr">Address:</label></td>
-						<td><input type="text" id="mqttsrvr" name="mqttsrvr"></td>
-					</tr>
-					<tr>
-						<td><label for="mqttport">Port:</label></td>
-						<td><input type="number" id="mqttport" name="mqttport"></td>
-					</tr>
-					<tr>
-						<td><label for="mqttusr">User:</label></td>
-						<td><input type="text" id="mqttusr" name="mqttusr"></td>
-					</tr>
-					<tr>
-						<td><label for="mqttpwd">Password:</label></td>
-						<td><input type="password" id="mqttpwd" name="mqttpwd"></td>
-			           <td><input class="eyebtn" type="button" id="togglemqttpwd" margin=30 value="&#x1F441"></td>
-					</tr>
-				</table>
-			</fieldset>
-		</div>
-		<fieldset>
-			<legend>Devices to track</legend>
-			<label for="scanperiod" style="width:auto height:auto">Scan period:</label>
-			<input type="number" id="scanperiod" name="scanperiod" min="0" max="999" style="width:5em;height:auto">
-			<label for="maxNotAdvPeriod" style="width:auto height:auto">OFF after:</label>
-			<input type="number" id="maxNotAdvPeriod" name="maxNotAdvPeriod" min="0" max="999" style="width:5em;height:auto"><br>
-            <input type="checkbox" id="manualscan" name="manualscan" style="width:auto;height:auto">
-			<label for="manualscan">Manual Scan</label>
-      &nbsp;&nbsp;&nbsp;&nbsp; 
-		  <input type="checkbox" id="whiteList" name="whiteList" style="width:auto;height:auto">
-			<label for="whiteList">Track only listed devices</label>     
-			<div id="devListContainer" name="devListContainer" class="table-wrapper">
-				<table id="devList" style="margin-left: auto; margin-right: auto;" class="scroll-table">
-					<thead>
-						<tr>
-							<th>Battery</th>
-							<th>Device</th>
-							<th>Action</th>
-						</tr>
-					</thead>
-					<tbody>
-					</tbody>
-				</table>
-			</div>
-		</fieldset>
-		<input type="text" id="newmac" name="newmac" style="width:70%" placeholder="Insert device MAC here" maxlength="12"
-      onkeydown="this.value=validateMacDigit(this)"
-      onpaste="var e=this; setTimeout(function(){e.value=validateMac(e.value);}, 4);">
-		<input type="button" id="addMac" value="Add" class=btn style="width:19%">
-		<input style="width:49%" type="submit" id="undo" value="Undo Changes" class=btn>
-		<input style="width:49%" type="submit" id="factory" value="Factory Values" class=btn>
-		<input type="submit" id="configure" value="Submit" class=fatbtn>
-		<br><input type=button onclick="window.open('/','_self')" class=fatbtn value="Back">
-		<br><br><label>by Shogunxam</label>
-	</form>
-</body>
+        
+        <form id="configForm">
+            <div id="network" class="tab-content active">
+                <div class="card">
+					<div class="form-group">
+					<h2 class="card-title">WiFi Connection</h2>
+					<div class="form-group">
+							<label for="ssid"><i class="fas fa-wifi"></i> WiFi SSID:</label>
+							<input type="text" id="ssid" name="ssid" placeholder="Your WiFi network name">
+						</div>
+						
+						<div class="form-group">
+							<label for="wifipwd"><i class="fas fa-key"></i> WiFi Password:</label>
+							<div class="password-field">
+								<input type="password" id="wifipwd" name="wifipwd">
+								<button type="button" class="toggle-password" onclick="togglePasswordVisibility('wifipwd')">
+									<i class="fas fa-eye"></i>
+								</button>
+							</div>
+						</div>
+					</div>
 
+                    <h2 class="card-title">Network Settings</h2>
+                    
+                    <div class="form-group">
+                        <label for="gateway"><i class="fas fa-server"></i> Hostname:</label>
+                        <input type="text" id="gateway" name="gateway" maxlength=32 pattern="^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)?$">
+                        <small class="help-text">Max 32 alphanumeric chars and hyphens.</small>  
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="wbsusr"><i class="fas fa-user"></i> Admin User:</label>
+                        <input type="text" id="wbsusr" name="wbsusr" placeholder="Admin username">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="wbspwd"><i class="fas fa-key"></i> Admin Password:</label>
+						<div class="password-field">
+							<input type="password" id="wbspwd" name="wbspwd">
+							<button type="button" class="toggle-password" onclick="togglePasswordVisibility('wbspwd')">
+								<i class="fas fa-eye"></i>
+							</button>
+						</div>						
+                    </div>
+                </div>
+            </div>
+            
+            <!-- MQTT Settings Tab -->
+            <div id="mqtt" class="tab-content"></div>
+            <!-- MQTT Settings Tab -->
+            <div id="udp" class="tab-content"></div>
+
+			<div id="general" class="tab-content">
+                <div class="card">
+                    <h2 class="card-title">Scan Settings</h2>
+                    
+                    <div class="form-group">
+                        <label for="scanperiod"><i class="fas fa-clock"></i> Scan Period (seconds):</label>
+                        <input type="number" id="scanperiod" name="scanperiod" min="1" max="300">
+                    </div>
+                    
+					<div class="form-group">
+						<label for="maxNotAdvPeriod">
+							<i class="fas fa-door-open"></i> Away timeout (seconds):
+						</label>
+						<input type="number" id="maxNotAdvPeriod" name="maxNotAdvPeriod" min="10" max="3600">						
+					</div>
+					<div class="form-group">
+						<div class="checkbox-container">
+							<input type="checkbox" id="manualscan" name="manualscan">
+							<label for="manualscan">
+								<i class="fas fa-search"></i> Enable manual scanning
+							</label>
+						</div>
+					</div>					
+                </div>
+            </div>
+            <!-- Devices Tab -->
+            <div id="devices" class="tab-content">
+                <div class="card">
+                    <h2 class="card-title">Tracked Devices</h2>
+					<div class="form-group">
+						<div class="checkbox-container">
+							<input type="checkbox" id="whiteList" name="whiteList">
+							<label for="whiteList">
+								<i class="fas fa-shield-alt"></i> Track only listed devices
+							</label>
+						</div>
+					</div>
+                    <div class="table-responsive">
+                        <table id="devices-table" class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>MAC Address</th>
+                                    <th>Description</th>
+                                    <th>Read Battery</th>
+									<th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="devicesTableBody">
+                                <!-- This will be populated by JavaScript -->
+                                <tr>
+                                    <td colspan="4" class="loading-message">Loading device data...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <div id="devices-cards" class="devices-cards" style="display: none;">
+                            <!-- This will be populated by JavaScript -->
+                        </div>
+                    </div>
+                    
+                    <div class="form-group mt-20">
+                        <h3>Add New Device</h3>
+                        <div class="form-row">
+                            <div class="form-col">
+                                <label for="newDeviceAddr">MAC Address:</label>
+                                <input type="text" id="newDeviceAddr" placeholder="AA:BB:CC:DD:EE:FF" maxlength="17">
+                            </div>
+                            <div class="form-col">
+                                <label for="newDeviceDesc">Description:</label>
+                                <input type="text" id="newDeviceDesc" placeholder="Device description" maxlength="20">
+								<small class="help-text">Max 20 characters</small>
+                            </div>
+                            <div class="form-col form-col-small">
+                                <button type="button" id="addDeviceBtn" class="btn btn-small">
+                                    <i class="fas fa-plus"></i> Add
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-actions">
+                <button type="button" id="saveBtn" class="btn">
+                    <i class="fas fa-save"></i> Save Configuration
+                </button>
+                <button type="button" id="resetBtn" class="btn btn-secondary">
+                    <i class="fas fa-undo"></i> Undo					
+                </button>
+				<button type="button" id="factoryBtn" class="btn btn-warning">
+					<i class="fas fa-sync-alt"></i> Load Default Values
+				</button>
+            </div>
+        </form>
+        
+        <footer>
+            <p>by Shogunxam</p>
+        </footer>
+    </div>
+</body>
 </html>

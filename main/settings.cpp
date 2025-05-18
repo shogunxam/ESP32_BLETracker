@@ -1,8 +1,9 @@
 #include "settings.h"
 #include "config.h"
 #include "DebugPrint.h"
+#include "WiFiManager.h" 
 
-#define CURRENT_SETTING_VERSION 7
+#define CURRENT_SETTING_VERSION 8
 
 Settings SettingsMngr;
 
@@ -96,15 +97,15 @@ void Settings::FactoryReset(bool emptyLists)
     enableWhiteList = ENABLE_BLE_TRACKER_WHITELIST;
 
     mqttEnabled = USE_MQTT;
-    mqttUser = MQTT_USERNAME;
-    mqttPwd = MQTT_PASSWORD;
-    mqttServer = MQTT_SERVER;
-    mqttPort = MQTT_SERVER_PORT;
+    serverUser = SERVER_USERNAME;
+    serverPwd = SERVER_PASSWORD;
+    serverAddr = SERVER_ADDRESS;
+    serverPort = SERVER_PORT;
     scanPeriod = BLE_SCANNING_PERIOD;
     logLevel = DEFAULT_FILE_LOG_LEVEL;
     maxNotAdvPeriod = MAX_NON_ADV_PERIOD;
     manualScan = eManualSCanMode::eManualSCanModeDisabled;
-    gateway = GATEWAY_NAME;
+    gateway =  WiFiManager::GetDefaultGatewayName();
     wifiSSID = WIFI_SSID;
     wifiPwd = WIFI_PASSWORD;
     wbsUser = WEBSERVER_USER;
@@ -192,10 +193,10 @@ String Settings::toJSON()
     data += R"("wbs_pwd":")" + wbsPwd + R"(",)";
     data += R"("tz":")" + wbsTimeZone + R"(",)";
     data += R"("gateway":")" + gateway + R"(",)";
-    data += R"("mqtt_address":")" + mqttServer + R"(",)";
-    data += R"("mqtt_port":)" + String(mqttPort) + ",";
-    data += R"("mqtt_usr":")" + mqttUser + R"(",)";
-    data += R"("mqtt_pwd":")" + mqttPwd + R"(",)";
+    data += R"("mqtt_address":")" + serverAddr + R"(",)";
+    data += R"("mqtt_port":)" + String(serverPort) + ",";
+    data += R"("mqtt_usr":")" + serverUser + R"(",)";
+    data += R"("mqtt_pwd":")" + serverPwd + R"(",)";
     data += R"("scanPeriod":)" + String(scanPeriod) + ",";
     data += R"("maxNotAdvPeriod":)" + String(maxNotAdvPeriod) + ",";
     data += R"("loglevel":)" + String(logLevel) + ",";
@@ -335,10 +336,10 @@ bool Settings::Save()
     if (file)
     {
         file.write((uint8_t *)&version, sizeof(Settings::version));
-        SaveString(file, mqttServer);
-        file.write((uint8_t *)&mqttPort, sizeof(mqttPort));
-        SaveString(file, mqttUser);
-        SaveString(file, mqttPwd);
+        SaveString(file, serverAddr);
+        file.write((uint8_t *)&serverPort, sizeof(serverPort));
+        SaveString(file, serverUser);
+        SaveString(file, serverPwd);
         file.write((uint8_t *)&enableWhiteList, sizeof(enableWhiteList));
         SaveKnownDevices(file); //Since Version 5 the format is changed
         //Since Version 2
@@ -353,8 +354,11 @@ bool Settings::Save()
         SaveString(file, wifiSSID);
         SaveString(file, wifiPwd);
         SaveString(file, gateway);
-        SaveString(file, wbsTimeZone);
+        SaveString(file, wbsTimeZone);        
         DEBUG_PRINTF("saved TZ %s",wbsTimeZone.c_str());
+        //Since version 8
+        SaveString(file, wbsUser);
+        SaveString(file, wbsPwd);
         file.flush();
         file.close();
         return true;
@@ -370,10 +374,10 @@ void Settings::Load()
     {
         uint16_t currVer;
         file.read((uint8_t *)&currVer, sizeof(currVer));
-        LoadString(file, mqttServer);
-        file.read((uint8_t *)&mqttPort, sizeof(mqttPort));
-        LoadString(file, mqttUser);
-        LoadString(file, mqttPwd);
+        LoadString(file, serverAddr);
+        file.read((uint8_t *)&serverPort, sizeof(serverPort));
+        LoadString(file, serverUser);
+        LoadString(file, serverPwd);
         file.read((uint8_t *)&enableWhiteList, sizeof(enableWhiteList));
         LoadKnownDevices(file, currVer);
         if (currVer > 1)
@@ -400,6 +404,12 @@ void Settings::Load()
             LoadString(file, wbsTimeZone);
             DEBUG_PRINTF("loaded TZ %s\n",wbsTimeZone.c_str());
         }
+        if(currVer > 7)
+        {
+            LoadString(file, wbsUser);
+            LoadString(file, wbsPwd);
+        }
+        file.close();
     }
 }
 

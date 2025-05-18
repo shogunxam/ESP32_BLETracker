@@ -26,6 +26,10 @@
 #include "mqtt_client.h"
 #endif
 
+#if USE_UDP
+#include "udp_client.h"
+#endif
+
 #if USE_FHEM_LEPRESENCE_SERVER
 #include "fhem_lepresence_server.h"
 #endif
@@ -365,6 +369,7 @@ void setup()
 {
 #if defined(DEBUG_SERIAL)
   Serial.begin(115200);
+  while(!Serial) ;
 #endif
 
   Serial.println("INFO: Running setup");
@@ -399,13 +404,17 @@ void setup()
   SPIFFSLogger.setLogLevel(SPIFFSLoggerClass::LogLevel(SettingsMngr.logLevel));
 #endif
 
+#if ENABLE_OTA_WEBSERVER
+  webserver.setup(SettingsMngr.gateway);
+#endif
+
   if (SettingsMngr.wifiSSID.isEmpty())
   {
-    StartAccessPointMode();
+    WiFiManager::StartAccessPointMode();
   }
   else
   {
-    WiFiConnect(SettingsMngr.wifiSSID, SettingsMngr.wifiPwd);
+    WiFiManager::WiFiConnect(SettingsMngr.wifiSSID, SettingsMngr.wifiPwd);
   }
 
   LogResetReason();
@@ -418,7 +427,6 @@ void setup()
 #endif
 
 #if ENABLE_OTA_WEBSERVER
-  webserver.setup(SettingsMngr.gateway, SettingsMngr.wifiSSID, SettingsMngr.wifiPwd);
   webserver.begin();
 #endif
 
@@ -433,7 +441,7 @@ void setup()
 
   Watchdog::Initialize();
 
-  if (!IsAccessPointModeOn())
+  if (!WiFiManager::IsAccessPointModeOn())
   {
     BLEDevice::init(SettingsMngr.gateway.c_str());
     pBLEScan = BLEDevice::getScan();
@@ -443,17 +451,22 @@ void setup()
     pBLEScan->setWindow(50);
 
 #if USE_MQTT
-    initializeMQTT();
-    connectToMQTT();
+    MQTTClient::initializeMQTT();
+    MQTTClient::connectToMQTT();
     #if ENABLE_HOME_ASSISTANT_MQTT_DISCOVERY
-    if (connectToMQTT()) {
-      publishTrackerDeviceDiscovery();
-      publishDevicesListSensorDiscovery();
+    if ( MQTTClient::connectToMQTT())
+    {
+      MQTTClient::publishTrackerDeviceDiscovery();
+      MQTTClient::publishDevicesListSensorDiscovery();
       
-      publishTrackerStatus();
-      publishDevicesList();
-  }
+      MQTTClient::publishTrackerStatus();
+      MQTTClient::publishDevicesList();
+    }
   #endif // ENABLE_HOME_ASSISTANT_MQTT_DISCOVERY
+#endif
+
+#if USE_UDP
+    UDPClient::initializeUDP();
 #endif
 
 #if USE_FHEM_LEPRESENCE_SERVER
@@ -474,18 +487,26 @@ char *formatMillis(unsigned long milliseconds, char outstr[20])
   return outstr;
 }
 
+#if USE_MQTT
+std::function<void(const BLETrackedDevice &)> publishBLEState= [](const BLETrackedDevice &device) { MQTTClient::publishBLEState(device);};
+std::function<void(void)>  publishSySInfo = MQTTClient::publishSySInfo;
+#elif USE_UDP
+std::function<void(const BLETrackedDevice &)> publishBLEState = UDPClient::publishBLEState;
+std::function<void(void)>  publishSySInfo = UDPClient::publishSySInfo;
+#endif
+
 void loop()
 {
   try
   {
-    if (IsAccessPointModeOn())
+    if (WiFiManager::IsAccessPointModeOn())
     {
-      CheckAPModeTimeout();
+      WiFiManager::CheckAPModeTimeout();
     }
 #if USE_MQTT
     else
     {
-      mqttLoop();
+      MQTTClient::mqttLoop();
     }
 #endif
 
@@ -493,7 +514,7 @@ void loop()
     // Check and restore the wifi connection if it's loose
     if (!SettingsMngr.wifiSSID.isEmpty())
     {
-      WiFiConnect(SettingsMngr.wifiSSID, SettingsMngr.wifiPwd);
+      WiFiManager::WiFiConnect(SettingsMngr.wifiSSID, SettingsMngr.wifiPwd);
     }
 #endif
 
@@ -505,12 +526,13 @@ void loop()
 
     if (BLETrackedDevices.size() == SettingsMngr.GetMaxNumOfTraceableDevices())
     {
-      DEBUG_PRINTLN("INFO: Restart because the array is full\n");
-      LOG_TO_FILE("Restarting: reached the max number of traceable devices");
+      const char* errMsg = "Restarting: reached the max number of traceable devices";
+      DEBUG_PRINTLN(errMsg);
+      LOG_TO_FILE(errMsg);
       esp_restart();
     }
 
-    if (!IsAccessPointModeOn())
+    if (!WiFiManager::IsAccessPointModeOn())
     {
 #if PROGRESSIVE_SCAN
       bool scanCompleted = false;
@@ -590,8 +612,7 @@ void loop()
         batteryTask();
 #endif
 
-#if USE_MQTT
-
+#if USE_MQTT || USE_UDP
       bool publishSystemInfo = ((lastSySInfoTime + SYS_INFORMATION_DELAY) < NTPTime::seconds()) || (lastSySInfoTime == 0);
 
       if (scanEnabled || publishSystemInfo)
@@ -616,14 +637,16 @@ void loop()
   }
   catch (std::exception &e)
   {
-    DEBUG_PRINTF("Error Caught Exception %s", e.what());
-    LOG_TO_FILE_E("Error Caught Exception %s", e.what());
+    const char* errMsg = "Error Caught Exception %s";
+    DEBUG_PRINTF(errMsg, e.what());
+    LOG_TO_FILE_E(errMsg, e.what());
   }
   catch (...)
   {
-    DEBUG_PRINTLN("Error Unhandled exception trapped in main loop");
-    LOG_TO_FILE_E("Error Unhandled exception trapped in main loop");
+    const char* errMsg = "Error Unhandled exception trapped in main loop";
+    DEBUG_PRINTLN(errMsg);
+    LOG_TO_FILE_E(errMsg);
   }
 
-  delay(IsAccessPointModeOn() ? 5000 : 100);
+  delay(WiFiManager::IsAccessPointModeOn() ? 300 : 100);
 }

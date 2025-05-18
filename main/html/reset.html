@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Reset</title>
+  <link rel="stylesheet" type="text/css" href="style.css">
+  <style>
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background: #f5f7fa
+    }
+
+    .reset-card {
+      background: #fff;
+      border-radius: var(--border-radius);
+      box-shadow: var(--box-shadow);
+      padding: 20px;
+      text-align: center;
+      max-width: 400px;
+      width: 90%
+    }
+
+    .reset-title {
+      color: var(--primary-color);
+      margin-bottom: 15px
+    }
+  </style>
+</head>
+
+<body>
+  <div class="reset-card">
+    <h2 class="reset-title">Restarting Device</h2>
+    <p>Please wait while the device is being restarted...</p>
+    <div class="progress-bar-container">
+      <div class="progress-bar" id="p"></div>
+    </div>
+    <div id="t">0%</div>
+  </div>
+  <script>
+    var v = 0, i = setInterval(function () { v++; document.getElementById('p').style.width = v + '%'; document.getElementById('t').textContent = v + '%'; if (v == 100) { clearInterval(i); setTimeout(function () { window.location = '/' }, 3000) } }, 80);
+  </script>
+</body>
+
+</html>

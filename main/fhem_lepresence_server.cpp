@@ -189,8 +189,9 @@ namespace FHEMLePresenceServer
     }
     catch (...)
     {
-      LOG_TO_FILE_E("Error: Caught exception handling FHEM client");
-      DEBUG_PRINTLN("Error: Caught exception handling FHEM client");
+      const char* errMsg = "Error: Caught exception handling FHEM client";
+      LOG_TO_FILE_E(errMsg);
+      DEBUG_PRINTLN(errMsg);
     }
   }
 
@@ -204,8 +205,9 @@ namespace FHEMLePresenceServer
       FHEMClient *fhemClient = GetAvailabeFHEMClient();
       if (fhemClient == nullptr)
       {
-        DEBUG_PRINTLN("Warning: Reached the maximum number of clients\n");
-        LOG_TO_FILE_W("Warning: Reached the maximum number of clients");
+        const char* errMsg = "Warning: Reached the maximum number of clients";
+        DEBUG_PRINTLN(errMsg);
+        LOG_TO_FILE_W(errMsg);
         client.stop();
       }
       else
