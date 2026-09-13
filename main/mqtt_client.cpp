@@ -516,25 +516,27 @@ namespace MQTTClient
   bool publishBLEDeviceSensorDiscovery(const BLETrackedDevice &device)
   {
     char discoveryTopic[128];
+    char deviceIdAsString[BleDeviceId::UUID_STRING_SIZE];
+    device.deviceId.toString(deviceIdAsString);
     snprintf(discoveryTopic, sizeof(discoveryTopic),
              "homeassistant/device_tracker/%s_device_%s/config",
-             SettingsMngr.gateway.c_str(), device.address);
+             SettingsMngr.gateway.c_str(), deviceIdAsString);
 
     char deviceName[64];
-    snprintf(deviceName, sizeof(deviceName), "BLE Device %s", device.address);
+    snprintf(deviceName, sizeof(deviceName), "BLE Device %s", deviceIdAsString);
 
     char uniqueId[48];
-    snprintf(uniqueId, sizeof(uniqueId), "%s_device_%s", SettingsMngr.gateway.c_str(), device.address);
+    snprintf(uniqueId, sizeof(uniqueId), "%s_device_%s", SettingsMngr.gateway.c_str(), deviceIdAsString);
 
     char deviceTopic[64];
 #if PUBLISH_SIMPLE_JSON
     snprintf(deviceTopic, sizeof(deviceTopic),
              "%s/%s",
-             getMQTTBaseSensorTopic(), device.address);
+             getMQTTBaseSensorTopic(), deviceIdAsString);
 #elif PUBLISH_SEPARATED_TOPICS
     snprintf(deviceTopic, sizeof(deviceTopic),
              "%s/%s/state",
-             getMQTTBaseSensorTopic(), device.address);
+             getMQTTBaseSensorTopic(), deviceIdAsString);
 #endif
 
     // Calculate required buffer size
@@ -548,11 +550,11 @@ namespace MQTTClient
 #if PUBLISH_SEPARATED_TOPICS
     snprintf(rssiTopic, sizeof(rssiTopic),
              "%s/%s/rssi",
-             getMQTTBaseSensorTopic(), device.address);
+             getMQTTBaseSensorTopic(), deviceIdAsString);
 #if PUBLISH_BATTERY_LEVEL
     snprintf(batteryTopic, sizeof(batteryTopic),
              "%s/%s/battery",
-             getMQTTBaseSensorTopic(), device.address);
+             getMQTTBaseSensorTopic(), deviceIdAsString);
 #endif
 #endif
 
@@ -588,11 +590,11 @@ namespace MQTTClient
     if (connectToMQTT())
     {
       _publishToMQTT(discoveryTopic, discoveryPayload, true);
-      DEBUG_PRINTF("INFO: Home Assistant discovery payload sent for BLE Device %s sensor\n", device.address);
+      DEBUG_PRINTF("INFO: Home Assistant discovery payload sent for BLE Device %s sensor\n", deviceIdAsString);
 
       for (auto &trackedDevice : BLETrackedDevices)
       {
-        if (strcmp(trackedDevice.address, device.address) == 0)
+        if (trackedDevice.deviceId == device.deviceId)
         {
           trackedDevice.haDiscoveryPublished = true;
           break;
@@ -649,6 +651,7 @@ namespace MQTTClient
 
     // Add each device to the JSON
     bool firstDevice = true;
+    char deviceIdAsString[BleDeviceId::UUID_STRING_SIZE];
     for (const auto &device : BLETrackedDevices)
     {
       if (!firstDevice)
@@ -657,7 +660,7 @@ namespace MQTTClient
       }
 
       const char *state = device.isDiscovered ? MQTT_PAYLOAD_ON : MQTT_PAYLOAD_OFF;
-
+      device.deviceId.toString(deviceIdAsString);
       written += snprintf(payload + written, maxPayloadSize - written,
                           "{"
                           "\"address\":\"%s\","
@@ -665,7 +668,7 @@ namespace MQTTClient
                           "\"rssi\":%d,"
                           "\"last_seen\":%ld"
                           "}",
-                          device.address, state, device.rssiValue, device.lastDiscoveryTime);
+                          deviceIdAsString, state, device.rssiValue, device.lastDiscoveryTime);
 
       firstDevice = false;
     }
@@ -705,21 +708,24 @@ namespace MQTTClient
     const char *state = device.isDiscovered ? MQTT_PAYLOAD_ON : MQTT_PAYLOAD_OFF;
     int rssi = device.isDiscovered ? device.rssiValue : -100;
 
+    char deviceIdAsString[BleDeviceId::UUID_STRING_SIZE];
+    device.deviceId.toString(deviceIdAsString);
+    
     // Use the existing code to publish device data
 #if PUBLISH_SEPARATED_TOPICS
     const uint16_t maxTopicLen = strlen(getMQTTBaseSensorTopic()) + 22;
     char topic[maxTopicLen];
     char strbuff[5];
 
-    snprintf(topic, maxTopicLen, "%s/%s/state", getMQTTBaseSensorTopic(), device.address);
+    snprintf(topic, maxTopicLen, "%s/%s/state", getMQTTBaseSensorTopic(), deviceIdAsString);
     publishToMQTT(topic, state, false);
 
-    snprintf(topic, maxTopicLen, "%s/%s/rssi", getMQTTBaseSensorTopic(), device.address);
+    snprintf(topic, maxTopicLen, "%s/%s/rssi", getMQTTBaseSensorTopic(), deviceIdAsString);
     itoa(rssi, strbuff, 10);
     publishToMQTT(topic, strbuff, false);
 
 #if PUBLISH_BATTERY_LEVEL
-    snprintf(topic, maxTopicLen, "%s/%s/battery", getMQTTBaseSensorTopic(), device.address);
+    snprintf(topic, maxTopicLen, "%s/%s/battery", getMQTTBaseSensorTopic(), deviceIdAsString);
     itoa(device.batteryLevel, strbuff, 10);
     publishToMQTT(topic, strbuff, false);
 #endif
@@ -728,7 +734,7 @@ namespace MQTTClient
 #if PUBLISH_SIMPLE_JSON
     const uint16_t maxTopicLen = strlen(getMQTTBaseSensorTopic()) + 22;
     char topic[maxTopicLen];
-    snprintf(topic, maxTopicLen, "%s/%s", getMQTTBaseSensorTopic(), device.address);
+    snprintf(topic, maxTopicLen, "%s/%s", getMQTTBaseSensorTopic(), deviceIdAsString);
 
     const uint16_t maxPayloadLen = 45;
     char payload[maxPayloadLen];

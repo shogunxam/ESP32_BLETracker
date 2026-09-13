@@ -4,6 +4,7 @@
 #include <WString.h>
 #include <vector>
 #include "main.h"
+#include "BleDeviceId.h"
 
 enum eManualSCanMode
 {
@@ -15,15 +16,23 @@ enum eManualSCanMode
 class Settings
 {
 public:
-    struct KnownDevice
+    struct KnownDevice_v8
     {
-        KnownDevice(const KnownDevice &dev);
-        KnownDevice(const char *mac, bool batt, const char *desc);
-        KnownDevice();
-        KnownDevice &operator=(const KnownDevice &dev);
         char address[ADDRESS_STRING_SIZE];
         bool readBattery;
         char description[DESCRIPTION_STRING_SIZE];
+    };
+    
+    struct KnownDevice
+    {
+        KnownDevice(const KnownDevice &dev);
+        KnownDevice(const BleDeviceId& id, bool batt, const char *desc);
+        KnownDevice();
+        KnownDevice &operator=(const KnownDevice &dev);
+        BleDeviceId deviceId;
+        bool readBattery;
+        char description[DESCRIPTION_STRING_SIZE];
+        KnownDevice& operator=(const KnownDevice_v8 &dev);
     };
 
     Settings(const String &fileName = "", bool emptyLists = false);
@@ -34,13 +43,13 @@ public:
     void Load();
     void FactoryReset(bool emptyLists = false);
     String GetSettingsFile() { return settingsFile; }
-    bool IsTraceable(const String &value);
-    bool InBatteryList(const String &value);
+    bool IsTraceable(const BleDeviceId &value);
+    bool InBatteryList(const BleDeviceId &value);
     std::size_t GetMaxNumOfTraceableDevices();
     void EnableWhiteList(bool enable);
-    KnownDevice *GetDevice(const String &value);
+    KnownDevice *GetDevice(const BleDeviceId &value);
     void AddDeviceToList(const KnownDevice &device);
-    void AddDeviceToList(const char mac[ADDRESS_STRING_SIZE], bool checkBattery, const char description[DESCRIPTION_STRING_SIZE] = "");
+    void AddDeviceToList(const BleDeviceId& id, bool checkBattery, const char description[DESCRIPTION_STRING_SIZE] = "");
     const std::vector<KnownDevice> &GetKnownDevicesList();
     void EnableManualScan(bool enable);
     bool IsManualScanEnabled();
@@ -68,7 +77,7 @@ private:
         eReadBattery
     };
 
-    bool IsPropertyForDeviceEnabled(const String &value, DeviceProperty property);
+    bool IsPropertyForDeviceEnabled(const BleDeviceId &value, DeviceProperty property);
     String ArrayToStringList(const std::vector<String> &whiteList);
     void SaveString(File file, const String &str);
     void SaveKnownDevices(File file);

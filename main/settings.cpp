@@ -12,16 +12,16 @@ Settings::KnownDevice::KnownDevice(const KnownDevice &dev)
     *this = dev;
 }
 
-Settings::KnownDevice::KnownDevice(const char *mac, bool batt, const char *desc)
+Settings::KnownDevice::KnownDevice(const BleDeviceId& id, bool batt, const char *desc)
 {   
-    strncpy(address, mac, ADDRESS_STRING_SIZE);
+    deviceId = id;
     strncpy(description, desc, DESCRIPTION_STRING_SIZE);
     readBattery = batt;
 }
 
 Settings::KnownDevice::KnownDevice()
 {
-    address[0] = '\0';
+    deviceId = BleDeviceId();
     description[0] = '\0';
     readBattery = false;
 }
@@ -29,7 +29,15 @@ Settings::KnownDevice::KnownDevice()
 Settings::KnownDevice &Settings::KnownDevice::operator=(const KnownDevice &dev)
 {
     readBattery = dev.readBattery;
-    memcpy(address, dev.address, ADDRESS_STRING_SIZE);
+    deviceId = dev.deviceId;
+    memcpy(description, dev.description, DESCRIPTION_STRING_SIZE);
+    return *this;
+}
+
+Settings::KnownDevice &Settings::KnownDevice::operator=(const KnownDevice_v8 &dev)
+{
+    readBattery = dev.readBattery;
+    deviceId = BleDeviceId(dev.address);
     memcpy(description, dev.description, DESCRIPTION_STRING_SIZE);
     return *this;
 }
@@ -120,11 +128,11 @@ std::size_t Settings::GetMaxNumOfTraceableDevices()
     return enableWhiteList ? minNumOfTraceableDevices : absoluteMaxNumOfTraceableDevices;
 }
 
-Settings::KnownDevice *Settings::GetDevice(const String &value)
+Settings::KnownDevice *Settings::GetDevice(const BleDeviceId &value)
 {
     for (uint8_t j = 0; j < knownDevices.size(); j++)
     {
-        if (value == knownDevices[j].address)
+        if (value == knownDevices[j].deviceId)
         {
             return &(knownDevices[j]);
         }
@@ -135,16 +143,16 @@ Settings::KnownDevice *Settings::GetDevice(const String &value)
 
 void Settings::AddDeviceToList(const Settings::KnownDevice &device)
 {
-    if (!IsPropertyForDeviceEnabled(device.address, DeviceProperty::eTraceable))
+    if (!IsPropertyForDeviceEnabled(device.deviceId, DeviceProperty::eTraceable))
         knownDevices.push_back(device);
 }
 
-void Settings::AddDeviceToList(const char mac[ADDRESS_STRING_SIZE], bool checkBattery, const char description[DESCRIPTION_STRING_SIZE])
+void Settings::AddDeviceToList(const BleDeviceId &deviceId, bool checkBattery, const char description[DESCRIPTION_STRING_SIZE])
 {
-    if (!IsPropertyForDeviceEnabled(mac, DeviceProperty::eTraceable))
+    if (!IsPropertyForDeviceEnabled(deviceId, DeviceProperty::eTraceable))
     {
         KnownDevice device;
-        memcpy(&device.address, mac, sizeof(device.address));
+        device.deviceId = deviceId;
         memcpy(&device.description, description, sizeof(device.description));
         device.readBattery = checkBattery;
         knownDevices.push_back(std::move(device));
@@ -210,7 +218,7 @@ String Settings::toJSON()
             data += ",";
         else
             first = false;
-        data += R"(")" + String(device.address) + R"(":{)";
+        data += R"(")" + device.deviceId.toString() + R"(":{)";
         data += R"("battery":)" + String(device.readBattery ? "true" : "false") +  R"(,)";
         data += R"("desc":")" + String(device.description) + R"("})";
     }
@@ -219,24 +227,24 @@ String Settings::toJSON()
     return data;
 }
 
-bool Settings::IsTraceable(const String &value)
+bool Settings::IsTraceable(const BleDeviceId &deviceID)
 {
     if (enableWhiteList)
-        return IsPropertyForDeviceEnabled(value, DeviceProperty::eTraceable);
+        return IsPropertyForDeviceEnabled(deviceID, DeviceProperty::eTraceable);
     else
         return true;
 }
 
-bool Settings::InBatteryList(const String &value)
+bool Settings::InBatteryList(const BleDeviceId &deviceID)
 {
 #if PUBLISH_BATTERY_LEVEL
-    return IsPropertyForDeviceEnabled(value, DeviceProperty::eReadBattery);
+    return IsPropertyForDeviceEnabled(deviceID, DeviceProperty::eReadBattery);
 #else
     return false;
 #endif
 }
 
-bool Settings::IsPropertyForDeviceEnabled(const String &value, DeviceProperty property)
+bool Settings::IsPropertyForDeviceEnabled(const BleDeviceId &value, DeviceProperty property)
 {
     KnownDevice *device = GetDevice(value);
 
@@ -282,10 +290,13 @@ void Settings::LoadKnownDevices(File file, uint16_t version)
     {
         size_t vstrLen;
         file.read((uint8_t *)&vstrLen, sizeof(vstrLen));
+
         for (size_t i = 0; i < vstrLen; i++)
         {
+            KnownDevice_v8 devV8;
+            file.read((uint8_t *)&devV8, sizeof(KnownDevice_v8));
             KnownDevice device;
-            file.read((uint8_t *)&device, sizeof(KnownDevice));
+            device = devV8;
             knownDevices.push_back(device);
         }
     }
@@ -299,8 +310,8 @@ void Settings::LoadKnownDevices(File file, uint16_t version)
         {
             KnownDevice dev;
             dev.readBattery = false;
-            dev.description[0] = '\0';
-            strncpy(dev.address, mac.c_str(), ADDRESS_STRING_SIZE);
+            dev.description[0] = '\0';            
+            dev.deviceId = BleDeviceId(mac.c_str());
             for (const auto &macBatt : batteryWhiteList)
             {
                 if (mac == macBatt)

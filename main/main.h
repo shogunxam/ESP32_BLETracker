@@ -7,12 +7,13 @@
 #include "config.h"
 #include "firmwarever.h"
 #include "myRWMutex.h"
+#include "BleDeviceId.h"
 #define ADDRESS_STRING_SIZE 13
 #define DESCRIPTION_STRING_SIZE 21
 
 struct BLETrackedDevice
 {
-  char address[ADDRESS_STRING_SIZE];
+  BleDeviceId deviceId;
   bool isDiscovered; //Until it's TRUE the device is considered Online, if it's not discovered for a period it become FALSE
   long lastDiscoveryTime;
   long lastBattMeasureTime;
@@ -28,7 +29,7 @@ struct BLETrackedDevice
 
   BLETrackedDevice()
   {
-    address[0] = '\0';
+    deviceId = BleDeviceId();
     isDiscovered = 0;
     lastDiscoveryTime = 0;
     lastBattMeasureTime = 0;
@@ -45,8 +46,8 @@ struct BLETrackedDevice
 };
 
 char *formatMillis(unsigned long milliseconds, char outStr[20]);
-void ForceBatteryRead(const char *normalizedmac);
+void ForceBatteryRead(const BleDeviceId& deviceId);
 extern MyRWMutex trackedDevicesMutex;
 extern std::vector<BLETrackedDevice> BLETrackedDevices;
-extern std::map<std::string, bool> FastDiscovery;
+extern std::map<BleDeviceId, bool> FastDiscovery;
 #endif /*MAIN_H*/
