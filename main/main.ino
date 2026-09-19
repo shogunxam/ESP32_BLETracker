@@ -23,6 +23,8 @@
 #include "SPIFFSLogger.h"
 #include "utility.h"
 
+#include "AdvertisedDeviceCallbacks.h"
+
 #if USE_MQTT
 #include "mqtt_client.h"
 #endif
@@ -69,99 +71,7 @@ void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName)
 ///////////////////////////////////////////////////////////////////////////
 //   BLUETOOTH
 ///////////////////////////////////////////////////////////////////////////
-class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
-{
 
-  void onResult(BLEAdvertisedDevice advertisedDevice) override
-  {
-    Watchdog::Feed();
-    const uint8_t shortNameSize = 31;
-
-    BleDeviceId deviceId((const uint8_t *)advertisedDevice.getAddress().getNative(), false);
-    
-    if (!SettingsMngr.IsTraceable(deviceId))
-      return;
-
-    char shortName[shortNameSize];
-    memset(shortName, 0, shortNameSize);
-    if (advertisedDevice.haveName())
-      strncpy(shortName, advertisedDevice.getName().c_str(), shortNameSize - 1);
-
-    int RSSI = advertisedDevice.getRSSI();
-
-    char deviceIdAsString[BleDeviceId::UUID_STRING_SIZE];
-    deviceId.toString(deviceIdAsString);
-
-    CRITICALSECTION_WRITESTART(trackedDevicesMutex)
-    for (auto &trackedDevice : BLETrackedDevices)
-    {
-      if (deviceId == trackedDevice.deviceId)
-      {
-#if NUM_OF_ADVERTISEMENT_IN_SCAN > 1
-        trackedDevice.advertisementCounter++;
-        // To proceed we have to find at least NUM_OF_ADVERTISEMENT_IN_SCAN duplicates during the scan
-        // and the code have to be executed only once
-        if (trackedDevice.advertisementCounter != NUM_OF_ADVERTISEMENT_IN_SCAN)
-          return;
-#endif
-
-        if (!trackedDevice.advertised) // Skip advertised dups
-        {
-          trackedDevice.addressType = advertisedDevice.getAddressType();
-          trackedDevice.advertised = true;
-          trackedDevice.lastDiscoveryTime = NTPTime::seconds();
-          trackedDevice.rssiValue = RSSI;
-          if (!trackedDevice.isDiscovered)
-          {
-            trackedDevice.isDiscovered = true;
-            trackedDevice.connectionRetry = 0;
-            FastDiscovery[trackedDevice.deviceId] = true;
-            DEBUG_PRINTF("INFO: Tracked device discovered again, Address: %s , RSSI: %d\n", deviceIdAsString, RSSI);
-            if (advertisedDevice.haveName())
-            {
-              LOG_TO_FILE_D("Device %s ( %s ) within range, RSSI: %d ", deviceIdAsString, shortName, RSSI);
-            }
-            else
-              LOG_TO_FILE_D("Device %s within range, RSSI: %d ", deviceIdAsString, RSSI);
-          }
-          else
-          {
-            DEBUG_PRINTF("INFO: Tracked device discovered, Address: %s , RSSI: %d\n", deviceIdAsString, RSSI);
-          }
-        }
-        return;
-      }
-    }
-
-    // This is a new device...
-    BLETrackedDevice trackedDevice;
-    trackedDevice.advertised = NUM_OF_ADVERTISEMENT_IN_SCAN <= 1; // Skip duplicates
-    trackedDevice.deviceId = deviceId;
-    trackedDevice.addressType = advertisedDevice.getAddressType();
-    trackedDevice.isDiscovered = NUM_OF_ADVERTISEMENT_IN_SCAN <= 1;
-    trackedDevice.lastDiscoveryTime = NTPTime::seconds();
-    trackedDevice.lastBattMeasureTime = 0;
-    trackedDevice.batteryLevel = -1;
-    trackedDevice.hasBatteryService = true;
-    trackedDevice.connectionRetry = 0;
-    trackedDevice.rssiValue = RSSI;
-    trackedDevice.advertisementCounter = 1;
-    BLETrackedDevices.push_back(std::move(trackedDevice));
-    FastDiscovery[trackedDevice.deviceId] = true;
-#if NUM_OF_ADVERTISEMENT_IN_SCAN > 1
-    // To proceed we have to find at least NUM_OF_ADVERTISEMENT_IN_SCAN duplicates during the scan
-    // and the code have to be executed only once
-    return;
-#endif
-    CRITICALSECTION_WRITEEND;
-
-    DEBUG_PRINTF("INFO: Device discovered, Address: %s , RSSI: %d\n", deviceIdAsString, RSSI);
-    if (advertisedDevice.haveName())
-      LOG_TO_FILE_D("Discovered new device %s ( %s ) within range, RSSI: %d ", deviceIdAsString, shortName, RSSI);
-    else
-      LOG_TO_FILE_D("Discovered new device %s within range, RSSI: %d ", deviceIdAsString, RSSI);
-  }
-};
 
 static BLEUUID service_BATT_UUID(BLEUUID((uint16_t)0x180F));
 static BLEUUID char_BATT_UUID(BLEUUID((uint16_t)0x2A19));

@@ -102,7 +102,7 @@ public:
     }
 
 private:
-    uint8_t m_raw[16]; // 6 byte per MAC (con padding di zeri) o 16 byte per UUID iBeacon
+    uint8_t m_raw[RAW_ID_SIZE ]; // 6 byte per MAC (con padding di zeri) o 16 byte per UUID iBeacon + 4 byte per major e minor
     bool m_isiBeacon;  // Distingue il tipo di identificativo
 };
 
