@@ -249,27 +249,27 @@ namespace MQTTClient
   static const char *devicePayloadBtt = R"({"state":"%s","rssi":%d,"battery":%d})";
   static const char *devicePayloadNoBtt = R"({"state":"%s","rssi":%d})";
 
-  void publishBLEState(const char address[ADDRESS_STRING_SIZE], const char state[4], int8_t rssi, int8_t batteryLevel)
+  void publishBLEState(const char deviceId[BleDeviceId::UUID_STRING_SIZE], const char state[4], int8_t rssi, int8_t batteryLevel)
   {
-    const uint16_t maxTopicLen = strlen(getMQTTBaseSensorTopic()) + 22;
+    const uint16_t maxTopicLen = strlen(getMQTTBaseSensorTopic()) + BleDeviceId::UUID_STRING_SIZE + 9; // 9 for additional characters like "/battery"
     char topic[maxTopicLen];
-    char strbuff[5];
+    char strbuff[5]; // Buffer for converting integers to strings
 
 #if PUBLISH_SEPARATED_TOPICS
-    snprintf(topic, maxTopicLen, "%s/%s/state", getMQTTBaseSensorTopic(), address);
+    snprintf(topic, maxTopicLen, "%s/%s/state", getMQTTBaseSensorTopic(), deviceId);
     publishToMQTT(topic, state, false);
-    snprintf(topic, maxTopicLen, "%s/%s/rssi", getMQTTBaseSensorTopic(), address);
+    snprintf(topic, maxTopicLen, "%s/%s/rssi", getMQTTBaseSensorTopic(), deviceId);
     itoa(rssi, strbuff, 10);
     publishToMQTT(topic, strbuff, false);
 #if PUBLISH_BATTERY_LEVEL
-    snprintf(topic, maxTopicLen, "%s/%s/battery", getMQTTBaseSensorTopic(), address);
+    snprintf(topic, maxTopicLen, "%s/%s/battery", getMQTTBaseSensorTopic(), deviceId);
     itoa(batteryLevel, strbuff, 10);
     publishToMQTT(topic, strbuff, false);
 #endif
 #endif
 
 #if PUBLISH_SIMPLE_JSON
-    snprintf(topic, maxTopicLen, "%s/%s", getMQTTBaseSensorTopic(), address);
+    snprintf(topic, maxTopicLen, "%s/%s", getMQTTBaseSensorTopic(), deviceId);
     const uint16_t maxPayloadLen = 45;
     char payload[maxPayloadLen];
 
@@ -710,7 +710,7 @@ namespace MQTTClient
 
     char deviceIdAsString[BleDeviceId::UUID_STRING_SIZE];
     device.deviceId.toString(deviceIdAsString);
-    
+
     // Use the existing code to publish device data
 #if PUBLISH_SEPARATED_TOPICS
     const uint16_t maxTopicLen = strlen(getMQTTBaseSensorTopic()) + 22;

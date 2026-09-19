@@ -3,13 +3,20 @@
 #include "DebugPrint.h"
 #include "WiFiManager.h" 
 
-#define CURRENT_SETTING_VERSION 8
+#define CURRENT_SETTING_VERSION 9
 
 Settings SettingsMngr;
 
 Settings::KnownDevice::KnownDevice(const KnownDevice &dev)
 {
     *this = dev;
+}
+
+Settings::KnownDevice::KnownDevice(const KnownDevice_v8 &dev)
+{
+    readBattery = dev.readBattery;
+    deviceId = BleDeviceId(dev.address);
+    memcpy(description, dev.description, DESCRIPTION_STRING_SIZE);
 }
 
 Settings::KnownDevice::KnownDevice(const BleDeviceId& id, bool batt, const char *desc)
@@ -30,14 +37,6 @@ Settings::KnownDevice &Settings::KnownDevice::operator=(const KnownDevice &dev)
 {
     readBattery = dev.readBattery;
     deviceId = dev.deviceId;
-    memcpy(description, dev.description, DESCRIPTION_STRING_SIZE);
-    return *this;
-}
-
-Settings::KnownDevice &Settings::KnownDevice::operator=(const KnownDevice_v8 &dev)
-{
-    readBattery = dev.readBattery;
-    deviceId = BleDeviceId(dev.address);
     memcpy(description, dev.description, DESCRIPTION_STRING_SIZE);
     return *this;
 }
@@ -283,6 +282,24 @@ void Settings::SaveKnownDevices(File file)
     }
 }
 
+Settings::KnownDevice Settings::readKnownDeviceV8(File& file)
+{
+    KnownDevice_v8 data;
+    if (file.read((uint8_t*)&data, sizeof(data)) != sizeof(data))
+        return {};
+
+    return KnownDevice(data);
+}
+
+Settings::KnownDevice Settings::readKnownDeviceV9(File& file)
+{
+    KnownDevice data;
+    if (file.read((uint8_t*)&data, sizeof(data)) != sizeof(data))
+        return {};
+
+    return data;
+}
+
 void Settings::LoadKnownDevices(File file, uint16_t version)
 {
     knownDevices.clear();
@@ -290,14 +307,21 @@ void Settings::LoadKnownDevices(File file, uint16_t version)
     {
         size_t vstrLen;
         file.read((uint8_t *)&vstrLen, sizeof(vstrLen));
-
-        for (size_t i = 0; i < vstrLen; i++)
+        if(version > 8)
         {
-            KnownDevice_v8 devV8;
-            file.read((uint8_t *)&devV8, sizeof(KnownDevice_v8));
-            KnownDevice device;
-            device = devV8;
-            knownDevices.push_back(device);
+            for (size_t i = 0; i < vstrLen; i++)
+            {
+                KnownDevice device = readKnownDeviceV9(file);
+                knownDevices.push_back(device);
+            }
+        }
+        else
+        {
+            for (size_t i = 0; i < vstrLen; i++)
+            {
+                KnownDevice device = readKnownDeviceV8(file);
+                knownDevices.push_back(device);
+            }
         }
     }
     else //Build KnowDevices from 2 arrays

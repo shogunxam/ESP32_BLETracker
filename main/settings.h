@@ -22,17 +22,17 @@ public:
         bool readBattery;
         char description[DESCRIPTION_STRING_SIZE];
     };
-    
+
     struct KnownDevice
     {
         KnownDevice(const KnownDevice &dev);
+        KnownDevice(const KnownDevice_v8 &dev);
         KnownDevice(const BleDeviceId& id, bool batt, const char *desc);
         KnownDevice();
         KnownDevice &operator=(const KnownDevice &dev);
         BleDeviceId deviceId;
         bool readBattery;
         char description[DESCRIPTION_STRING_SIZE];
-        KnownDevice& operator=(const KnownDevice_v8 &dev);
     };
 
     Settings(const String &fileName = "", bool emptyLists = false);
@@ -84,6 +84,8 @@ private:
     void LoadKnownDevices(File file, uint16_t version);
     void LoadString(File file, String &str);
     void LoadStringArray(File file, std::vector<String> &vstr);
+    KnownDevice readKnownDeviceV8(File& file);
+    KnownDevice readKnownDeviceV9(File& file);
     String settingsFile;
     uint16_t version;
     std::vector<KnownDevice> knownDevices;

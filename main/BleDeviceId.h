@@ -6,9 +6,11 @@
 class BleDeviceId
 {
 public:
-    constexpr static int RAW_ID_SIZE = 16;
+    constexpr static int RAW_ID_SIZE = 20;
     constexpr static int MAC_ID_SIZE = 6;
-    constexpr static int UUID_STRING_SIZE = 37; // 36 characters for UUID + null terminator
+    constexpr static int UUID_STRING_SIZE = 41; // 36 characters for UUID + null terminator
+    constexpr static int MINOR_SIZE = 2; // 2 bytes for minor value
+    constexpr static int MAJOR_SIZE = 2; // 2 bytes for major value
 
     BleDeviceId()
     {
@@ -21,11 +23,11 @@ public:
         fromString(id);
     }
 
-    BleDeviceId(const uint8_t *genericId, bool isiBeacon)
+    BleDeviceId(const uint8_t *genericId, bool isiBeacon, uint16_t major = 0, uint16_t minor = 0)
     {
         if (isiBeacon)
         {
-            buildFromiBeacon(genericId);
+            buildFromiBeacon(genericId, major, minor);
         }
         else
         {
@@ -40,10 +42,15 @@ public:
         m_isiBeacon = false;
     }
 
-    void buildFromiBeacon(const uint8_t uuid[16])
+    void buildFromiBeacon(const uint8_t uuid[16], uint16_t major = 0, uint16_t minor = 0)
     {
-        memcpy(m_raw, uuid, RAW_ID_SIZE);
+        memcpy(m_raw, uuid, RAW_ID_SIZE-MAJOR_SIZE-MINOR_SIZE);
         m_isiBeacon = true;
+        // Store major and minor if needed in the last 4 bytes of m_raw
+        m_raw[16] = (major >> 8) & 0xFF;
+        m_raw[17] = major & 0xFF;
+        m_raw[18] = (minor >> 8) & 0xFF;
+        m_raw[19] = minor & 0xFF;
     }
 
     bool isIBeacon() const
