@@ -61,7 +61,20 @@ The Bluetooth activity involved in scanning, connecting, and reading data from t
   ```
   The device list can be also updated and enabled through the web interface.
 
-  **Important**: MAC addresses must be uppercase without ":" or "-" (e.g., "BA683F7EC159")
+  **Important**: MAC addresses must be uppercase without ":" or "-" (e.g., "BA683F7EC159") or follow the Beacon ID format (UUID-Major-Minor) for tracked beacons.
+
+### Beacon Tracking (iBeacon, AltBeacon, Eddystone)
+
+Starting with recent versions, the system can track standard BLE Beacons using their unique payload instead of their temporary or public MAC addresses:
+
+- **Supported Formats**: 
+  - **Apple iBeacon**: Extracted UUID, Major, and Minor.
+  - **AltBeacon**: Extracted Beacon ID, Major, and Minor.
+  - **Eddystone (UID)**: Extracted Namespace and Instance.
+- **FHEM Limitation**: Beacon tracking is **automatically disabled** when FHEM is active (`USE_FHEM_LEPRESENCE_SERVER` set to `true`) due to memory and scanning constraints.
+- **Testing Disclaimer**: These beacon formats have been tested and verified exclusively using the **nRF Connect** mobile application to simulate beacon advertisements.
+
+For beacons, the MAC address is replaced by a combination of the UUID, Major, and Minor values. For example, a beacon with the UUID `11223344-5566-7788-9900-AABBCC111111`, Major 1, and Minor 2 is represented as the following 40-character hexadecimal string: `11223344556677889900AABBCC11111100010002`. For Eddystone beacons, the Major and Minor values are set to 0.
 
 ## Features
 
@@ -255,14 +268,19 @@ As an alternative to MQTT, the BLETracker can integrate with FHEM:
 
 | BLE Device            | Discovery | Battery |
 |-----------------------|:---------:|:-------:|
-| Nut mini              | ✔️        | ✔️      |
-| Nut2                  | ✔️        | ❗️      |
-| Remote Shutter        | ✔️        | ✔️      |
-| Xiomi Amazfit Bip     | ✔️        | ❌      |
-| REDMOND RFT-08S       | ✔️        | ❌      |
-| Xiomi Mi Smart Band 4 | ✔️        | ❌      |
-| Fitness Band GT101    | ✔️        | ❌      |
-| Gigaset G-tag Beacon  | ✔️        | ✔️      |
+| Nut mini              | ✔️        | ✔️     |
+| Nut2                  | ✔️        | ❗️     |
+| Remote Shutter        | ✔️        | ✔️     |
+| Xiomi Amazfit Bip     | ✔️        | ❌     |
+| REDMOND RFT-08S       | ✔️        | ❌     |
+| Xiomi Mi Smart Band 4 | ✔️        | ❌     |
+| Fitness Band GT101    | ✔️        | ❌     |
+| Gigaset G-tag Beacon  | ✔️        | ✔️     |
+| Simulated iBeacon     | ✔️ (1)    | ❌     |
+| Simulated AltBeacon   | ✔️ (1)    | ❌     |
+| Simulated Eddystone   | ✔️ (1)    | ❌     |
+
+*(1) Simulated and tested exclusively via the **nRF Connect** mobile application.*
 
 ## Troubleshooting
 
