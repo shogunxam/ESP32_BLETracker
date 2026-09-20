@@ -79,14 +79,11 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
         std::string serviceData = advertisedDevice.getServiceData(i);
         uint8_t *data = (uint8_t *)serviceData.data();
         size_t len = serviceData.length();
-        DEBUG_PRINTF("INFO: Service Data LENGTH: %zu ,%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X\n", len, data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7], data[8], data[9], data[10]);
         if (len>=18 && data[0] == 0x00)
         {
           uint8_t beaconId[16];
           memcpy(beaconId, data + 2, 16);
-          DEBUG_PRINTF("INFO: Service Data LENGTH: %zu ,%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X\n", len, beaconId[0], beaconId[1], beaconId[2], beaconId[3], beaconId[4], beaconId[5], beaconId[6], beaconId[7], beaconId[8], beaconId[9], beaconId[10]);
           deviceId = BleDeviceId(beaconId, true, 0, 0);
-          DEBUG_PRINTF("INFO: Device ID extracted %s: \n", deviceId.toString().c_str());
           return true;
         }
       }
