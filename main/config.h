@@ -84,10 +84,8 @@
 
 #if USE_FHEM_LEPRESENCE_SERVER
 #define PROGRESSIVE_SCAN true
-#define TRACK_BEACONS false
 #else
 #define PROGRESSIVE_SCAN false
-#define TRACK_BEACONS true
 #endif
 
 
@@ -104,7 +102,7 @@
 #define  SERVER_PORT  0
 #endif
 
-
+#define TRACK_BEACONS true
 
 #define ENABLE_OTA_WEBSERVER    true
 

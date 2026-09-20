@@ -71,7 +71,6 @@ Starting with recent versions, the system can track standard BLE Beacons using t
   - **Apple iBeacon**: Extracted UUID, Major, and Minor.
   - **AltBeacon**: Extracted Beacon ID, Major, and Minor.
   - **Eddystone (UID)**: Extracted Namespace and Instance.
-- **FHEM Limitation**: Beacon tracking is **automatically disabled** when FHEM is active (`USE_FHEM_LEPRESENCE_SERVER` set to `true`) due to memory and scanning constraints.
 - **Testing Disclaimer**: These beacon formats have been tested and verified exclusively using the **nRF Connect** mobile application to simulate beacon advertisements.
 
 For beacons, the MAC address is replaced by a combination of the UUID, Major, and Minor values. For example, a beacon with the UUID `11223344-5566-7788-9900-AABBCC111111`, Major 1, and Minor 2 is represented as the following 40-character hexadecimal string: `11223344556677889900AABBCC11111100010002`. For Eddystone beacons, the Major and Minor values are set to 0.
