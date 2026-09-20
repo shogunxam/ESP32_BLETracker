@@ -84,8 +84,10 @@
 
 #if USE_FHEM_LEPRESENCE_SERVER
 #define PROGRESSIVE_SCAN true
+#define TRACK_BEACONS false
 #else
 #define PROGRESSIVE_SCAN false
+#define TRACK_BEACONS true
 #endif
 
 

@@ -50,7 +50,7 @@ namespace FHEMLePresenceServer
     CRITICALSECTION_READSTART(trackedDevicesMutex)
     for (auto &trackedDevice : BLETrackedDevices)
     {
-      if (strcmp(fhemClient.normalizedAddress, trackedDevice.address) != 0)
+      if (strcmp(fhemClient.normalizedAddress, trackedDevice.deviceId.toString().c_str()) != 0)
         continue;
 
       if ((trackedDevice.lastDiscoveryTime + fhemClient.timeout) >= NTPTime::seconds())

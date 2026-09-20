@@ -6,10 +6,10 @@ void BleDeviceId::toString(char output[UUID_STRING_SIZE]) const
   if (m_isiBeacon) {
     // E2C56DB5-DFFB-48D2-B060-D0F5A71096E0
     int dst = 0;
-    for (int i = 0; i < 16; i++) {
-      if (i == 4 || i == 6 || i == 8 || i == 10) {
-        output[dst++] = '-';
-      }
+    for (int i = 0; i < RAW_ID_SIZE; i++) {
+      //if (i == 4 || i == 6 || i == 8 || i == 10) {
+      //  output[dst++] = '-';
+      //}
       output[dst++] = hexChars[(m_raw[i] >> 4) & 0x0F];
       output[dst++] = hexChars[m_raw[i] & 0x0F];
     }

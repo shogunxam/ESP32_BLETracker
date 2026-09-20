@@ -9,6 +9,96 @@
 #include <BLEAdvertisedDevice.h>
 class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
 {
+  #if TRACK_BEACONS
+  bool GetAppleIBeaconDeviceID(uint8_t *data, uint8_t manuDataLength, BleDeviceId &deviceId)
+  {
+    if (manuDataLength < 25)
+    {
+      return false;
+    }
+
+    if (!(data[0] == 0x4C && data[1] == 0x00 && data[2] == 0x02 && data[3] == 0x15))
+    {
+      return false;
+    }
+
+    uint8_t uuid[16];
+    memcpy(uuid, data + 4, 16);
+    uint16_t major = (data[20] << 8) | data[21];
+    uint16_t minor = (data[22] << 8) | data[23];
+    deviceId = BleDeviceId(uuid, true, major, minor);
+    return true;
+  }
+
+  bool GetAltBeaconDeviceID(uint8_t *data, uint8_t manuDataLength, BleDeviceId &deviceId)
+  {
+    if (manuDataLength < 26)
+    {
+      return false;
+    }
+    if (!(data[2] == 0xBE && data[3] == 0xAC))
+    {
+      return false;
+    }
+    uint8_t beaconId[20];
+    memcpy(beaconId, data + 4, 16);
+    uint16_t major = (data[20] << 8) | data[21];
+    uint16_t minor = (data[22] << 8) | data[23];
+    deviceId = BleDeviceId(beaconId, true, major, minor);
+    return true;
+  }
+
+  bool GetIBeaconId(BLEAdvertisedDevice &advertisedDevice, BleDeviceId &deviceId)
+  {
+    if (advertisedDevice.haveManufacturerData())
+    {
+      std::string manuData = advertisedDevice.getManufacturerData();
+      uint8_t *data = (uint8_t *)manuData.data();
+      uint8_t manuDataLength = manuData.length();
+
+      return GetAppleIBeaconDeviceID(data, manuDataLength, deviceId) ||
+             GetAltBeaconDeviceID(data, manuDataLength, deviceId);
+    }
+    return false;
+  }
+
+  bool GetEddyStoneBeaconId(BLEAdvertisedDevice &advertisedDevice, BleDeviceId &deviceId)
+  {
+    if (!advertisedDevice.haveServiceData())
+    {
+      return false;
+    }
+
+    static const BLEUUID eddystoneUUID("0000feaa-0000-1000-8000-00805f9b34fb");
+    int numServiceData = advertisedDevice.getServiceDataCount();
+    for (int i = 0; i < numServiceData; i++)
+    {
+      BLEUUID serviceDataUUID = advertisedDevice.getServiceDataUUID(i);
+      if (serviceDataUUID.equals(eddystoneUUID))
+      {
+        std::string serviceData = advertisedDevice.getServiceData(i);
+        uint8_t *data = (uint8_t *)serviceData.data();
+        size_t len = serviceData.length();
+        DEBUG_PRINTF("INFO: Service Data LENGTH: %zu ,%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X\n", len, data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7], data[8], data[9], data[10]);
+        if (len>=18 && data[0] == 0x00)
+        {
+          uint8_t beaconId[16];
+          memcpy(beaconId, data + 2, 16);
+          DEBUG_PRINTF("INFO: Service Data LENGTH: %zu ,%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X\n", len, beaconId[0], beaconId[1], beaconId[2], beaconId[3], beaconId[4], beaconId[5], beaconId[6], beaconId[7], beaconId[8], beaconId[9], beaconId[10]);
+          deviceId = BleDeviceId(beaconId, true, 0, 0);
+          DEBUG_PRINTF("INFO: Device ID extracted %s: \n", deviceId.toString().c_str());
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  bool GetDeviceIdFromBeacon(BLEAdvertisedDevice &advertisedDevice, BleDeviceId &deviceId)
+  {
+    return (GetIBeaconId(advertisedDevice, deviceId) || GetEddyStoneBeaconId(advertisedDevice, deviceId));
+  }
+  #endif
 
   void onResult(BLEAdvertisedDevice advertisedDevice) override
   {
@@ -19,68 +109,28 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
     memset(shortName, 0, shortNameSize);
     memset(deviceIdAsString, 0, BleDeviceId::UUID_STRING_SIZE);
     BleDeviceId deviceId;
-    bool isIBeacon = false;
-    // Check for iBeacon manufacturer data
-    if (advertisedDevice.haveManufacturerData())
-    {
-        DEBUG_PRINT("INFO: Device discovered, has manufacturer data\n");
-        std::string manuData = advertisedDevice.getManufacturerData();
+    #if TRACK_BEACONS
+    bool isBeacon = GetDeviceIdFromBeacon(advertisedDevice, deviceId);
     
-        // iBeacon format: 
-        // Length: 25 bytes
-        // Company ID: 0x004C (Apple, little endian)
-        // Type: 0x02 0x15 (iBeacon)
-        // UUID: 16 bytes
-        // Major: 2 bytes
-        // Minor: 2 bytes
-        // RSSI at 1m: 1 byte
-            
-        if (manuData.length() >= 25) 
-        {
-            uint8_t* data = (uint8_t*)manuData.data();
-            
-            // Check Apple company ID (little endian)
-            if (data[0] == 0x4C && data[1] == 0x00 && data[2] == 0x02 && data[3] == 0x15) 
-            {
-                isIBeacon = true;
-                // Valid iBeacon detected
-                // Extract UUID (bytes 4-19)
-                // Extract major (bytes 20-21) 
-                // Extract minor (bytes 22-23)
-                uint8_t uuid[16];
-                memcpy(uuid, data + 4, 16);
-            
-                uint16_t major = (data[20] << 8) | data[21];
-                uint16_t minor = (data[22] << 8) | data[23];
-                deviceId = BleDeviceId(uuid, true, major, minor);
-                deviceId.toString(deviceIdAsString);
-                shortName[0] = '\0';
-                if (advertisedDevice.haveName())
-                {
-                strncpy(shortName, advertisedDevice.getName().c_str(), shortNameSize - 1);
-                }
-
-                DEBUG_PRINTF("INFO: Device discovered is iBeacon: %s (%s)\n", deviceIdAsString, shortName);
-            }
-        }
-    }
-
-    if(!isIBeacon)
+    if (!isBeacon)
     {
-        deviceId = BleDeviceId((const uint8_t *)advertisedDevice.getAddress().getNative(), false);
-        deviceId.toString(deviceIdAsString);
-        shortName[0] = '\0';
-        if (advertisedDevice.haveName())
-        {
-          strncpy(shortName, advertisedDevice.getName().c_str(), shortNameSize - 1);
-        }
-
-        DEBUG_PRINTF("INFO: Device discovered is not iBeacon: %s (%s)\n", deviceIdAsString, shortName);
+      deviceId = BleDeviceId((const uint8_t *)advertisedDevice.getAddress().getNative(), false);     
     }
+    #else
+    deviceId = BleDeviceId((const uint8_t *)advertisedDevice.getAddress().getNative(), false);
+    bool isBeacon = false;
+    #endif
+
+    if (advertisedDevice.haveName())
+    {
+      strncpy(shortName, advertisedDevice.getName().c_str(), shortNameSize - 1);
+    } 
+
+    deviceId.toString(deviceIdAsString);
+    DEBUG_PRINTF("INFO: Device discovered is%s a iBeacon: %s (%s)\n", isBeacon ? "" : " not", deviceIdAsString, shortName);
 
     if (!SettingsMngr.IsTraceable(deviceId))
       return;
-
 
     int RSSI = advertisedDevice.getRSSI();
 
