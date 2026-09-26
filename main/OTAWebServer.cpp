@@ -603,10 +603,13 @@ void OTAWebServer::sendSysInfoData(bool trackerInfo, bool deviceList)
 
   if (deviceList)
   {
+    SendChunkedContent(R"("discovery":)");
+    SendChunkedContent(discoveryMode ? "true," : "false,");
     SendChunkedContent(R"("devices":[)");
 
     bool first = true;
     char deviceIdAsString[BleDeviceId::UUID_STRING_SIZE];
+    CRITICALSECTION_READSTART(trackedDevicesMutex)
     for (auto &trackedDevice : BLETrackedDevices)
     {
       trackedDevice.deviceId.toString(deviceIdAsString);
@@ -617,14 +620,18 @@ void OTAWebServer::sendSysInfoData(bool trackerInfo, bool deviceList)
       SendChunkedContent(R"({"mac":")");
       SendChunkedContent(deviceIdAsString);
       SendChunkedContent(R"(",)");
-      Settings::KnownDevice *device = SettingsMngr.GetDevice(trackedDevice.deviceId);
-      if (device != nullptr && device->description[0] != '\0')
+      SendChunkedContent(R"("name":")");
+      Settings::KnownDevice *knownDevice = SettingsMngr.GetDevice(trackedDevice.deviceId);
+      if (knownDevice != nullptr)
       {
-        SendChunkedContent(R"("name":")");
-        SendChunkedContent(device->description);
-        SendChunkedContent(R"(",)");
+        SendChunkedContent(knownDevice->description);
       }
-
+      else if (trackedDevice.name[0] != '\0')
+      {
+       SendChunkedContent(trackedDevice.name);
+      }
+      SendChunkedContent(R"(","whitelisted":)");
+      SendChunkedContent(SettingsMngr.GetDevice(trackedDevice.deviceId) != nullptr ? "true," : "false,");
       SendChunkedContent(R"("rssi":)");
       itoa(trackedDevice.rssiValue, strbuff, 10);
       SendChunkedContent(strbuff);
@@ -653,6 +660,7 @@ void OTAWebServer::sendSysInfoData(bool trackerInfo, bool deviceList)
       SendChunkedContent(trackedDevice.isDiscovered ? "On" : "Off");
       SendChunkedContent(R"("})");
     }
+    CRITICALSECTION_READEND
     SendChunkedContent("]}");
   }
   FlushChunkedContent();
@@ -839,6 +847,43 @@ void OTAWebServer::setManualScan()
   }
 }
 
+void OTAWebServer::setDiscoveryMode()
+{
+  if (!server.authenticate(SettingsMngr.wbsUser.c_str(), SettingsMngr.wbsPwd.c_str()))
+  {
+    return server.requestAuthentication();
+  }
+
+  SendDefaulHeaders();
+  if (!server.hasArg("state") || (server.arg("state") != "on" && server.arg("state") != "off"))
+  {
+    server.send(400, F("application/json"), F("{\"error\":\"state must be on or off\"}"));
+    return;
+  }
+
+  const bool enabled = server.arg("state") == "on";
+  CRITICALSECTION_WRITESTART(trackedDevicesMutex)
+  discoveryMode = enabled;
+  if (!enabled)
+  {
+    for (auto it = BLETrackedDevices.begin(); it != BLETrackedDevices.end();)
+    {
+      if (SettingsMngr.GetDevice(it->deviceId) == nullptr)
+      {
+        FastDiscovery.erase(it->deviceId);
+        it = BLETrackedDevices.erase(it);
+      }
+      else
+      {
+        ++it;
+      }
+    }
+  }
+  CRITICALSECTION_WRITEEND
+
+  server.send(200, F("application/json"), enabled ? F("{\"discovery\":true}") : F("{\"discovery\":false}"));
+}
+
 void OTAWebServer::handleMQTTFrag()
 {
   if (!server.authenticate(SettingsMngr.wbsUser.c_str(), SettingsMngr.wbsPwd.c_str()))
@@ -990,6 +1035,11 @@ void OTAWebServer::setup(const String &hN)
             { setManualScan(); });
   server.on(F("/api/scan/off"), HTTP_POST, [&]()
             { setManualScan(); });
+
+  server.on(F("/api/discovery"), HTTP_POST, [&]()
+            { setDiscoveryMode(); });
+  server.on(F("/api/discovery"), HTTP_OPTIONS, [&]()
+            { handleOptions(); });
 
   server.on(F("/api/device"), HTTP_GET, [&]()
             { getDeviceInfoData(); });

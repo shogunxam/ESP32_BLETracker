@@ -19,6 +19,8 @@ namespace UDPClient
 
     void publishBLEState(const BLETrackedDevice &device)
     {
+        if (discoveryMode)
+            return;
         // Calculate the maximum payload size needed for the UDP message
         static const size_t payloadSize = 52 + LOCATION_NAME_MAX_LEN + GATEWAY_NAME_MAX_LEN + BleDeviceId::UUID_STRING_SIZE + 1 + 4 + 3 + 10; 
         char payload[payloadSize];
@@ -42,6 +44,8 @@ namespace UDPClient
 
     void publishSySInfo()
     {
+        if (discoveryMode)
+            return;
         const size_t ssidlen = SettingsMngr.wifiSSID.length() + 1;
         unsigned long now = NTPTime::getTimeStamp();
         long rssi = WiFi.RSSI();

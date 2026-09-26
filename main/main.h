@@ -10,10 +10,12 @@
 #include "BleDeviceId.h"
 #define ADDRESS_STRING_SIZE 13
 #define DESCRIPTION_STRING_SIZE 21
+#define BLE_NAME_STRING_SIZE 32
 
 struct BLETrackedDevice
 {
   BleDeviceId deviceId;
+  char name[BLE_NAME_STRING_SIZE];
   bool isDiscovered; //Until it's TRUE the device is considered Online, if it's not discovered for a period it become FALSE
   long lastDiscoveryTime;
   long lastBattMeasureTime;
@@ -30,6 +32,7 @@ struct BLETrackedDevice
   BLETrackedDevice()
   {
     deviceId = BleDeviceId();
+    name[0] = '\0';
     isDiscovered = 0;
     lastDiscoveryTime = 0;
     lastBattMeasureTime = 0;
@@ -50,4 +53,5 @@ void ForceBatteryRead(const BleDeviceId& deviceId);
 extern MyRWMutex trackedDevicesMutex;
 extern std::vector<BLETrackedDevice> BLETrackedDevices;
 extern std::map<BleDeviceId, bool> FastDiscovery;
+extern bool discoveryMode;
 #endif /*MAIN_H*/

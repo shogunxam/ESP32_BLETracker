@@ -121,6 +121,14 @@
             <div id="devices" class="tab-content">
                 <div class="card">
                     <h2 class="card-title">Tracked Devices</h2>
+                    <div class="form-group">
+                        <div class="checkbox-container">
+                            <input type="checkbox" id="discoveryMode" name="discoveryMode">
+                            <label for="discoveryMode">
+                                <i class="fab fa-bluetooth"></i> Discovery Mode
+                            </label>
+                        </div>
+                    </div>
 					<div class="form-group">
 						<div class="checkbox-container">
 							<input type="checkbox" id="whiteList" name="whiteList">
@@ -135,7 +143,7 @@
                                 <tr>
                                     <th>MAC Address</th>
                                     <th>Description</th>
-                                    <th>Read Battery</th>
+                                    <th>Read Battery / Pair</th>
 									<th>Actions</th>
                                 </tr>
                             </thead>
