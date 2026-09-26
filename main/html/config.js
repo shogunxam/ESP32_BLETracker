@@ -96,10 +96,13 @@ $(document).ready(() => {
         if (tr.dataset.discovery === 'true' && !cells[2].querySelector('input').checked) return;
         const mac = cells[0].textContent.replace(/[:-]/g, '');
         const desc = cells[1].querySelector('input').value || '';
-        const battery = cells[2].querySelector('input[type="checkbox"]').checked;
         formData.append(mac + '[desc]', desc);
-        if (!tr.dataset.discovery && battery) formData.append(mac + '[batt]', 'true');
-      }
+
+        if (tr.dataset.discovery !== 'true') {
+          const battery = cells[2].querySelector('input[type="checkbox"]').checked;
+          if (battery) formData.append(mac + '[batt]', 'true');
+        }
+      } 
     });
 
     // Mostra l'alert di salvataggio in corso
@@ -171,9 +174,11 @@ function PopulatePage(data) {
   locallyPairedDevices.forEach((device, address) => {
     const trackedAddress = Object.keys(data.trk_list).find(mac => deviceKey(mac) === address);
     if (device.paired && !trackedAddress) {
-      data.trk_list[device.address] = { desc: device.description, battery: true };
+      // Preserva il valore impostato nell'oggetto locale (false di default)
+      data.trk_list[device.address] = { desc: device.description, battery: device.readBattery };
     }
   });
+
   window.trackedDeviceList = data.trk_list;
 
   const fields = {
@@ -245,9 +250,7 @@ function updateDiscoveryView(data) {
     return [deviceKey(address), { ...device, address }];
   }));
   
-  const trackedDevices = new Set(Object.keys(window.trackedDeviceList || {}).map(deviceKey));
-  
-  // Sincronizza i dispositivi locali temporanei nella mappa principale dei dispositivi scoperti
+  // Sincronizza i dispositivi locali in fase di accoppiamento temporaneo
   locallyPairedDevices.forEach((pending, key) => {
     if (!devices.has(key)) {
       devices.set(key, { ...pending, address: pending.address });
@@ -258,17 +261,18 @@ function updateDiscoveryView(data) {
     const key = deviceKey(device.address);
     const pending = locallyPairedDevices.get(key);
     
-    // Un dispositivo è accoppiato se lo dice il server (whitelisted / già tracciato) 
-    // OPPURE se l'utente ha modificato lo stato localmente nell'interfaccia (pending.paired)
-    const pairedOnServer = device.whitelisted === true || trackedDevices.has(key);
-    const paired = pairedOnServer || (pending?.paired === true);
+    // Il dispositivo è accoppiato se è già whitelisted sul server OPPURE se l'utente lo ha cliccato localmente
+    const pairedOnServer = device.whitelisted === true;
+    const isPaired = pairedOnServer || (pending?.paired === true);
 
     const row = createDeviceRow({
       address: device.address,
       description: pending ? pending.description : (device.name || ''),
-      readBattery: paired,
       discovery: true,
-      paired: paired // Questo flag ora riflette fedelmente lo stato UI locale + Server
+      paired: isPaired,
+      whitelisted: pairedOnServer,
+      // Manteniamo il valore reale della batteria che arriva dal server (se presente)
+      readBattery: pending ? pending.readBattery : (device.battery !== undefined ? device.battery : false)
     });
     $('#devices-table tbody').append(row);
   });
@@ -307,8 +311,11 @@ const createDeviceRow = (device) => {
   row.dataset.mac = device.address;
   row.dataset.discovery = device.discovery ? 'true' : 'false';
 
-  const isChecked = device.readBattery || device.paired ? 'checked' : '';
-  const isDisabled = device.discovery && (device.whitelisted === true || (window.trackedDeviceList && deviceKey(device.address) in window.trackedDeviceList)) ? 'disabled' : '';
+  // LOGICA TOGGLE SEPARATA: 
+  // In Discovery controlla lo stato dell'accoppiamento (paired)
+  // In modalità Normale controlla lo stato della batteria (readBattery)
+  const isChecked = device.discovery ? (device.paired ? 'checked' : '') : (device.readBattery ? 'checked' : '');
+  const isDisabled = device.discovery && device.whitelisted ? 'disabled' : '';
 
   row.innerHTML = `
     <td>${device.address}</td>
@@ -321,7 +328,7 @@ const createDeviceRow = (device) => {
     </td>
     <td><button type="button" class="btn btn-danger btn-icon" title="Delete device"><i class="fas fa-trash-alt"></i></button></td>
   `;
-  if (device.discovery) row.cells[3].hidden = true;
+  if (device.discovery) row.cells.hidden = true;
 
   row.querySelector('button').onclick = () => {
     if (confirm('Are you sure you want to delete this device?')) {
@@ -333,13 +340,13 @@ const createDeviceRow = (device) => {
   const pairCheckbox = row.querySelector('input[type="checkbox"]');
   if (device.discovery) {
     pairCheckbox.onchange = () => {
-      // Memorizza lo stato esatto del toggle (true o false) per sovrascrivere i dati del polling
+      // Quando accoppiamo un nuovo dispositivo localmente, NON forziamo la lettura della batteria a true di default
       locallyPairedDevices.set(deviceKey(device.address), {
         address: device.address,
         description: row.querySelector('input[type="text"]').value,
         discovery: true,
         paired: pairCheckbox.checked,
-        readBattery: pairCheckbox.checked
+        readBattery: false // Di default la lettura della batteria a livello UI rimane disattivata (off) al ritorno in modalità normale
       });
       updateDevicesView(true);
     };
@@ -347,7 +354,7 @@ const createDeviceRow = (device) => {
     row.querySelector('input[type="text"]').oninput = event => {
       let pending = locallyPairedDevices.get(deviceKey(device.address));
       if (!pending) {
-        pending = { address: device.address, discovery: true, paired: pairCheckbox.checked, readBattery: pairCheckbox.checked };
+        pending = { address: device.address, discovery: true, paired: pairCheckbox.checked, readBattery: false };
         locallyPairedDevices.set(deviceKey(device.address), pending);
       }
       pending.description = event.target.value;
@@ -368,7 +375,7 @@ const createDeviceCard = (device) => {
       <div class="card-item"><strong>Description:</strong><input type="text" name="${device.address}_desc_mobile" value="${device.description || ''}" placeholder="Description" maxLength="20" class="mobile-input" ${device.discovery ? 'readonly' : ''}></div>
       <div class="card-item"><strong>${device.discovery ? 'Pair' : 'Read Battery'}:</strong>
         <label class="toggle-switch">
-          <input type="checkbox" name="${device.address}_${device.discovery ? 'pair' : 'batt'}_mobile" ${device.readBattery || device.paired ? 'checked' : ''} ${device.discovery && device.paired ? 'disabled' : ''}>
+          <input type="checkbox" name="${device.address}_${device.discovery ? 'pair' : 'batt'}_mobile" ${device.discovery ? (device.paired ? 'checked' : '') : (device.readBattery ? 'checked' : '')} ${device.discovery && device.paired ? 'disabled' : ''}>
           <span class="toggle-slider"></span>
         </label>
       </div>
@@ -408,6 +415,18 @@ const updateDevicesView = (isInitial = false) => {
       const mac = $(this).data('mac'); // Use .data()
       if (mac) {
         const isDiscovery = $(this).attr('data-discovery') === 'true';
+        const toggle=(this).find(`input[name="${mac}_${isDiscovery ? 'pair' : 'batt'}"]`);
+        const isChecked = $toggle.prop('checked');
+        const isDisabled = $toggle.prop('disabled');
+
+        createDeviceCard({
+          address: mac,
+          description: $(this).find(`input[name="${mac}_desc"]`).val() || '', 
+          readBattery: isDiscovery ? false : isChecked, 
+          discovery: isDiscovery,
+          paired: isDiscovery ? isChecked : isDisabled
+        });
+
         createDeviceCard({
           address: mac,
           description: $(this).find(`input[name="${mac}_desc"]`).val() || '', // Use template literal

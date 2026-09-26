@@ -611,7 +611,12 @@ void OTAWebServer::sendSysInfoData(bool trackerInfo, bool deviceList)
     char deviceIdAsString[BleDeviceId::UUID_STRING_SIZE];
     CRITICALSECTION_READSTART(trackedDevicesMutex)
     for (auto &trackedDevice : BLETrackedDevices)
-    {
+    {      
+      if (discoveryMode && !trackedDevice.isDiscovered)
+      {
+        continue;
+      }
+
       trackedDevice.deviceId.toString(deviceIdAsString);
       if (first)
         first = false;
