@@ -443,6 +443,12 @@ void OTAWebServer::postUpdateConfig()
     return server.requestAuthentication();
   }
 
+  if (discoveryMode)
+  {
+    server.send(409, F("text/plain"), F("Disable Discovery Mode before saving configuration"));
+    return;
+  }
+
   server.client().setNoDelay(true);
   Settings newSettings(SettingsMngr.GetSettingsFile(), true);
 
