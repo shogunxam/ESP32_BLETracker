@@ -53,7 +53,7 @@ function updatePage(data) {
       const $card = $("<div class='device-card'></div>");
       const $header = $("<div class='device-card-header'></div>").append(`<h3>${item.name || "Unknown Device"}</h3>`);
       const $content = $("<div class='device-card-content'></div>")
-        .append(`<div class='card-item'><strong>MAC:</strong> ${formatDeviceId(item.mac)}</div>`)
+        .append(`<div class='card-item'><strong>Device ID:</strong> ${formatDeviceId(item.mac)}</div>`)
         .append(`<div class='card-item'><strong>RSSI:</strong> ${item.rssi}</div>`)
         .append(
           item.state === 'Off'

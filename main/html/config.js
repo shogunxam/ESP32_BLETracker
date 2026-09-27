@@ -409,7 +409,7 @@ const createDeviceCard = (device) => {
     <div class="device-card-header"><h3>${device.address}</h3></div>
     <div class="device-card-content">
       <div class="card-item"><strong>Description:</strong><input type="text" name="${device.address}_desc_mobile" value="${device.description || ''}" placeholder="Description" maxLength="20" class="mobile-input" ${device.discovery ? 'readonly' : ''}></div>
-      <div class="card-item"><strong>${device.discovery ? 'Pair' : 'Read Battery'}:</strong>
+      <div class="card-item"><strong>${device.discovery ? 'Track' : 'Read Battery'}:</strong>
         <label class="toggle-switch">
           <input type="checkbox" name="${device.address}_${device.discovery ? 'pair' : 'batt'}_mobile" ${isChecked} ${isDisabled}>
           <span class="toggle-slider"></span>
