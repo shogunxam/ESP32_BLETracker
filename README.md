@@ -61,7 +61,19 @@ The Bluetooth activity involved in scanning, connecting, and reading data from t
   ```
   The device list can be also updated and enabled through the web interface.
 
-  **Important**: MAC addresses must be uppercase without ":" or "-" (e.g., "BA683F7EC159")
+  **Important**: MAC addresses must be uppercase without ":" or "-" (e.g., "BA683F7EC159") or follow the Beacon ID format (UUID-Major-Minor) for tracked beacons.
+
+### Beacon Tracking (iBeacon, AltBeacon, Eddystone)
+
+Starting with recent versions, the system can track standard BLE Beacons using their unique payload instead of their temporary or public MAC addresses:
+
+- **Supported Formats**: 
+  - **Apple iBeacon**: Extracted UUID, Major, and Minor.
+  - **AltBeacon**: Extracted Beacon ID, Major, and Minor.
+  - **Eddystone (UID)**: Extracted Namespace and Instance.
+- **Testing Disclaimer**: These beacon formats have been tested and verified exclusively using the **nRF Connect** mobile application to simulate beacon advertisements.
+
+For beacons, the MAC address is replaced by a combination of the UUID, Major, and Minor values. For example, a beacon with the UUID `11223344-5566-7788-9900-AABBCC111111`, Major 1, and Minor 2 is represented as the following 40-character hexadecimal string: `11223344556677889900AABBCC11111100010002`. For Eddystone beacons, the Major and Minor values are set to 0.
 
 ## Features
 
@@ -138,6 +150,17 @@ You have to use one of the two basic authentication methods to pass the credenti
    POST /api/scan/on
    POST /api/scan/off
    ```
+4. **BLE Device Discovery Mode**:
+   Discovery Mode is separate from Home Assistant MQTT discovery and manual scanning. Enable it from the **Devices** section of the web configuration to find nearby BLE devices that are not yet in the tracked-device list. While it is active, normal device tracking is paused and the device list shows devices seen during scanning.
+
+   Select **Track** for each newly found device to add it to the pending configuration. Devices already in the whitelist are shown as tracked and cannot be changed in Discovery Mode. Turn Discovery Mode off, then save the configuration to persist the selected devices. Saving is disabled while Discovery Mode is active.
+
+   The mode can also be controlled through these authenticated endpoints:
+   ```
+   POST /api/discovery?state=on
+   POST /api/discovery?state=off
+   ```
+   `GET /api/devices` includes a `discovery` boolean while returning the devices currently visible in Discovery Mode.
 
 ### MQTT Integration
 
@@ -255,14 +278,19 @@ As an alternative to MQTT, the BLETracker can integrate with FHEM:
 
 | BLE Device            | Discovery | Battery |
 |-----------------------|:---------:|:-------:|
-| Nut mini              | ✔️        | ✔️      |
-| Nut2                  | ✔️        | ❗️      |
-| Remote Shutter        | ✔️        | ✔️      |
-| Xiomi Amazfit Bip     | ✔️        | ❌      |
-| REDMOND RFT-08S       | ✔️        | ❌      |
-| Xiomi Mi Smart Band 4 | ✔️        | ❌      |
-| Fitness Band GT101    | ✔️        | ❌      |
-| Gigaset G-tag Beacon  | ✔️        | ✔️      |
+| Nut mini              | ✔️        | ✔️     |
+| Nut2                  | ✔️        | ❗️     |
+| Remote Shutter        | ✔️        | ✔️     |
+| Xiomi Amazfit Bip     | ✔️        | ❌     |
+| REDMOND RFT-08S       | ✔️        | ❌     |
+| Xiomi Mi Smart Band 4 | ✔️        | ❌     |
+| Fitness Band GT101    | ✔️        | ❌     |
+| Gigaset G-tag Beacon  | ✔️        | ✔️     |
+| Simulated iBeacon     | ✔️ (1)    | ❌     |
+| Simulated AltBeacon   | ✔️ (1)    | ❌     |
+| Simulated Eddystone   | ✔️ (1)    | ❌     |
+
+*(1) Simulated and tested exclusively via the **nRF Connect** mobile application.*
 
 ## Troubleshooting
 
@@ -288,20 +316,18 @@ If you encounter a crash:
 
 ### Arduino IDE Notes
 
-While PlatformIO is recommended, you can build with Arduino IDE:
+PlatformIO is the recommended and maintained build path; the Arduino IDE setup is manual and may need adjustments to match the ESP32 core version installed:
 
-1. Install the ESP32 board in Arduino IDE ([instructions](https://randomnerdtutorials.com/installing-the-esp32-board-in-arduino-ide-windows-instructions/))
-2. Install PubSubClient v2.8 library (not needed for FHEM support)
-3. For FHEM support:
-   - Install the [Regexp library](https://www.arduino.cc/reference/en/libraries/regexp/)
-   - Set `USE_MQTT` to false and `USE_FHEM_LEPRESENCE_SERVER` to true in `config.h`
-4. Replace the BLE library with the correct version:
-   - For v2.1+: Use [this library](https://github.com/espressif/arduino-esp32/tree/6b0114366baf986c155e8173ab7c22bc0c5fcedc/libraries/BLE)
-   - Library location:
-     - Unix: `~/.arduino15/packages/esp32/hardware/esp32/x.x.x/libraries/BLE`
-     - Windows: `C:\Users\YourUserName\AppData\Local\Arduino15\packages\esp32\hardware\esp32\x.x.x\libraries\BLE`
+1. Install the ESP32 board support package in Arduino IDE using Boards Manager.
+2. Open `main/main.ino` from this repository.
+3. Install the libraries used by the project:
+   - [NimBLE-Arduino](https://github.com/h2zero/NimBLE-Arduino), version 2.5.1 or later within the 2.x series. This replaces the ESP32 core's original BLE library used in older instructions.
+   - PubSubClient 2.8 for the default MQTT build.
+   - ArduinoJson 6.21.3 or later within the 6.x series, and the project's [ezTime fork](https://github.com/shogunxam/ezTime).
+4. Set Wi-Fi and MQTT broker details in `main/user_config.h`.
+5. In Tools > Partition Scheme, select *Minimal SPIFFS*.
 
-Build using the *Minimal SPIFFS* partition schema.
+MQTT is enabled by default (`USE_MQTT=true` in `main/config.h`). For FHEM or UDP builds, disable MQTT and enable the relevant `USE_FHEM_LEPRESENCE_SERVER` or `USE_UDP` option in `main/config.h`, as appropriate. PlatformIO environments remain the reference for these variants and their build flags. FHEM support does not currently require installing Regexp directly from the Arduino IDE instructions in this repository.
 
 ## License
 

@@ -423,8 +423,10 @@ void OTAWebServer::getUpdateBattery()
 
   if (server.hasArg("mac"))
   {
-    DEBUG_PRINTF("Force Battery Update for: %s\n", server.arg("mac").c_str());
-    ForceBatteryRead(server.arg("mac").c_str());
+    String mac =  server.arg("mac");
+    DEBUG_PRINTF("Force Battery Update for: %s\n", mac.c_str());
+    BleDeviceId deviceId = BleDeviceId(mac.c_str());
+    ForceBatteryRead(deviceId);
   }
 
   server.client().setNoDelay(true);
@@ -439,6 +441,12 @@ void OTAWebServer::postUpdateConfig()
   if (!server.authenticate(SettingsMngr.wbsUser.c_str(), SettingsMngr.wbsPwd.c_str()))
   {
     return server.requestAuthentication();
+  }
+
+  if (discoveryMode)
+  {
+    server.send(409, F("text/plain"), F("Disable Discovery Mode before saving configuration"));
+    return;
   }
 
   server.client().setNoDelay(true);
@@ -499,19 +507,20 @@ void OTAWebServer::postUpdateConfig()
 
       // Extract MAC address (before '[')
       size_t macLen = openBracket - input;
-      char mac[ADDRESS_STRING_SIZE];
-      memcpy(mac, input, macLen);
-      mac[macLen] = '\0'; // Null-terminate
+      char mac[BleDeviceId::UUID_STRING_SIZE];
+      size_t minLen = min(macLen, sizeof(mac) - 1);
+      memcpy(mac, input, minLen);
+      mac[minLen] = '\0'; // Null-terminate
 
+      BleDeviceId deviceId(mac);
       // Get or create device by MAC address
-      Settings::KnownDevice *device = newSettings.GetDevice(mac);
+      Settings::KnownDevice *device = newSettings.GetDevice(deviceId);
       if (!device)
       {
         Settings::KnownDevice tDev;
-        memcpy(tDev.address, mac, std::min(sizeof(tDev.address) - 1, macLen));
-        tDev.address[std::min(sizeof(tDev.address) - 1, macLen)] = '\0';
+        tDev.deviceId = deviceId;
         newSettings.AddDeviceToList(tDev);
-        device = newSettings.GetDevice(mac);
+        device = newSettings.GetDevice(deviceId);
       }
 
       if (!device)
@@ -601,33 +610,47 @@ void OTAWebServer::sendSysInfoData(bool trackerInfo, bool deviceList)
 
   if (deviceList)
   {
+    SendChunkedContent(R"("discovery":)");
+    SendChunkedContent(discoveryMode ? "true," : "false,");
     SendChunkedContent(R"("devices":[)");
 
     bool first = true;
+    char deviceIdAsString[BleDeviceId::UUID_STRING_SIZE];
+    CRITICALSECTION_READSTART(trackedDevicesMutex)
     for (auto &trackedDevice : BLETrackedDevices)
-    {
+    {      
+      if (discoveryMode && !trackedDevice.isDiscovered)
+      {
+        continue;
+      }
+
+      trackedDevice.deviceId.toString(deviceIdAsString);
       if (first)
         first = false;
       else
         SendChunkedContent(",");
       SendChunkedContent(R"({"mac":")");
-      SendChunkedContent(trackedDevice.address);
+      SendChunkedContent(deviceIdAsString);
       SendChunkedContent(R"(",)");
-      Settings::KnownDevice *device = SettingsMngr.GetDevice(trackedDevice.address);
-      if (device != nullptr && device->description[0] != '\0')
+      SendChunkedContent(R"("name":")");
+      Settings::KnownDevice *knownDevice = SettingsMngr.GetDevice(trackedDevice.deviceId);
+      if (knownDevice != nullptr)
       {
-        SendChunkedContent(R"("name":")");
-        SendChunkedContent(device->description);
-        SendChunkedContent(R"(",)");
+        SendChunkedContent(knownDevice->description);
       }
-
+      else if (trackedDevice.name[0] != '\0')
+      {
+       SendChunkedContent(trackedDevice.name);
+      }
+      SendChunkedContent(R"(","whitelisted":)");
+      SendChunkedContent(SettingsMngr.GetDevice(trackedDevice.deviceId) != nullptr ? "true," : "false,");
       SendChunkedContent(R"("rssi":)");
       itoa(trackedDevice.rssiValue, strbuff, 10);
       SendChunkedContent(strbuff);
       SendChunkedContent(R"(,)");
 #if PUBLISH_BATTERY_LEVEL
       SendChunkedContent(R"("battery":)");
-      if (SettingsMngr.InBatteryList(trackedDevice.address))
+      if (SettingsMngr.InBatteryList(trackedDevice.deviceId))
       {
         itoa(trackedDevice.batteryLevel, strbuff, 10);
       }
@@ -649,6 +672,7 @@ void OTAWebServer::sendSysInfoData(bool trackerInfo, bool deviceList)
       SendChunkedContent(trackedDevice.isDiscovered ? "On" : "Off");
       SendChunkedContent(R"("})");
     }
+    CRITICALSECTION_READEND
     SendChunkedContent("]}");
   }
   FlushChunkedContent();
@@ -686,7 +710,9 @@ void OTAWebServer::getDeviceInfoData()
   BLETrackedDevice *targetDevice = nullptr;
   for (auto &trackedDevice : BLETrackedDevices)
   {
-    if (strcasecmp(trackedDevice.address, macAddress.c_str()) == 0)
+    BleDeviceId deviceId(macAddress.c_str());
+ 
+    if (trackedDevice.deviceId == deviceId)
     {
       targetDevice = &trackedDevice;
       break;
@@ -709,14 +735,16 @@ void OTAWebServer::getDeviceInfoData()
   StartChunkedContentTransfer("application/json");
 
   // Ottieni informazioni aggiuntive dal registro dei dispositivi noti
-  Settings::KnownDevice *knownDevice = SettingsMngr.GetDevice(targetDevice->address);
+  Settings::KnownDevice *knownDevice = SettingsMngr.GetDevice(targetDevice->deviceId);
 
   // Inizia il JSON
   SendChunkedContent("{");
 
   // MAC
+  char deviceIdAsString[BleDeviceId::UUID_STRING_SIZE];
+  targetDevice->deviceId.toString(deviceIdAsString);
   SendChunkedContent(R"("mac":")");
-  SendChunkedContent(targetDevice->address);
+  SendChunkedContent(deviceIdAsString);
   SendChunkedContent(R"(",)");
 
   // Stato
@@ -829,6 +857,43 @@ void OTAWebServer::setManualScan()
   {
     server.send(400, "text/html", "Manual Scan not enabled");
   }
+}
+
+void OTAWebServer::setDiscoveryMode()
+{
+  if (!server.authenticate(SettingsMngr.wbsUser.c_str(), SettingsMngr.wbsPwd.c_str()))
+  {
+    return server.requestAuthentication();
+  }
+
+  SendDefaulHeaders();
+  if (!server.hasArg("state") || (server.arg("state") != "on" && server.arg("state") != "off"))
+  {
+    server.send(400, F("application/json"), F("{\"error\":\"state must be on or off\"}"));
+    return;
+  }
+
+  const bool enabled = server.arg("state") == "on";
+  CRITICALSECTION_WRITESTART(trackedDevicesMutex)
+  discoveryMode = enabled;
+  if (!enabled)
+  {
+    for (auto it = BLETrackedDevices.begin(); it != BLETrackedDevices.end();)
+    {
+      if (SettingsMngr.GetDevice(it->deviceId) == nullptr)
+      {
+        FastDiscovery.erase(it->deviceId);
+        it = BLETrackedDevices.erase(it);
+      }
+      else
+      {
+        ++it;
+      }
+    }
+  }
+  CRITICALSECTION_WRITEEND
+
+  server.send(200, F("application/json"), enabled ? F("{\"discovery\":true}") : F("{\"discovery\":false}"));
 }
 
 void OTAWebServer::handleMQTTFrag()
@@ -982,6 +1047,11 @@ void OTAWebServer::setup(const String &hN)
             { setManualScan(); });
   server.on(F("/api/scan/off"), HTTP_POST, [&]()
             { setManualScan(); });
+
+  server.on(F("/api/discovery"), HTTP_POST, [&]()
+            { setDiscoveryMode(); });
+  server.on(F("/api/discovery"), HTTP_OPTIONS, [&]()
+            { handleOptions(); });
 
   server.on(F("/api/device"), HTTP_GET, [&]()
             { getDeviceInfoData(); });

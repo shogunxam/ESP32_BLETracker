@@ -102,7 +102,7 @@
 #define  SERVER_PORT  0
 #endif
 
-
+#define TRACK_BEACONS true
 
 #define ENABLE_OTA_WEBSERVER    true
 

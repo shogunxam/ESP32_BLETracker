@@ -109,3 +109,36 @@ const sendData = (endpoint, body, successCallback, errorCallback) => {
     error: errorCallback,
   });
 };
+
+// Helper function to format MAC address with separators
+const formatDeviceId = (deviceId) => {
+  // Remove all invalid characters (keep only hex digits) and convert to uppercase
+  const cleanDeviceId = deviceId.replace(/[^0-9A-F]/gi, '').toUpperCase();
+
+  const len = cleanDeviceId.length;
+  
+  // Case 1: Standard MAC address (12 hexadecimal characters)
+  if (len <= 12) {
+    return cleanDeviceId.match(/.{1,2}/g)?.join(':') || '';
+  }
+
+  // Case 2: Extended long string / UUID format (40 hexadecimal characters)
+  if (len <= 40) {
+    const parts = [];
+
+    // Push chunks into the array only if we have reached their starting index
+    if (len > 0)  parts.push(cleanDeviceId.substring(0, 8));   // part1 (max 8 chars)
+    if (len > 8)  parts.push(cleanDeviceId.substring(8, 12));  // part2 (max 4 chars)
+    if (len > 12) parts.push(cleanDeviceId.substring(12, 16)); // part3 (max 4 chars)
+    if (len > 16) parts.push(cleanDeviceId.substring(16, 20)); // part4 (max 4 chars)
+    if (len > 20) parts.push(cleanDeviceId.substring(20, 32)); // part5 (max 12 chars)
+    if (len > 32) parts.push(cleanDeviceId.substring(32, 36)); // var1  (max 4 chars)
+    if (len > 36) parts.push(cleanDeviceId.substring(36, 40)); // var2  (max 4 chars)
+
+    // Join only the available pieces with a hyphen
+    return parts.join('-');
+  }
+
+  // Fallback: return the cleaned uppercase string if the length does not match either format
+  return cleanDeviceId;
+};

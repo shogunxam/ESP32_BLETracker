@@ -38,11 +38,24 @@
 #define ENABLE_BLE_TRACKER_WHITELIST true
 
 //List of known devices you want track
-//Each entry is in the format {"MAC-ADDRESS", read-battery, "Description"} i.e.{"A6B5C4D3E2F1", true, "My iTag"}
-//Mac Addresses are in the form "A6B5C4D3E2F1" (uppercase and no separator)
+// Each entry uses the format:
+// { "DEVICE-ID", readBattery, "Description" }
+// Example:
+// { "A6B5C4D3E2F1", true, "My iTag" }
+//
+// DEVICE-ID can be either:
+// - The device MAC address, represented as a 12-character uppercase hexadecimal string
+//   without separators (e.g. "A6B5C4D3E2F1"), or
+// - A 32-byte UUID represented as a 40-character uppercase hexadecimal string without
+//   separators, where the last 4 bytes encode the beacon Major and Minor values.
+//
+// Example:
+// "0102030405060708090A0B0C0D0E0F1000010002"
+// represents a beacon UUID with Major = 1 and Minor = 2.
+
 //Each block is coma separated
 //In example
-//#define BLE_KNOWN_DEVICES_LIST  {"AABBCCDDEEFF", true, "Nut"}, {"A1B2C3D4E5F6", false, "iTag"}, {"1A2B3C4D5E6F", false, ""}
+//#define BLE_KNOWN_DEVICES_LIST  {"0102030405060708090A0B0C0D0E0F1000010002", false, "iBeacon"},{"AABBCCDDEEFF", true, "Nut"}, {"A1B2C3D4E5F6", false, "iTag"}, {"1A2B3C4D5E6F", false, ""}
 #define BLE_KNOWN_DEVICES_LIST  
 
 //NTP Server configurations

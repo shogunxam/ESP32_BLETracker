@@ -1,7 +1,7 @@
-#include <BLEDevice.h>
-#include <BLEUtils.h>
-#include <BLEScan.h>
-#include <BLEAdvertisedDevice.h>
+#include <NimBLEDevice.h>
+#include <NimBLEUtils.h>
+#include <NimBLEScan.h>
+#include <NimBLEAdvertisedDevice.h>
 #include "config.h"
 #include "WiFiManager.h"
 #include "DebugPrint.h"
