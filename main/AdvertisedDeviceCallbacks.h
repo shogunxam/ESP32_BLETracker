@@ -5,9 +5,9 @@
 #include "settings.h"
 #include "watchdog.h"
 #include "SPIFFSLogger.h"
-#include <BLEDevice.h>
-#include <BLEAdvertisedDevice.h>
-class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
+#include <NimBLEDevice.h>
+#include <NimBLEAdvertisedDevice.h>
+class MyAdvertisedDeviceCallbacks : public NimBLEScanCallbacks
 {
   #if TRACK_BEACONS
   bool GetAppleIBeaconDeviceID(uint8_t *data, uint8_t manuDataLength, BleDeviceId &deviceId)
@@ -48,7 +48,7 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
     return true;
   }
 
-  bool GetIBeaconId(BLEAdvertisedDevice &advertisedDevice, BleDeviceId &deviceId)
+  bool GetIBeaconId(const NimBLEAdvertisedDevice &advertisedDevice, BleDeviceId &deviceId)
   {
     if (advertisedDevice.haveManufacturerData())
     {
@@ -62,18 +62,18 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
     return false;
   }
 
-  bool GetEddyStoneBeaconId(BLEAdvertisedDevice &advertisedDevice, BleDeviceId &deviceId)
+  bool GetEddyStoneBeaconId(const NimBLEAdvertisedDevice &advertisedDevice, BleDeviceId &deviceId)
   {
     if (!advertisedDevice.haveServiceData())
     {
       return false;
     }
 
-    static const BLEUUID eddystoneUUID("0000feaa-0000-1000-8000-00805f9b34fb");
+    static const NimBLEUUID eddystoneUUID("0000feaa-0000-1000-8000-00805f9b34fb");
     int numServiceData = advertisedDevice.getServiceDataCount();
     for (int i = 0; i < numServiceData; i++)
     {
-      BLEUUID serviceDataUUID = advertisedDevice.getServiceDataUUID(i);
+      NimBLEUUID serviceDataUUID = advertisedDevice.getServiceDataUUID(i);
       if (serviceDataUUID.equals(eddystoneUUID))
       {
         std::string serviceData = advertisedDevice.getServiceData(i);
@@ -91,14 +91,15 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
     return false;
   }
 
-  bool GetDeviceIdFromBeacon(BLEAdvertisedDevice &advertisedDevice, BleDeviceId &deviceId)
+  bool GetDeviceIdFromBeacon(const NimBLEAdvertisedDevice &advertisedDevice, BleDeviceId &deviceId)
   {
     return (GetIBeaconId(advertisedDevice, deviceId) || GetEddyStoneBeaconId(advertisedDevice, deviceId));
   }
   #endif
 
-  void onResult(BLEAdvertisedDevice advertisedDevice) override
+  void onResult(const NimBLEAdvertisedDevice *pAdvertisedDevice) override
   {
+    const NimBLEAdvertisedDevice &advertisedDevice = *pAdvertisedDevice;
     Watchdog::Feed();
     const uint8_t shortNameSize = 31;
     char deviceIdAsString[BleDeviceId::UUID_STRING_SIZE];
@@ -108,15 +109,20 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
     BleDeviceId deviceId;
     #if TRACK_BEACONS
     bool isBeacon = GetDeviceIdFromBeacon(advertisedDevice, deviceId);
-    
-    if (!isBeacon)
-    {
-      deviceId = BleDeviceId((const uint8_t *)advertisedDevice.getAddress().getNative(), false);     
-    }
     #else
-    deviceId = BleDeviceId((const uint8_t *)advertisedDevice.getAddress().getNative(), false);
     bool isBeacon = false;
     #endif
+
+    if (!isBeacon)
+    {
+      const uint8_t *addressBytes = advertisedDevice.getAddress().getVal();
+      uint8_t canonicalAddress[6];
+      for (uint8_t byteIndex = 0; byteIndex < 6; byteIndex++)
+      {
+        canonicalAddress[byteIndex] = addressBytes[5 - byteIndex];
+      }
+      deviceId = BleDeviceId(canonicalAddress, false);
+    }
 
     if (advertisedDevice.haveName())
     {

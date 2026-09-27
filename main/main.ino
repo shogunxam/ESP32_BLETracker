@@ -1,6 +1,6 @@
 #include "main.h"
 
-#include <BLEDevice.h>
+#include <NimBLEDevice.h>
 #include "BleDeviceId.h"
 #include <sstream>
 #include <iomanip>
@@ -74,23 +74,10 @@ void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName)
 ///////////////////////////////////////////////////////////////////////////
 
 
-static BLEUUID service_BATT_UUID(BLEUUID((uint16_t)0x180F));
-static BLEUUID char_BATT_UUID(BLEUUID((uint16_t)0x2A19));
+static NimBLEUUID service_BATT_UUID((uint16_t)0x180F);
+static NimBLEUUID char_BATT_UUID((uint16_t)0x2A19);
 
 #if PUBLISH_BATTERY_LEVEL
-class MyBLEClientCallBack : public BLEClientCallbacks
-{
-  void onConnect(BLEClient *pClient)
-  {
-  }
-
-  virtual void onDisconnect(BLEClient *pClient)
-  {
-    log_i(" >> onDisconnect callback");
-    pClient->disconnect();
-  }
-};
-
 void ForceBatteryRead(const BleDeviceId& deviceId)
 {
   for (auto &trackedDevice : BLETrackedDevices)
@@ -167,11 +154,11 @@ void batteryTask()
   // DEBUG_PRINTF("\n*** Memory after battery scan: %u\n",xPortGetFreeHeapSize());
 }
 
-bool batteryLevel(const BleDeviceId &deviceId, esp_ble_addr_type_t addressType, int8_t &battLevel, bool &hasBatteryService)
+bool batteryLevel(const BleDeviceId &deviceId, uint8_t addressType, int8_t &battLevel, bool &hasBatteryService)
 {
   log_i(">> ------------------batteryLevel----------------- ");
   bool bleconnected;
-  BLEClient client;
+  NimBLEClient *client;
   battLevel = -1;
 
   if(deviceId.isIBeacon())
@@ -183,21 +170,19 @@ bool batteryLevel(const BleDeviceId &deviceId, esp_ble_addr_type_t addressType, 
   char deviceIdAsString[BleDeviceId::UUID_STRING_SIZE];
   deviceId.toString(deviceIdAsString);
 
-  esp_bd_addr_t rawAddress; 
-  memcpy(rawAddress, deviceId.getRawID(), sizeof(esp_bd_addr_t));
-
-  BLEAddress bleAddress = BLEAddress(rawAddress); 
+  NimBLEAddress bleAddress(deviceId.getRawID(), addressType);
   log_i("connecting to : %s", bleAddress.toString().c_str());
   LOG_TO_FILE_D("Reading battery level for device %s", deviceIdAsString);
-  MyBLEClientCallBack callback;
-  client.setClientCallbacks(&callback);
+  client = NimBLEDevice::createClient(bleAddress);
+  if (client == nullptr)
+    return false;
 
   // Connect to the remote BLE Server.
-  bleconnected = client.connect(bleAddress, addressType);
+  bleconnected = client->connect();
   if (bleconnected)
   {
     log_i("Connected to server");
-    BLERemoteService *pRemote_BATT_Service = client.getService(service_BATT_UUID);
+    NimBLERemoteService *pRemote_BATT_Service = client->getService(service_BATT_UUID);
     if (pRemote_BATT_Service == nullptr)
     {
       log_i("Cannot find the BATTERY service.");
@@ -206,7 +191,7 @@ bool batteryLevel(const BleDeviceId &deviceId, esp_ble_addr_type_t addressType, 
     }
     else
     {
-      BLERemoteCharacteristic *pRemote_BATT_Characteristic = pRemote_BATT_Service->getCharacteristic(char_BATT_UUID);
+      NimBLERemoteCharacteristic *pRemote_BATT_Characteristic = pRemote_BATT_Service->getCharacteristic(char_BATT_UUID);
       if (pRemote_BATT_Characteristic == nullptr)
       {
         log_i("Cannot find the BATTERY characteristic.");
@@ -223,25 +208,16 @@ bool batteryLevel(const BleDeviceId &deviceId, esp_ble_addr_type_t addressType, 
         hasBatteryService = true;
       }
     }
-    // Before disconnecting I need to pause the task to wait (I don't know what), otherwise we have an heap corruption
-    // delay(200);
-    if (client.isConnected())
-    {
-      log_i("disconnecting...");
-      client.disconnect();
-    }
-    log_i("waiting for disconnection...");
-    while (client.isConnected())
-      delay(100);
-    log_i("Client disconnected.");
   }
   else
   {
     // We fail to connect and we have to be sure the PeerDevice is removed before delete it
-    BLEDevice::removePeerDevice(client.m_appId, true);
+    NimBLEDevice::deleteBond(bleAddress);
     log_i("-------------------Not connected!!!--------------------");
   }
 
+  // NimBLE completes disconnection asynchronously and deletes the client afterward.
+  NimBLEDevice::deleteClient(client);
   log_i("<< ------------------batteryLevel----------------- ");
   return bleconnected;
 }
@@ -373,9 +349,9 @@ void setup()
 
   if (!WiFiManager::IsAccessPointModeOn())
   {
-    BLEDevice::init(SettingsMngr.gateway.c_str());
-    pBLEScan = BLEDevice::getScan();
-    pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks(), NUM_OF_ADVERTISEMENT_IN_SCAN > 1);
+    NimBLEDevice::init(SettingsMngr.gateway.c_str());
+    pBLEScan = NimBLEDevice::getScan();
+    pBLEScan->setScanCallbacks(new MyAdvertisedDeviceCallbacks(), NUM_OF_ADVERTISEMENT_IN_SCAN > 1);
     pBLEScan->setActiveScan(ACTIVE_SCAN);
     pBLEScan->setInterval(50);
     pBLEScan->setWindow(50);
@@ -488,8 +464,7 @@ void loop()
         }
 
         lastScanTime = NTPTime::seconds();
-        pBLEScan->start(1, continuePrevScan);
-        pBLEScan->stop();
+        pBLEScan->getResults(1000, continuePrevScan);
         elapsedScanTime += NTPTime::seconds() - lastScanTime;
         scanCompleted = elapsedScanTime > SettingsMngr.scanPeriod;
         if (scanCompleted)
@@ -507,8 +482,7 @@ void loop()
         }
 
         // DEBUG_PRINTF("\n*** Memory Before scan: %u\n",xPortGetFreeHeapSize());
-        pBLEScan->start(SettingsMngr.scanPeriod);
-        pBLEScan->stop();
+        pBLEScan->getResults(SettingsMngr.scanPeriod * 1000);
         pBLEScan->clearResults();
         // DEBUG_PRINTF("\n*** Memory After scan: %u\n",xPortGetFreeHeapSize());
 #endif
