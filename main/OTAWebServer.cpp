@@ -502,8 +502,9 @@ void OTAWebServer::postUpdateConfig()
       // Extract MAC address (before '[')
       size_t macLen = openBracket - input;
       char mac[BleDeviceId::UUID_STRING_SIZE];
-      memcpy(mac, input, min(macLen, sizeof(mac) - 1));
-      mac[macLen] = '\0'; // Null-terminate
+      size_t minLen = min(macLen, sizeof(mac) - 1);
+      memcpy(mac, input, minLen);
+      mac[minLen] = '\0'; // Null-terminate
 
       BleDeviceId deviceId(mac);
       // Get or create device by MAC address
