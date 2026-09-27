@@ -4,6 +4,7 @@
 #include "settings.h"
 #include "DebugPrint.h"
 #include "WiFiManager.h"
+#include "constants.h"
 
 #define UDP_PORT 1883
 namespace UDPClient
@@ -18,17 +19,19 @@ namespace UDPClient
 
     void publishBLEState(const BLETrackedDevice &device)
     {
-
-        char payload[150];
+        // Calculate the maximum payload size needed for the UDP message
+        static const size_t payloadSize = 52 + LOCATION_NAME_MAX_LEN + GATEWAY_NAME_MAX_LEN + BleDeviceId::UUID_STRING_SIZE + 1 + 4 + 3 + 10; 
+        char payload[payloadSize];
         int rssi = device.isDiscovered ? device.rssiValue : -100;
         unsigned long now = NTPTime::getTimeStamp();
-
+        char deviceIdStr[BleDeviceId::UUID_STRING_SIZE];
+        device.deviceId.toString(deviceIdStr);
 #if PUBLISH_BATTERY_LEVEL
         snprintf(payload, sizeof(payload), "module=%s.%s %s=%d rssi=%d battery=%d timestamp=%lu",
-                 LOCATION, SettingsMngr.gateway.c_str(), device.address, device.isDiscovered, device.rssiValue, device.batteryLevel, now);
+                 LOCATION, SettingsMngr.gateway.c_str(), deviceIdStr, device.isDiscovered, device.rssiValue, device.batteryLevel, now);
 #else
         snprintf(payload, sizeof(payload), "module=%s.%s %s=%s rssi=%d timestamp=%lu",
-                 LOCATION, SettingsMngr.gateway.c_str(), device.address, device.isDiscovered, device.rssiValue, now);
+                 LOCATION, SettingsMngr.gateway.c_str(), deviceIdStr, device.isDiscovered, device.rssiValue, now);
 #endif
 
         udpClient.beginPacket(SettingsMngr.serverAddr.c_str(), SettingsMngr.serverPort);

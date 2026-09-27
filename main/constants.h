@@ -1,0 +1,5 @@
+#ifndef CONSTANTS_H
+#define CONSTANTS_H
+#define GATEWAY_NAME_MAX_LEN 32
+#define LOCATION_NAME_MAX_LEN 32
+#endif // CONSTANTS_H

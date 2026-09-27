@@ -13,10 +13,6 @@ const readBattery = (mac) => {
   );
 };
 
-const formatMacAddress = (mac) => {
-  return mac.includes(':') ? mac : mac.match(/.{1,2}/g)?.join(':') || '';
-};
-
 function updatePage(data) {
   const fields = {
     device: 'gateway',
@@ -57,7 +53,7 @@ function updatePage(data) {
       const $card = $("<div class='device-card'></div>");
       const $header = $("<div class='device-card-header'></div>").append(`<h3>${item.name || "Unknown Device"}</h3>`);
       const $content = $("<div class='device-card-content'></div>")
-        .append(`<div class='card-item'><strong>MAC:</strong> ${formatMacAddress(item.mac)}</div>`)
+        .append(`<div class='card-item'><strong>MAC:</strong> ${formatDeviceId(item.mac)}</div>`)
         .append(`<div class='card-item'><strong>RSSI:</strong> ${item.rssi}</div>`)
         .append(
           item.state === 'Off'
@@ -90,7 +86,7 @@ function updatePage(data) {
 
     data.devices.forEach(item => {
       const $row = $("<tr/>");
-      $row.append($("<td/>").text(formatMacAddress(item.mac)));
+      $row.append($("<td/>").text(formatDeviceId(item.mac)));
       $row.append($("<td/>").text(item.name || "Unknown"));
       $row.append($("<td/>").text(item.rssi));
 

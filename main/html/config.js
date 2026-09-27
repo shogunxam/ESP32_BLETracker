@@ -71,7 +71,7 @@ $(document).ready(() => {
     [...$('#devices-table tbody tr')].forEach(tr => {
       const cells = tr.cells;
       if (cells.length >= 3) {
-        const mac = cells[0].textContent.replace(/:/g, '');
+        const mac = cells[0].textContent.replace(/[:-]/g, '');
         const desc = cells[1].querySelector('input').value || '';
         const battery = cells[2].querySelector('input[type="checkbox"]').checked;
         formData.append(mac + '[desc]', desc);
@@ -117,7 +117,7 @@ $(document).ready(() => {
     const macInput = $('#newDeviceAddr').val();
     const cleanMac = macInput.replace(/[^0-9A-F]/g, '').toUpperCase();
     const description = $('#newDeviceDesc').val();  
-    const formattedMac = formatMacAddress(cleanMac);
+    const formattedMac = formatDeviceId(cleanMac);
     const device = { address: formattedMac, description, readBattery: false };
     $('#devices-table tbody').append(createDeviceRow(device));
     if (window.innerWidth < 768) createDeviceCard(device);
@@ -128,8 +128,8 @@ $(document).ready(() => {
 
   $('#newDeviceAddr').on('input', function (event){
     const rawInput = $(this).val().toUpperCase().replace(/[^0-9A-F]/g, '');
-    $(this).val(formatMacAddress(rawInput));
-    $('#addDeviceBtn').prop('disabled', rawInput.length !== 12);
+    $(this).val(formatDeviceId(rawInput));
+    $('#addDeviceBtn').prop('disabled', rawInput.length !== 12 && rawInput.length !== 40);
   });
 
   updateDevicesView();
@@ -169,7 +169,7 @@ function PopulatePage(data) {
   if (data.trk_list) {
     for (const mac in data.trk_list) {
       const device = {
-        address: formatMacAddress(mac),
+        address: formatDeviceId(mac),
         description: data.trk_list[mac].desc || '',
         readBattery: data.trk_list[mac].battery || false
       };
@@ -191,12 +191,6 @@ function openTab(evt, tabName) {
   document.getElementById(tabName)?.classList.add("active");
   evt.currentTarget?.classList.add("active");
 }
-
-// Helper function to format MAC address with separators
-const formatMacAddress = (mac) => {
-  const cleanMac = mac.replace(/[^0-9A-F]/gi, '').toUpperCase();
-  return cleanMac.match(/.{1,2}/g)?.join(':') || '';
-};
 
 const getUrlParameter = (sParam) => {
   const urlParams = new URLSearchParams(window.location.search);

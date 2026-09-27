@@ -423,8 +423,10 @@ void OTAWebServer::getUpdateBattery()
 
   if (server.hasArg("mac"))
   {
-    DEBUG_PRINTF("Force Battery Update for: %s\n", server.arg("mac").c_str());
-    ForceBatteryRead(server.arg("mac").c_str());
+    String mac =  server.arg("mac");
+    DEBUG_PRINTF("Force Battery Update for: %s\n", mac.c_str());
+    BleDeviceId deviceId = BleDeviceId(mac.c_str());
+    ForceBatteryRead(deviceId);
   }
 
   server.client().setNoDelay(true);
@@ -499,19 +501,20 @@ void OTAWebServer::postUpdateConfig()
 
       // Extract MAC address (before '[')
       size_t macLen = openBracket - input;
-      char mac[ADDRESS_STRING_SIZE];
-      memcpy(mac, input, macLen);
-      mac[macLen] = '\0'; // Null-terminate
+      char mac[BleDeviceId::UUID_STRING_SIZE];
+      size_t minLen = min(macLen, sizeof(mac) - 1);
+      memcpy(mac, input, minLen);
+      mac[minLen] = '\0'; // Null-terminate
 
+      BleDeviceId deviceId(mac);
       // Get or create device by MAC address
-      Settings::KnownDevice *device = newSettings.GetDevice(mac);
+      Settings::KnownDevice *device = newSettings.GetDevice(deviceId);
       if (!device)
       {
         Settings::KnownDevice tDev;
-        memcpy(tDev.address, mac, std::min(sizeof(tDev.address) - 1, macLen));
-        tDev.address[std::min(sizeof(tDev.address) - 1, macLen)] = '\0';
+        tDev.deviceId = deviceId;
         newSettings.AddDeviceToList(tDev);
-        device = newSettings.GetDevice(mac);
+        device = newSettings.GetDevice(deviceId);
       }
 
       if (!device)
@@ -604,16 +607,18 @@ void OTAWebServer::sendSysInfoData(bool trackerInfo, bool deviceList)
     SendChunkedContent(R"("devices":[)");
 
     bool first = true;
+    char deviceIdAsString[BleDeviceId::UUID_STRING_SIZE];
     for (auto &trackedDevice : BLETrackedDevices)
     {
+      trackedDevice.deviceId.toString(deviceIdAsString);
       if (first)
         first = false;
       else
         SendChunkedContent(",");
       SendChunkedContent(R"({"mac":")");
-      SendChunkedContent(trackedDevice.address);
+      SendChunkedContent(deviceIdAsString);
       SendChunkedContent(R"(",)");
-      Settings::KnownDevice *device = SettingsMngr.GetDevice(trackedDevice.address);
+      Settings::KnownDevice *device = SettingsMngr.GetDevice(trackedDevice.deviceId);
       if (device != nullptr && device->description[0] != '\0')
       {
         SendChunkedContent(R"("name":")");
@@ -627,7 +632,7 @@ void OTAWebServer::sendSysInfoData(bool trackerInfo, bool deviceList)
       SendChunkedContent(R"(,)");
 #if PUBLISH_BATTERY_LEVEL
       SendChunkedContent(R"("battery":)");
-      if (SettingsMngr.InBatteryList(trackedDevice.address))
+      if (SettingsMngr.InBatteryList(trackedDevice.deviceId))
       {
         itoa(trackedDevice.batteryLevel, strbuff, 10);
       }
@@ -686,7 +691,9 @@ void OTAWebServer::getDeviceInfoData()
   BLETrackedDevice *targetDevice = nullptr;
   for (auto &trackedDevice : BLETrackedDevices)
   {
-    if (strcasecmp(trackedDevice.address, macAddress.c_str()) == 0)
+    BleDeviceId deviceId(macAddress.c_str());
+ 
+    if (trackedDevice.deviceId == deviceId)
     {
       targetDevice = &trackedDevice;
       break;
@@ -709,14 +716,16 @@ void OTAWebServer::getDeviceInfoData()
   StartChunkedContentTransfer("application/json");
 
   // Ottieni informazioni aggiuntive dal registro dei dispositivi noti
-  Settings::KnownDevice *knownDevice = SettingsMngr.GetDevice(targetDevice->address);
+  Settings::KnownDevice *knownDevice = SettingsMngr.GetDevice(targetDevice->deviceId);
 
   // Inizia il JSON
   SendChunkedContent("{");
 
   // MAC
+  char deviceIdAsString[BleDeviceId::UUID_STRING_SIZE];
+  targetDevice->deviceId.toString(deviceIdAsString);
   SendChunkedContent(R"("mac":")");
-  SendChunkedContent(targetDevice->address);
+  SendChunkedContent(deviceIdAsString);
   SendChunkedContent(R"(",)");
 
   // Stato

@@ -4,7 +4,8 @@
 #include "fhem_lepresence_server.h"
 #include <esp_task_wdt.h>
 #include <WiFi.h>
-#include <Regexp.h>
+#include <ctype.h>
+#include <stdlib.h>
 
 #include "utility.h"
 #include "SPIFFSLogger.h"
@@ -12,6 +13,73 @@
 #include "settings.h"
 namespace FHEMLePresenceServer
 {
+  bool ParseDeviceId(const char *input, BleDeviceId &deviceId)
+  {
+    char normalized[BleDeviceId::UUID_STRING_SIZE];
+    size_t normalizedLength = 0;
+
+    for (size_t i = 0; input[i] != '\0'; i++)
+    {
+      if (input[i] == ':' || input[i] == '-')
+        continue;
+
+      if (!isxdigit(static_cast<unsigned char>(input[i])) ||
+          normalizedLength >= BleDeviceId::UUID_STRING_SIZE - 1)
+        return false;
+
+      normalized[normalizedLength++] = input[i];
+    }
+
+    if (normalizedLength != BleDeviceId::MAC_ID_SIZE * 2 &&
+        normalizedLength != BleDeviceId::UUID_STRING_SIZE - 1)
+      return false;
+
+    normalized[normalizedLength] = '\0';
+    deviceId = BleDeviceId(normalized);
+    return true;
+  }
+
+  bool ParseRequest(const char *input, BleDeviceId &deviceId, char *requestedDeviceId,
+                    size_t requestedDeviceIdSize, unsigned long &timeout)
+  {
+    char deviceIdText[BleDeviceId::UUID_STRING_SIZE];
+    char timeoutText[11];
+    char extra;
+
+    if (sscanf(input, "%40s %10s %c", deviceIdText, timeoutText, &extra) != 2)
+      return false;
+
+    for (size_t i = 0; timeoutText[i] != '\0'; i++)
+    {
+      if (!isdigit(static_cast<unsigned char>(timeoutText[i])))
+        return false;
+    }
+
+    char *end = nullptr;
+    unsigned long parsedTimeout = strtoul(timeoutText, &end, 10);
+    if (end == timeoutText || *end != '\0' || !ParseDeviceId(deviceIdText, deviceId))
+      return false;
+
+    strncpy(requestedDeviceId, deviceIdText, requestedDeviceIdSize - 1);
+    requestedDeviceId[requestedDeviceIdSize - 1] = '\0';
+    timeout = parsedTimeout;
+    return true;
+  }
+
+  bool IsNowRequest(const char *input)
+  {
+    while (isspace(static_cast<unsigned char>(*input)))
+      input++;
+
+    if (strncmp(input, "now", 3) != 0)
+      return false;
+
+    input += 3;
+    while (isspace(static_cast<unsigned char>(*input)))
+      input++;
+    return *input == '\0';
+  }
+
   struct FHEMClient
   {
     FHEMClient()
@@ -23,8 +91,8 @@ namespace FHEMLePresenceServer
     {
       mAvailable = true;
       mClient = WiFiClient(); // the following line is a workaround for a memory leak bug in arduino
-      address[0] = '\0';
-      normalizedAddress[0] = '\0';
+      requestedDeviceId[0] = '\0';
+      deviceId = BleDeviceId();
       timeout = SettingsMngr.maxNotAdvPeriod;
       lastreport = 0;
     }
@@ -37,8 +105,8 @@ namespace FHEMLePresenceServer
 
     WiFiClient mClient;
     bool mAvailable;
-    char address[ADDRESS_STRING_SIZE + 5];
-    char normalizedAddress[ADDRESS_STRING_SIZE];
+    char requestedDeviceId[BleDeviceId::UUID_STRING_SIZE];
+    BleDeviceId deviceId;
     unsigned long timeout;
     unsigned long lastreport;
   };
@@ -50,21 +118,21 @@ namespace FHEMLePresenceServer
     CRITICALSECTION_READSTART(trackedDevicesMutex)
     for (auto &trackedDevice : BLETrackedDevices)
     {
-      if (strcmp(fhemClient.normalizedAddress, trackedDevice.address) != 0)
+        if (fhemClient.deviceId != trackedDevice.deviceId)
         continue;
 
       if ((trackedDevice.lastDiscoveryTime + fhemClient.timeout) >= NTPTime::seconds())
       {
         if (PUBLISH_BATTERY_LEVEL && trackedDevice.batteryLevel > 0)
-          snprintf(msg, 100, "present;device_name=%s;rssi=%d;batteryPercent=%d;daemon=%s V" VERSION "\n", fhemClient.address, trackedDevice.rssiValue, trackedDevice.batteryLevel,SettingsMngr.gateway);
+          snprintf(msg, 100, "present;device_name=%s;rssi=%d;batteryPercent=%d;daemon=%s V" VERSION "\n", fhemClient.requestedDeviceId, trackedDevice.rssiValue, trackedDevice.batteryLevel,SettingsMngr.gateway);
         else
-          snprintf(msg, 100, "present;device_name=%s;rssi=%d;daemon=%s V" VERSION "\n", fhemClient.address, trackedDevice.rssiValue,SettingsMngr.gateway);
+          snprintf(msg, 100, "present;device_name=%s;rssi=%d;daemon=%s V" VERSION "\n", fhemClient.requestedDeviceId, trackedDevice.rssiValue,SettingsMngr.gateway);
       }
       break;
     }
     CRITICALSECTION_READEND
 
-    DEBUG_PRINTF("%s (%s): %s\n", reason, fhemClient.normalizedAddress, msg);
+    DEBUG_PRINTF("%s (%s): %s\n", reason, fhemClient.requestedDeviceId, msg);
 
     try
     {
@@ -129,23 +197,19 @@ namespace FHEMLePresenceServer
           if (readLine(&(fhemClient.mClient), buf, buffLen) > 0)
           {
             DEBUG_PRINTLN((char *)buf);
-            MatchState ms((char *)buf);
-            if (ms.Match(R"(^%s*(%x%x:%x%x:%x%x:%x%x:%x%x:%x%x)%s*|%s*(%d+)%s*$)") == REGEXP_MATCHED)
+              if (ParseRequest((char *)buf, fhemClient.deviceId,
+                               fhemClient.requestedDeviceId, sizeof(fhemClient.requestedDeviceId),
+                               fhemClient.timeout))
             {
-              ms.GetCapture(fhemClient.address, 0);
-              char matchTimeout[10];
-              ms.GetCapture(matchTimeout, 1);
-              fhemClient.timeout = atoi(matchTimeout);
               if (fhemClient.timeout <= SettingsMngr.scanPeriod)
                 fhemClient.timeout = SettingsMngr.scanPeriod + 1;
 
-              NormalizeAddress(fhemClient.address, fhemClient.normalizedAddress);
-              FastDiscovery[fhemClient.normalizedAddress] = false;
+                FastDiscovery[fhemClient.deviceId] = false;
               reason = "on request";
               publish = true;
               fhemClient.mClient.print("command accepted\n");
             }
-            else if (ms.Match(R"(^%s*now%s*$)") == REGEXP_MATCHED)
+              else if (IsNowRequest((char *)buf))
             {
               reason = "forced request";
               publish = true;
@@ -157,15 +221,15 @@ namespace FHEMLePresenceServer
             }
           }
         }
-        else if (fhemClient.address[0] != '\0')
+        else if (fhemClient.requestedDeviceId[0] != '\0')
         {
-          fastDiscovery = (FastDiscovery.find(fhemClient.normalizedAddress) != FastDiscovery.end()) && FastDiscovery[fhemClient.normalizedAddress];
+            fastDiscovery = (FastDiscovery.find(fhemClient.deviceId) != FastDiscovery.end()) && FastDiscovery[fhemClient.deviceId];
           if ((fhemClient.lastreport + fhemClient.timeout) < NTPTime::seconds() || fastDiscovery)
           {
             publish = true;
             if (fastDiscovery)
             {
-              FastDiscovery[fhemClient.normalizedAddress] = false;
+                FastDiscovery[fhemClient.deviceId] = false;
               reason = "fast discovery";
             }
             else
@@ -173,7 +237,7 @@ namespace FHEMLePresenceServer
           }
         }
 
-        if (fhemClient.address[0] != '\0' && publish)
+        if (fhemClient.requestedDeviceId[0] != '\0' && publish)
         {
           publishTag(fhemClient, reason);
           fhemClient.lastreport = NTPTime::seconds();
@@ -181,7 +245,7 @@ namespace FHEMLePresenceServer
       }
       else
       {
-        DEBUG_PRINTF("Client Disconnect %s:%d for device %s\n", fhemClient.mClient.remoteIP().toString().c_str(), fhemClient.mClient.remotePort(), fhemClient.address);
+        DEBUG_PRINTF("Client Disconnect %s:%d for device %s\n", fhemClient.mClient.remoteIP().toString().c_str(), fhemClient.mClient.remotePort(), fhemClient.requestedDeviceId);
         fhemClient.mClient.flush();
         fhemClient.mClient.stop();
         RelaseFHEMClient(&fhemClient);

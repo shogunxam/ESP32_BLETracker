@@ -7,6 +7,7 @@
 #include "WiFiManager.h"
 #include "watchdog.h"
 #include "settings.h"
+#include "constants.h"
 
 // MQTT_KEEPALIVE : keepAlive interval in Seconds
 // Keepalive timeout for default MQTT Broker is 10s
@@ -35,21 +36,49 @@ namespace MQTTClient
   static bool firstTimeMQTTConnection = true;
   static bool MQTTConnectionErrorLogged = false;
   static uint32_t MQTTErrorCounter = 0;
-  static const size_t cMaxLocationNameLength = 32;
-  static const size_t cMaxGatewayNameLength = 32;
-  static const size_t cMQTTBaseSensorTopicLength = cMaxLocationNameLength + cMaxGatewayNameLength + 2; // +2 for "/"
+  static const size_t cMaxLocationNameLength = LOCATION_NAME_MAX_LEN;
+  static const size_t cMaxGatewayNameLength = GATEWAY_NAME_MAX_LEN;
+  static const size_t cMaxDeviceIdCharacters = BleDeviceId::UUID_STRING_SIZE - 1;
+  static const size_t cMaxDeviceIdLength = BleDeviceId::UUID_STRING_SIZE;
+  static const size_t cStringTerminatorSize = 1;
+  static const size_t cTopicSeparatorSize = 1;
+  static const size_t cMaxBatteryLevelStringSize = 4; // "100" plus the null terminator
+  static const size_t cMaxRSSIStringSize = 5; // "-100" plus the null terminator
+  static const size_t cMaxStateStringSize = 4; // "off" plus the null terminator
+  static const size_t cMaxTimestampCharacters = 10;
+  static const size_t cMaxDeviceCountStringSize = 3; // Up to 2 digits plus the null terminator
+  static const size_t cMaxUptimeStringSize = 20;
+  static const size_t cMaxIpStringSize = 16;
+  static constexpr char cLwtTopicSuffix[] = "/LWT";
+  static constexpr char cSysInfoTopicSuffix[] = "/sysinfo";
+  static constexpr char cStatusTopicSuffix[] = "/status";
+  static constexpr char cDevicesTopicSuffix[] = "/devices";
+  static constexpr char cStateTopicSuffix[] = "/state";
+  static constexpr char cRssiTopicSuffix[] = "/rssi";
+  static constexpr char cBatteryTopicSuffix[] = "/battery";
+  static constexpr char cConfigTopicSuffix[] = "/config";
+  static constexpr char cSensorDiscoveryPrefix[] = "homeassistant/sensor/";
+  static constexpr char cDeviceTrackerDiscoveryPrefix[] = "homeassistant/device_tracker/";
+  static constexpr char cTrackerDiscoveryTail[] = "_status/config";
+  static constexpr char cDevicesDiscoveryTail[] = "_devices/config";
+  static constexpr char cDeviceIdSeparator[] = "_device_";
+  static constexpr char cStatusIdSuffix[] = "_status";
+  static constexpr char cDevicesIdSuffix[] = "_devices";
+  // Base topic: max location + separator + max gateway + null terminator.
+  static const size_t cMQTTBaseSensorTopicLength =
+    cMaxLocationNameLength + cTopicSeparatorSize + cMaxGatewayNameLength + cStringTerminatorSize;
 
   const char *getMQTTBaseSensorTopic()
   {
     static char MQTT_BASE_SENSOR_TOPIC[cMQTTBaseSensorTopicLength] = "";
     if (MQTT_BASE_SENSOR_TOPIC[0] == 0)
     {
-      char location[cMaxLocationNameLength] = "";
-      char gateway[cMaxGatewayNameLength] = "";
-      strncpy(location, LOCATION, sizeof(location));
-      location[sizeof(location) - 1] = '\0'; // Ensure null-termination
-      strncpy(gateway, SettingsMngr.gateway.c_str(), sizeof(gateway));
-      gateway[sizeof(gateway) - 1] = '\0'; // Ensure null-termination
+      char location[cMaxLocationNameLength + cStringTerminatorSize] = "";
+      char gateway[cMaxGatewayNameLength + cStringTerminatorSize] = "";
+      strncpy(location, LOCATION, cMaxLocationNameLength);
+      location[cMaxLocationNameLength] = '\0';
+      strncpy(gateway, SettingsMngr.gateway.c_str(), cMaxGatewayNameLength);
+      gateway[cMaxGatewayNameLength] = '\0';
 
       snprintf(MQTT_BASE_SENSOR_TOPIC, sizeof(MQTT_BASE_SENSOR_TOPIC), "%s/%s", location, gateway);
     }
@@ -59,21 +88,23 @@ namespace MQTTClient
 
   const char *getMQTTAvailabilityTopic()
   {
-    static char MQTT_AVAILABILITY_TOPIC[cMQTTBaseSensorTopicLength + 10] = "";
+    static char MQTT_AVAILABILITY_TOPIC[cMQTTBaseSensorTopicLength + sizeof(cLwtTopicSuffix) - cStringTerminatorSize] = "";
     if (MQTT_AVAILABILITY_TOPIC[0] == 0)
     {
 
-      snprintf(MQTT_AVAILABILITY_TOPIC, sizeof(MQTT_AVAILABILITY_TOPIC), "%s/LWT", getMQTTBaseSensorTopic());
+      snprintf(MQTT_AVAILABILITY_TOPIC, sizeof(MQTT_AVAILABILITY_TOPIC), "%s%s",
+           getMQTTBaseSensorTopic(), cLwtTopicSuffix);
     }
     return MQTT_AVAILABILITY_TOPIC;
   }
 
   const char *getMQTTSysInfoTopic()
   {
-    static char MQTT_SYSINFO_TOPIC[cMQTTBaseSensorTopicLength + 10] = "";
+    static char MQTT_SYSINFO_TOPIC[cMQTTBaseSensorTopicLength + sizeof(cSysInfoTopicSuffix) - cStringTerminatorSize] = "";
     if (MQTT_SYSINFO_TOPIC[0] == 0)
     {
-      snprintf(MQTT_SYSINFO_TOPIC, sizeof(MQTT_SYSINFO_TOPIC), "%s/sysinfo", getMQTTBaseSensorTopic());
+      snprintf(MQTT_SYSINFO_TOPIC, sizeof(MQTT_SYSINFO_TOPIC), "%s%s",
+           getMQTTBaseSensorTopic(), cSysInfoTopicSuffix);
     }
     return MQTT_SYSINFO_TOPIC;
   }
@@ -248,35 +279,50 @@ namespace MQTTClient
 
   static const char *devicePayloadBtt = R"({"state":"%s","rssi":%d,"battery":%d})";
   static const char *devicePayloadNoBtt = R"({"state":"%s","rssi":%d})";
+  static const char *systemInfoPayloadFormat = R"({"uptime":"%s","version":"%s","SSID":"%s","IP":"%s"})";
+  static const char *trackerStatusPayloadFormat =
+    "{\"status\":\"online\",\"uptime\":\"%s\",\"ip\":\"%s\",\"devices_count\":%zu}";
+  static const char *devicesListHeaderFormat = "{\"count\":%zu,\"devices\":[";
+  static const char *devicesListItemFormat =
+    "{\"address\":\"%s\",\"state\":\"%s\",\"rssi\":%d,\"last_seen\":%ld}";
 
-  void publishBLEState(const char address[ADDRESS_STRING_SIZE], const char state[4], int8_t rssi, int8_t batteryLevel)
-  {
-    const uint16_t maxTopicLen = strlen(getMQTTBaseSensorTopic()) + 22;
+  void publishBLEState(const char deviceId[cMaxDeviceIdLength], const char state[4], int8_t rssi, int8_t batteryLevel)
+  {   
+    // Topic: base topic + separator + device ID + longest suffix ("/battery") + null terminator.
+    const size_t maxTopicLen = strlen(getMQTTBaseSensorTopic()) + cTopicSeparatorSize +
+             cMaxDeviceIdCharacters + sizeof(cBatteryTopicSuffix);
     char topic[maxTopicLen];
-    char strbuff[5];
+    char strbuff[cMaxRSSIStringSize]; // Long enough for the RSSI/battery integer and null terminator.
 
 #if PUBLISH_SEPARATED_TOPICS
-    snprintf(topic, maxTopicLen, "%s/%s/state", getMQTTBaseSensorTopic(), address);
+    snprintf(topic, maxTopicLen, "%s/%s%s", getMQTTBaseSensorTopic(), deviceId, cStateTopicSuffix);
     publishToMQTT(topic, state, false);
-    snprintf(topic, maxTopicLen, "%s/%s/rssi", getMQTTBaseSensorTopic(), address);
+    snprintf(topic, maxTopicLen, "%s/%s%s", getMQTTBaseSensorTopic(), deviceId, cRssiTopicSuffix);
     itoa(rssi, strbuff, 10);
     publishToMQTT(topic, strbuff, false);
 #if PUBLISH_BATTERY_LEVEL
-    snprintf(topic, maxTopicLen, "%s/%s/battery", getMQTTBaseSensorTopic(), address);
+    snprintf(topic, maxTopicLen, "%s/%s%s", getMQTTBaseSensorTopic(), deviceId, cBatteryTopicSuffix);
     itoa(batteryLevel, strbuff, 10);
     publishToMQTT(topic, strbuff, false);
 #endif
 #endif
 
 #if PUBLISH_SIMPLE_JSON
-    snprintf(topic, maxTopicLen, "%s/%s", getMQTTBaseSensorTopic(), address);
-    const uint16_t maxPayloadLen = 45;
+    snprintf(topic, maxTopicLen, "%s/%s", getMQTTBaseSensorTopic(), deviceId);
+#if PUBLISH_BATTERY_LEVEL
+  const char *devicePayloadFormat = devicePayloadBtt;
+#else
+  const char *devicePayloadFormat = devicePayloadNoBtt;
+#endif
+  const size_t maxPayloadLen = strlen(devicePayloadFormat) + cMaxStateStringSize +
+                 cMaxRSSIStringSize + cMaxBatteryLevelStringSize +
+                 cStringTerminatorSize;
     char payload[maxPayloadLen];
 
 #if PUBLISH_BATTERY_LEVEL
-    snprintf(payload, maxPayloadLen, devicePayloadBtt, state, rssi, batteryLevel);
+  snprintf(payload, maxPayloadLen, devicePayloadFormat, state, rssi, batteryLevel);
 #else
-    snprintf(payload, maxPayloadLen, devicePayloadNoBtt, state, rssi);
+  snprintf(payload, maxPayloadLen, devicePayloadFormat, state, rssi);
 #endif
     publishToMQTT(topic, payload, false);
 #endif
@@ -284,14 +330,19 @@ namespace MQTTClient
 
   void publishSySInfo()
   {
-    const size_t ssidlen = SettingsMngr.wifiSSID.length() + 1;
-    const uint16_t maxSysPayloadLen = 83 + sizeof(VERSION) + ssidlen;
+    const size_t ssidlen = SettingsMngr.wifiSSID.length() + cStringTerminatorSize;
+    // Payload: format string + uptime + firmware version + SSID + IP + null terminator.
+    const size_t maxSysPayloadLen = strlen(systemInfoPayloadFormat) + cMaxUptimeStringSize +
+                sizeof(VERSION) + ssidlen + cMaxIpStringSize +
+                cStringTerminatorSize;
     char sysPayload[maxSysPayloadLen];
     static String IP;
     IP.reserve(16);
     IP = WiFi.localIP().toString();
-    char strmilli[20];
-    snprintf(sysPayload, maxSysPayloadLen, R"({"uptime":"%s","version":"%s","SSID":"%s","IP":"%s"})", formatMillis(millis(), strmilli), VERSION, SettingsMngr.wifiSSID.c_str(), IP.c_str());
+    char strmilli[cMaxUptimeStringSize];
+    snprintf(sysPayload, maxSysPayloadLen, systemInfoPayloadFormat,
+         formatMillis(millis(), strmilli), VERSION,
+         SettingsMngr.wifiSSID.c_str(), IP.c_str());
     publishToMQTT(getMQTTSysInfoTopic(), sysPayload, false);
   }
 
@@ -431,18 +482,23 @@ namespace MQTTClient
     const char *bleTrackerStatusStr = "BLETracker Status";
     const char *audioIcoStr = "mdi:bluetooth-audio";
 
-    char discoveryTopic[128];
+    // Topic: "homeassistant/sensor/" + gateway + "_status/config" + null terminator.
+    char discoveryTopic[sizeof(cSensorDiscoveryPrefix) - cStringTerminatorSize +
+      cMaxGatewayNameLength + sizeof(cTrackerDiscoveryTail)];
     snprintf(discoveryTopic, sizeof(discoveryTopic),
-             "homeassistant/sensor/%s_status/config",
-             SettingsMngr.gateway.c_str());
+       "%s%s%s",
+       cSensorDiscoveryPrefix, SettingsMngr.gateway.c_str(), cTrackerDiscoveryTail);
 
-    char stateTopic[64];
+    // Topic: base topic + "/status" + null terminator.
+    char stateTopic[cMQTTBaseSensorTopicLength + sizeof(cStatusTopicSuffix) - cStringTerminatorSize];
     snprintf(stateTopic, sizeof(stateTopic),
-             "%s/status",
-             getMQTTBaseSensorTopic());
+             "%s%s",
+             getMQTTBaseSensorTopic(), cStatusTopicSuffix);
 
-    char uniqueId[32];
-    snprintf(uniqueId, sizeof(uniqueId), "%s_status", SettingsMngr.gateway.c_str());
+    // Unique ID: gateway + "_status" + null terminator.
+    char uniqueId[cMaxGatewayNameLength + sizeof(cStatusIdSuffix)];
+    snprintf(uniqueId, sizeof(uniqueId), "%s%s",
+         SettingsMngr.gateway.c_str(), cStatusIdSuffix);
 
     // Calculate required buffer size
     size_t payloadSize = calculateDiscoveryPayloadSize(bleTrackerStatusStr, uniqueId,
@@ -474,18 +530,23 @@ namespace MQTTClient
   bool publishDevicesListSensorDiscovery()
   {
     const char *bleDevicesStr = "BLE Devices";
-    char discoveryTopic[128];
+    // Topic: "homeassistant/sensor/" + gateway + "_devices/config" + null terminator.
+    char discoveryTopic[sizeof(cSensorDiscoveryPrefix) - cStringTerminatorSize +
+      cMaxGatewayNameLength + sizeof(cDevicesDiscoveryTail)];
     snprintf(discoveryTopic, sizeof(discoveryTopic),
-             "homeassistant/sensor/%s_devices/config",
-             SettingsMngr.gateway.c_str());
+       "%s%s%s",
+       cSensorDiscoveryPrefix, SettingsMngr.gateway.c_str(), cDevicesDiscoveryTail);
 
-    char devicesTopic[64];
+    // Topic: base topic + "/devices" + null terminator.
+    char devicesTopic[cMQTTBaseSensorTopicLength + sizeof(cDevicesTopicSuffix) - cStringTerminatorSize];
     snprintf(devicesTopic, sizeof(devicesTopic),
-             "%s/devices",
-             getMQTTBaseSensorTopic());
+             "%s%s",
+             getMQTTBaseSensorTopic(), cDevicesTopicSuffix);
 
-    char uniqueId[32];
-    snprintf(uniqueId, sizeof(uniqueId), "%s_devices", SettingsMngr.gateway.c_str());
+    // Unique ID: gateway + "_devices" + null terminator.
+    char uniqueId[cMaxGatewayNameLength + sizeof(cDevicesIdSuffix)];
+    snprintf(uniqueId, sizeof(uniqueId), "%s%s",
+         SettingsMngr.gateway.c_str(), cDevicesIdSuffix);
 
     // Calculate required buffer size
     size_t payloadSize = calculateDiscoveryPayloadSize(bleDevicesStr, uniqueId,
@@ -515,26 +576,39 @@ namespace MQTTClient
 
   bool publishBLEDeviceSensorDiscovery(const BLETrackedDevice &device)
   {
-    char discoveryTopic[128];
+    // Topic: fixed prefix + gateway + "_device_" + device ID + "/config" + null terminator.
+        char discoveryTopic[sizeof(cDeviceTrackerDiscoveryPrefix) - cStringTerminatorSize +
+            cMaxGatewayNameLength + sizeof(cDeviceIdSeparator) - cStringTerminatorSize +
+          cMaxDeviceIdCharacters + sizeof(cConfigTopicSuffix)];
+    char deviceIdAsString[cMaxDeviceIdLength];
+    device.deviceId.toString(deviceIdAsString);
     snprintf(discoveryTopic, sizeof(discoveryTopic),
-             "homeassistant/device_tracker/%s_device_%s/config",
-             SettingsMngr.gateway.c_str(), device.address);
+             "%s%s%s%s%s",
+           cDeviceTrackerDiscoveryPrefix, SettingsMngr.gateway.c_str(),
+             cDeviceIdSeparator, deviceIdAsString, cConfigTopicSuffix);
 
-    char deviceName[64];
-    snprintf(deviceName, sizeof(deviceName), "BLE Device %s", device.address);
+    // Name: "BLE Device " + device ID + null terminator.
+    char deviceName[sizeof("BLE Device ") - cStringTerminatorSize +
+            cMaxDeviceIdCharacters + cStringTerminatorSize];
+    snprintf(deviceName, sizeof(deviceName), "BLE Device %s", deviceIdAsString);
 
-    char uniqueId[48];
-    snprintf(uniqueId, sizeof(uniqueId), "%s_device_%s", SettingsMngr.gateway.c_str(), device.address);
+    // Unique ID: gateway + "_device_" + device ID + null terminator.
+        char uniqueId[cMaxGatewayNameLength + sizeof(cDeviceIdSeparator) - cStringTerminatorSize +
+          cMaxDeviceIdCharacters + cStringTerminatorSize];
+        snprintf(uniqueId, sizeof(uniqueId), "%s%s%s",
+         SettingsMngr.gateway.c_str(), cDeviceIdSeparator, deviceIdAsString);
 
-    char deviceTopic[64];
+    // Device topic: base topic + separator + device ID + optional "/state" + null terminator.
+    char deviceTopic[cMQTTBaseSensorTopicLength + cTopicSeparatorSize + cMaxDeviceIdCharacters +
+         sizeof(cStateTopicSuffix) - cStringTerminatorSize];
 #if PUBLISH_SIMPLE_JSON
     snprintf(deviceTopic, sizeof(deviceTopic),
              "%s/%s",
-             getMQTTBaseSensorTopic(), device.address);
+             getMQTTBaseSensorTopic(), deviceIdAsString);
 #elif PUBLISH_SEPARATED_TOPICS
     snprintf(deviceTopic, sizeof(deviceTopic),
-             "%s/%s/state",
-             getMQTTBaseSensorTopic(), device.address);
+             "%s/%s%s",
+             getMQTTBaseSensorTopic(), deviceIdAsString, cStateTopicSuffix);
 #endif
 
     // Calculate required buffer size
@@ -542,23 +616,31 @@ namespace MQTTClient
                                                        "mdi:bluetooth", SettingsMngr.gateway.c_str(), VERSION);
 
     // Prepare for specific attributes calculation
-    char rssiTopic[64] = {0};
-    char batteryTopic[64] = {0};
+    // Attribute topics: base topic + separator + device ID + suffix + null terminator.
+    char rssiTopic[cMQTTBaseSensorTopicLength + cTopicSeparatorSize + cMaxDeviceIdCharacters +
+           sizeof(cRssiTopicSuffix) - cStringTerminatorSize] = {0};
+    char batteryTopic[cMQTTBaseSensorTopicLength + cTopicSeparatorSize + cMaxDeviceIdCharacters +
+          sizeof(cBatteryTopicSuffix) - cStringTerminatorSize] = {0};
 
 #if PUBLISH_SEPARATED_TOPICS
     snprintf(rssiTopic, sizeof(rssiTopic),
-             "%s/%s/rssi",
-             getMQTTBaseSensorTopic(), device.address);
+             "%s/%s%s",
+             getMQTTBaseSensorTopic(), deviceIdAsString, cRssiTopicSuffix);
 #if PUBLISH_BATTERY_LEVEL
     snprintf(batteryTopic, sizeof(batteryTopic),
-             "%s/%s/battery",
-             getMQTTBaseSensorTopic(), device.address);
+             "%s/%s%s",
+             getMQTTBaseSensorTopic(), deviceIdAsString, cBatteryTopicSuffix);
 #endif
 #endif
 
     // Calculate size for specific attributes
-    const char *batteryTopicPtr = (PUBLISH_BATTERY_LEVEL && PUBLISH_SEPARATED_TOPICS) ? batteryTopic : nullptr;
-    size_t attrSize = calculateSpecificAttributesSize(PUBLISH_SIMPLE_JSON, deviceTopic, rssiTopic, batteryTopicPtr);
+    size_t attrSize;
+  #if PUBLISH_SIMPLE_JSON
+    attrSize = calculateSpecificAttributesSize(true, deviceTopic);
+  #elif PUBLISH_SEPARATED_TOPICS
+    const char *batteryTopicPtr = PUBLISH_BATTERY_LEVEL ? batteryTopic : nullptr;
+    attrSize = calculateSpecificAttributesSize(false, deviceTopic, rssiTopic, batteryTopicPtr);
+  #endif
 
     // Add attribute size to payload size
     payloadSize += attrSize;
@@ -588,11 +670,11 @@ namespace MQTTClient
     if (connectToMQTT())
     {
       _publishToMQTT(discoveryTopic, discoveryPayload, true);
-      DEBUG_PRINTF("INFO: Home Assistant discovery payload sent for BLE Device %s sensor\n", device.address);
+      DEBUG_PRINTF("INFO: Home Assistant discovery payload sent for BLE Device %s sensor\n", deviceIdAsString);
 
       for (auto &trackedDevice : BLETrackedDevices)
       {
-        if (strcmp(trackedDevice.address, device.address) == 0)
+        if (trackedDevice.deviceId == device.deviceId)
         {
           trackedDevice.haDiscoveryPublished = true;
           break;
@@ -607,20 +689,21 @@ namespace MQTTClient
 
   void publishTrackerStatus()
   {
-    char stateTopic[64];
+    // Topic: base topic + "/status" + null terminator.
+    char stateTopic[cMQTTBaseSensorTopicLength + sizeof(cStatusTopicSuffix) - cStringTerminatorSize];
     snprintf(stateTopic, sizeof(stateTopic),
-             "%s/status",
-             getMQTTBaseSensorTopic());
+             "%s%s",
+             getMQTTBaseSensorTopic(), cStatusTopicSuffix);
 
-    char statusPayload[128];
-    char strmilli[20];
-    snprintf(statusPayload, sizeof(statusPayload),
-             "{"
-             "\"status\":\"online\","
-             "\"uptime\":\"%s\","
-             "\"ip\":\"%s\","
-             "\"devices_count\":%zu"
-             "}",
+    const size_t strmilliSize = cMaxUptimeStringSize;
+    char strmilli[strmilliSize];
+    // Payload: fixed JSON text + uptime + IPv4 string + device count + null terminator.
+    const size_t statusPayloadSize = strlen(trackerStatusPayloadFormat) + strmilliSize +
+                 cMaxIpStringSize + cMaxDeviceCountStringSize +
+                 cStringTerminatorSize;
+    char statusPayload[statusPayloadSize];
+
+    snprintf(statusPayload, sizeof(statusPayload), trackerStatusPayloadFormat,
              formatMillis(millis(), strmilli),
              WiFi.localIP().toString().c_str(),
              BLETrackedDevices.size());
@@ -631,24 +714,33 @@ namespace MQTTClient
   void publishDevicesList()
   {
     // Topic for the list of devices
-    char devicesTopic[64];
+    // Topic: base topic + "/devices" + null terminator.
+    char devicesTopic[cMQTTBaseSensorTopicLength + sizeof(cDevicesTopicSuffix) - cStringTerminatorSize];
     snprintf(devicesTopic, sizeof(devicesTopic),
-             "%s/devices",
-             getMQTTBaseSensorTopic());
+             "%s%s",
+             getMQTTBaseSensorTopic(), cDevicesTopicSuffix);
 
-    // Create a buffer for the JSON payload
-    const size_t maxPayloadSize = 128 + (BLETrackedDevices.size() * 50);
+      // Item size: fixed JSON format + device ID + state + RSSI + timestamp + comma separator.
+      const size_t singleDevicePayloadSize =
+        strlen(devicesListItemFormat) - 4 + cMaxDeviceIdCharacters +
+        (cMaxStateStringSize - cStringTerminatorSize) +
+        (cMaxRSSIStringSize - cStringTerminatorSize) + cMaxTimestampCharacters +
+        cStringTerminatorSize;
+      // List size: JSON header + all items + closing array/object + null terminator.
+      // Header format + maximum device count + all items + closing "]}" + null terminator.
+      const size_t maxPayloadSize = strlen(devicesListHeaderFormat) + cMaxDeviceCountStringSize +
+                (BLETrackedDevices.size() * singleDevicePayloadSize) +
+                2 + cStringTerminatorSize;
+    
     char *payload = new char[maxPayloadSize];
 
     // Start the JSON payload
-    int written = snprintf(payload, maxPayloadSize,
-                           "{"
-                           "\"count\":%zu,"
-                           "\"devices\":[",
+    int written = snprintf(payload, maxPayloadSize, devicesListHeaderFormat,
                            BLETrackedDevices.size());
 
     // Add each device to the JSON
     bool firstDevice = true;
+    char deviceIdAsString[cMaxDeviceIdLength];
     for (const auto &device : BLETrackedDevices)
     {
       if (!firstDevice)
@@ -657,15 +749,10 @@ namespace MQTTClient
       }
 
       const char *state = device.isDiscovered ? MQTT_PAYLOAD_ON : MQTT_PAYLOAD_OFF;
-
+      device.deviceId.toString(deviceIdAsString);
       written += snprintf(payload + written, maxPayloadSize - written,
-                          "{"
-                          "\"address\":\"%s\","
-                          "\"state\":\"%s\","
-                          "\"rssi\":%d,"
-                          "\"last_seen\":%ld"
-                          "}",
-                          device.address, state, device.rssiValue, device.lastDiscoveryTime);
+              devicesListItemFormat,
+                          deviceIdAsString, state, device.rssiValue, device.lastDiscoveryTime);
 
       firstDevice = false;
     }
@@ -705,39 +792,54 @@ namespace MQTTClient
     const char *state = device.isDiscovered ? MQTT_PAYLOAD_ON : MQTT_PAYLOAD_OFF;
     int rssi = device.isDiscovered ? device.rssiValue : -100;
 
+    char deviceIdAsString[cMaxDeviceIdLength];
+    device.deviceId.toString(deviceIdAsString);
+
     // Use the existing code to publish device data
 #if PUBLISH_SEPARATED_TOPICS
-    const uint16_t maxTopicLen = strlen(getMQTTBaseSensorTopic()) + 22;
+    // Topic: base topic + separator + device ID + longest suffix ("/battery") + null terminator.
+    const size_t maxTopicLen = strlen(getMQTTBaseSensorTopic()) + cTopicSeparatorSize +
+             cMaxDeviceIdCharacters + sizeof(cBatteryTopicSuffix);
     char topic[maxTopicLen];
-    char strbuff[5];
+    char strbuff[cMaxRSSIStringSize];
 
-    snprintf(topic, maxTopicLen, "%s/%s/state", getMQTTBaseSensorTopic(), device.address);
+    snprintf(topic, maxTopicLen, "%s/%s%s", getMQTTBaseSensorTopic(), deviceIdAsString, cStateTopicSuffix);
     publishToMQTT(topic, state, false);
 
-    snprintf(topic, maxTopicLen, "%s/%s/rssi", getMQTTBaseSensorTopic(), device.address);
+    snprintf(topic, maxTopicLen, "%s/%s%s", getMQTTBaseSensorTopic(), deviceIdAsString, cRssiTopicSuffix);
     itoa(rssi, strbuff, 10);
     publishToMQTT(topic, strbuff, false);
 
 #if PUBLISH_BATTERY_LEVEL
-    snprintf(topic, maxTopicLen, "%s/%s/battery", getMQTTBaseSensorTopic(), device.address);
+    snprintf(topic, maxTopicLen, "%s/%s%s", getMQTTBaseSensorTopic(), deviceIdAsString, cBatteryTopicSuffix);
     itoa(device.batteryLevel, strbuff, 10);
     publishToMQTT(topic, strbuff, false);
 #endif
 #endif
 
 #if PUBLISH_SIMPLE_JSON
-    const uint16_t maxTopicLen = strlen(getMQTTBaseSensorTopic()) + 22;
+    // Topic: base topic + separator + device ID + null terminator.
+    const size_t maxTopicLen = strlen(getMQTTBaseSensorTopic()) + cTopicSeparatorSize +
+                   cMaxDeviceIdCharacters + cStringTerminatorSize;
     char topic[maxTopicLen];
-    snprintf(topic, maxTopicLen, "%s/%s", getMQTTBaseSensorTopic(), device.address);
+    snprintf(topic, maxTopicLen, "%s/%s", getMQTTBaseSensorTopic(), deviceIdAsString);
 
-    const uint16_t maxPayloadLen = 45;
+    // Payload: JSON format + maximum state, RSSI and battery strings + null terminator.
+  #if PUBLISH_BATTERY_LEVEL
+    const char *devicePayloadFormat = devicePayloadBtt;
+  #else
+    const char *devicePayloadFormat = devicePayloadNoBtt;
+  #endif
+    const size_t maxPayloadLen = strlen(devicePayloadFormat) + cMaxStateStringSize +
+                   cMaxRSSIStringSize + cMaxBatteryLevelStringSize +
+                   cStringTerminatorSize;
     char payload[maxPayloadLen];
 
 #if PUBLISH_BATTERY_LEVEL
-    snprintf(payload, maxPayloadLen, devicePayloadBtt,
+    snprintf(payload, maxPayloadLen, devicePayloadFormat,
              state, rssi, device.batteryLevel);
 #else
-    snprintf(payload, maxPayloadLen, devicePayloadNoBtt,
+    snprintf(payload, maxPayloadLen, devicePayloadFormat,
              state, rssi);
 #endif
     publishToMQTT(topic, payload, false);
