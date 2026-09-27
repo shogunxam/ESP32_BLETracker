@@ -10,6 +10,8 @@ This firmware help you to track a Bluetooth Low Energy device with an ESP32, usi
 Please note that the targeted device can't have a changing BLE address (normally called 'random' instead of 'public' address).<br><br>
 **What this firmware can do for you:**  
 * Tracks all discovered ble devices or only the desired devices placed in a white-list
+* Tracks standard BLE beacons using their unique identifiers
+* Discovers nearby BLE devices and allows selecting them for tracking
 * Selectively reads the battery level of tracked devices
 * Generates MQTT topic for an easy integration in you favorite Home Automation Hub
 * Mimics a lepresenced server to be integrated in FHEM
@@ -27,6 +29,27 @@ This feature was successfully tested with a Nut Mini, using other devices you co
 If many devices are discovered the battery level check can be very slow causing frequent Wi-Fi disconnection so that I have introduced a whitelist containing the Mac Address of the devices to check. The whitelist is in the form:<br>
 BLE_BATTERY_WHITELIST       "XXXXXXXXX","YYYYYYYY"<br>
 Mac Addresses have to be uppercase without ":" or "-" i.e "BA683F7EC159"
+
+### First-time Setup
+
+If no Wi-Fi credentials are available, the ESP32 starts an access point that
+allows the initial network and MQTT configuration through the web interface.
+
+### BLE Beacon Tracking
+
+The BLETracker can track standard BLE beacons using their unique payload instead of their MAC address. The following beacon formats are supported:
+
+* **Apple iBeacon**, using UUID, Major, and Minor values
+* **AltBeacon**, using Beacon ID, Major, and Minor values
+* **Eddystone UID**, using Namespace and Instance values
+
+Beacon identifiers can be entered in the tracked-device configuration alongside traditional MAC addresses. This allows beacons with changing or unavailable BLE addresses to be identified by their advertised data.
+
+### BLE Device Discovery Mode
+
+Discovery Mode is available in the **Devices** section of the web interface. When enabled, the tracker lists nearby BLE devices detected during scanning, including their advertised names and signal strength.
+
+While Discovery Mode is active, normal device tracking is paused. Select **Track** for each device that should be added to the tracked-device configuration, then disable Discovery Mode and save the configuration to persist the selected devices.
 
 ### MQTT Integration
 
@@ -63,6 +86,8 @@ The system publishes to the following topics:
 ### Home Assistant Integration
 
 Since version 3.8, the application supports automatic device discovery in Home Assistant.
+The tracker automatically creates and updates the Home Assistant entities for
+the tracker and its monitored BLE devices through MQTT Discovery.
 
 ### UDP Protocol Support
 
