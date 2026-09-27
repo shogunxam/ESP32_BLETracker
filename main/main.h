@@ -1,7 +1,8 @@
 #ifndef MAIN_H
 #define MAIN_H
-#include <BLEDevice.h>
+#include <NimBLEDevice.h>
 #include <WString.h>
+#include <map>
 #include <sstream>
 #include <iomanip>
 #include "config.h"
@@ -24,7 +25,7 @@ struct BLETrackedDevice
   bool hasBatteryService;  //Used to avoid connections with BLE without battery service
   uint8_t connectionRetry; //Number of retries if the connection with the device fails
   int8_t rssiValue;
-  esp_ble_addr_type_t addressType;
+  uint8_t addressType;
   uint8_t advertisementCounter;
   bool forceBatteryRead;
   bool haDiscoveryPublished;
@@ -41,7 +42,7 @@ struct BLETrackedDevice
     hasBatteryService = true;
     connectionRetry = 0;
     rssiValue = -100;
-    addressType = BLE_ADDR_TYPE_PUBLIC;
+    addressType = BLE_ADDR_PUBLIC;
     advertisementCounter = 0;
     forceBatteryRead = true;
     haDiscoveryPublished = false;
