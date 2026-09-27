@@ -131,6 +131,11 @@ namespace MQTTClient
     unsigned long lastMQTTAvailabilityUpdate = NTPTime::seconds();
     for (;;)
     {
+      if (discoveryMode)
+      {
+        delay(1000);
+        continue;
+      }
       if (mqttClient.connected())
       {
         mqttClient.loop();
@@ -255,6 +260,8 @@ namespace MQTTClient
 
   void publishToMQTT(const char *topic, const char *payload, bool retain)
   {
+    if (discoveryMode)
+      return;
     if (connectToMQTT())
     {
       _publishToMQTT(topic, payload, retain);

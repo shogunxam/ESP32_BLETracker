@@ -68,7 +68,7 @@ def minimize_css(content):
 
 
 def minimize_js(content):
-    return jsmin(content)
+    return jsmin(content, quote_chars="'\"`")
 
 
 def compress_file(input_path, output_path):
@@ -104,7 +104,7 @@ def bin2c(filename, outfilename):
             result_file.write(b'0x%02X' % b)
         result_file.write(b'\n};')
 
-def process_files(directory, output_dir=None, verbose=True):
+def process_files(directory, output_dir=None, verbose=True, selected_files=None):
     if not output_dir:
         output_dir = directory
     
@@ -118,6 +118,9 @@ def process_files(directory, output_dir=None, verbose=True):
     for root, _, files in os.walk(directory):
         for file in files:
             file_path = os.path.join(root, file)
+            rel_path = os.path.relpath(file_path, directory)
+            if selected_files and rel_path not in selected_files:
+                continue
             file_ext = os.path.splitext(file)[1].lower()
             
             if file.endswith('.min') or file.endswith('.gz'):
@@ -135,7 +138,6 @@ def process_files(directory, output_dir=None, verbose=True):
                     elif file_ext == '.js':
                         minified_content = minimize_js(content)
                     
-                    rel_path = os.path.relpath(file_path, directory)
                     min_file = os.path.join(output_dir, rel_path)
                     gz_file = min_file + '.gz'
                     
@@ -176,4 +178,10 @@ def process_files(directory, output_dir=None, verbose=True):
         print("No HTML, CSS o JS file found.")
 
 
-process_files('./main/html', './main/html', True)
+selected_files = os.environ.get('HTMLCOMPRESS_FILES')
+process_files(
+    './main/html',
+    './main/html',
+    True,
+    set(selected_files.split(',')) if selected_files else None
+)

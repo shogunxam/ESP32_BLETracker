@@ -180,6 +180,8 @@ namespace FHEMLePresenceServer
 
   void handleClient(FHEMClient &fhemClient)
   {
+    if (discoveryMode)
+      return;
     try
     {
       if (fhemClient.mClient.connected())

@@ -42,6 +42,7 @@
 MyRWMutex trackedDevicesMutex;
 std::vector<BLETrackedDevice> BLETrackedDevices;
 std::map<BleDeviceId, bool> FastDiscovery;
+bool discoveryMode = false;
 
 BLEScan *pBLEScan;
 
@@ -104,6 +105,8 @@ void ForceBatteryRead(const BleDeviceId& deviceId)
 
 void batteryTask()
 {
+  if (discoveryMode)
+    return;
   // DEBUG_PRINTF("\n*** Memory before battery scan: %u\n",xPortGetFreeHeapSize());
 
   char deviceIdAsString[BleDeviceId::UUID_STRING_SIZE];
@@ -357,7 +360,7 @@ void setup()
   webserver.begin();
 #endif
 
-  BLETrackedDevices.reserve(SettingsMngr.GetMaxNumOfTraceableDevices());
+  BLETrackedDevices.reserve(discoveryMode ? 90 : SettingsMngr.GetMaxNumOfTraceableDevices());
   for (const auto &dev : SettingsMngr.GetKnownDevicesList())
   {
     BLETrackedDevice trackedDevice;
@@ -451,7 +454,7 @@ void loop()
     DEBUG_PRINTF("Main loop Free heap: %u\n", xPortGetFreeHeapSize());
     DEBUG_PRINTF("Number device discovered: %d\n", BLETrackedDevices.size());
 
-    if (BLETrackedDevices.size() == SettingsMngr.GetMaxNumOfTraceableDevices())
+    if (!discoveryMode && BLETrackedDevices.size() == SettingsMngr.GetMaxNumOfTraceableDevices())
     {
       const char* errMsg = "Restarting: reached the max number of traceable devices";
       DEBUG_PRINTLN(errMsg);
@@ -538,13 +541,14 @@ void loop()
 #if PROGRESSIVE_SCAN
       if (scanCompleted)
 #endif
-        batteryTask();
+  if (!discoveryMode)
+    batteryTask();
 #endif
 
 #if USE_MQTT || USE_UDP
       bool publishSystemInfo = ((lastSySInfoTime + SYS_INFORMATION_DELAY) < NTPTime::seconds()) || (lastSySInfoTime == 0);
 
-      if (scanEnabled || publishSystemInfo)
+      if (!discoveryMode && (scanEnabled || publishSystemInfo))
       {
         for (auto &trackedDevice : BLETrackedDevices)
         {
@@ -553,14 +557,15 @@ void loop()
       }
 
       // System Information
-      if (publishSystemInfo)
+      if (!discoveryMode && publishSystemInfo)
       {
         publishSySInfo();
         lastSySInfoTime = NTPTime::seconds();
       }
 
 #elif USE_FHEM_LEPRESENCE_SERVER
-      FHEMLePresenceServer::loop(); // Handle clients connections
+  if (!discoveryMode)
+    FHEMLePresenceServer::loop(); // Handle clients connections
 #endif
     }
   }

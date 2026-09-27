@@ -126,7 +126,7 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
     deviceId.toString(deviceIdAsString);
     DEBUG_PRINTF("INFO: Device discovered is%s a iBeacon: %s (%s)\n", isBeacon ? "" : " not", deviceIdAsString, shortName);
 
-    if (!SettingsMngr.IsTraceable(deviceId))
+    if (!discoveryMode && !SettingsMngr.IsTraceable(deviceId))
       return;
 
     int RSSI = advertisedDevice.getRSSI();
@@ -152,13 +152,18 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
           trackedDevice.advertised = true;
           trackedDevice.lastDiscoveryTime = NTPTime::seconds();
           trackedDevice.rssiValue = RSSI;
+          if (shortName[0] != '\0')
+          {
+            strncpy(trackedDevice.name, shortName, BLE_NAME_STRING_SIZE - 1);
+            trackedDevice.name[BLE_NAME_STRING_SIZE - 1] = '\0';
+          }
           if (!trackedDevice.isDiscovered)
           {
             trackedDevice.isDiscovered = true;
             trackedDevice.connectionRetry = 0;
             FastDiscovery[trackedDevice.deviceId] = true;
             DEBUG_PRINTF("INFO: Tracked device discovered again, Address: %s , RSSI: %d\n", deviceIdAsString, RSSI);
-            if (advertisedDevice.haveName())
+            if (shortName[0] != '\0')
             {
               LOG_TO_FILE_D("Device %s ( %s ) within range, RSSI: %d ", deviceIdAsString, shortName, RSSI);
             }
@@ -178,6 +183,8 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
     BLETrackedDevice trackedDevice;
     trackedDevice.advertised = NUM_OF_ADVERTISEMENT_IN_SCAN <= 1; // Skip duplicates
     trackedDevice.deviceId = deviceId;
+    strncpy(trackedDevice.name, shortName, BLE_NAME_STRING_SIZE - 1);
+    trackedDevice.name[BLE_NAME_STRING_SIZE - 1] = '\0';
     trackedDevice.addressType = advertisedDevice.getAddressType();
     trackedDevice.isDiscovered = NUM_OF_ADVERTISEMENT_IN_SCAN <= 1;
     trackedDevice.lastDiscoveryTime = NTPTime::seconds();
@@ -197,7 +204,7 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
     CRITICALSECTION_WRITEEND;
 
     DEBUG_PRINTF("INFO: Device discovered, Address: %s , RSSI: %d\n", deviceIdAsString, RSSI);
-    if (advertisedDevice.haveName())
+    if (shortName[0] != '\0')
       LOG_TO_FILE_D("Discovered new device %s ( %s ) within range, RSSI: %d ", deviceIdAsString, shortName, RSSI);
     else
       LOG_TO_FILE_D("Discovered new device %s within range, RSSI: %d ", deviceIdAsString, RSSI);

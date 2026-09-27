@@ -37,6 +37,7 @@ private:
     void getLogsData();
 #endif
     void setManualScan();
+    void setDiscoveryMode();
     void handleOptions();
     void StartChunkedContentTransfer(const char *contentType, bool zipped = false);
     void SendChunkedContent(const uint8_t *content, size_t size);
