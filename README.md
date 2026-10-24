@@ -271,9 +271,11 @@ and configure `UDP_SERVER` to the computer's LAN IP and `UDP_SERVER_PORT` to `12
 As an alternative to MQTT, the BLETracker can integrate with FHEM:
 - Acts as a lepresenced daemon
 - Listens on port 5333 for collectord connections
-- Accepts FHEM scan requests in both `scan <MAC> <timeout>` and `<MAC> <timeout>` formats
+- Accepts FHEM scan requests in `scan <MAC> <timeout>`, `<MAC> <timeout>`, and `<MAC>|<timeout>` formats
 - Enable by choosing the **esp32dev-ble-fhem-release** build variant in PlatformIO
 - Note: FHEM and MQTT support are mutually exclusive due to memory constraints
+
+**iBeacon limitation**: The firmware can identify BLE beacons by their payload, independently of their changing Bluetooth MAC address. However, the official FHEM `collectord` accepts only Bluetooth MAC addresses in scan requests, so iBeacon tracking through `collectord` is not supported unless the collector is modified to accept and forward beacon IDs.
 
 **Configuration Note**: The values of `presence_timeout` and `absence_timeout` in collectord.conf must be greater than the BLE_SCANNING_PERIOD (default: 10 seconds).
 
@@ -286,7 +288,7 @@ The repository includes a Python client that simulates FHEM polling the ESP32:
    python3 test/fhem-test.py
    ```
 
-The script connects to TCP port `5333`, sends `scan <MAC> <timeout>`, and prints the ESP32 acknowledgement and presence report. Stop it with `Ctrl+C`.
+The script connects to TCP port `5333`, sends `<MAC>|<timeout>`, and prints the ESP32 acknowledgement and presence report. Stop it with `Ctrl+C`.
 
 ## Tested BLE Devices
 

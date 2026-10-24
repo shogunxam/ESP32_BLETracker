@@ -47,7 +47,7 @@ namespace FHEMLePresenceServer
 
     while (*input != '\0')
     {
-      while (isspace(static_cast<unsigned char>(*input)))
+      while (isspace(static_cast<unsigned char>(*input)) || *input == '|')
         input++;
 
       if (*input == '\0')
@@ -57,7 +57,7 @@ namespace FHEMLePresenceServer
         return false;
 
       size_t tokenLength = 0;
-      while (*input != '\0' && !isspace(static_cast<unsigned char>(*input)))
+      while (*input != '\0' && !isspace(static_cast<unsigned char>(*input)) && *input != '|')
       {
         if (tokenLength >= sizeof(tokens[tokenCount]) - 1)
           return false;

@@ -26,7 +26,7 @@ def simulate_fhem_exact_client(tracker_ip):
                 print(f"\n🔌 [FHEM] Connected to {tracker_ip}:{PORT}")
 
                 # 2. Sends the exact command expected by the FHEM protocol
-                command = f"scan {MAC_TO_TEST} {SCAN_TIMEOUT}\n"
+                command = f"{MAC_TO_TEST}|{SCAN_TIMEOUT}\n"
                 print(f"📤 [FHEM -> ESP]: {command.strip()}")
                 s.sendall(command.encode("utf-8"))
 
