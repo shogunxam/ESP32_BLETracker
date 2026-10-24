@@ -42,14 +42,50 @@ namespace FHEMLePresenceServer
   bool ParseRequest(const char *input, BleDeviceId &deviceId, char *requestedDeviceId,
                     size_t requestedDeviceIdSize, unsigned long &timeout)
   {
-    char deviceIdText[BleDeviceId::UUID_STRING_SIZE];
-    char timeoutText[11];
-    char extra;
+    char tokens[3][BleDeviceId::UUID_STRING_SIZE] = {};
+    size_t tokenCount = 0;
 
-    if (sscanf(input, "%40s %10s %c", deviceIdText, timeoutText, &extra) != 2)
+    while (*input != '\0')
+    {
+      while (isspace(static_cast<unsigned char>(*input)) || *input == '|')
+        input++;
+
+      if (*input == '\0')
+        break;
+
+      if (tokenCount == 3)
+        return false;
+
+      size_t tokenLength = 0;
+      while (*input != '\0' && !isspace(static_cast<unsigned char>(*input)) && *input != '|')
+      {
+        if (tokenLength >= sizeof(tokens[tokenCount]) - 1)
+          return false;
+        tokens[tokenCount][tokenLength++] = *input++;
+      }
+      tokenCount++;
+    }
+
+    const char *deviceIdText;
+    const char *timeoutText;
+    if (tokenCount == 2)
+    {
+      deviceIdText = tokens[0];
+      timeoutText = tokens[1];
+    }
+    else if (tokenCount == 3 && strcmp(tokens[0], "scan") == 0)
+    {
+      deviceIdText = tokens[1];
+      timeoutText = tokens[2];
+    }
+    else
       return false;
 
-    for (size_t i = 0; timeoutText[i] != '\0'; i++)
+    size_t timeoutLength = strlen(timeoutText);
+    if (timeoutLength == 0 || timeoutLength > 10 || requestedDeviceIdSize == 0)
+      return false;
+
+    for (size_t i = 0; i < timeoutLength; i++)
     {
       if (!isdigit(static_cast<unsigned char>(timeoutText[i])))
         return false;
@@ -57,11 +93,12 @@ namespace FHEMLePresenceServer
 
     char *end = nullptr;
     unsigned long parsedTimeout = strtoul(timeoutText, &end, 10);
-    if (end == timeoutText || *end != '\0' || !ParseDeviceId(deviceIdText, deviceId))
+    size_t deviceIdLength = strlen(deviceIdText);
+    if (end == timeoutText || *end != '\0' ||
+        deviceIdLength >= requestedDeviceIdSize || !ParseDeviceId(deviceIdText, deviceId))
       return false;
 
-    strncpy(requestedDeviceId, deviceIdText, requestedDeviceIdSize - 1);
-    requestedDeviceId[requestedDeviceIdSize - 1] = '\0';
+    memcpy(requestedDeviceId, deviceIdText, deviceIdLength + 1);
     timeout = parsedTimeout;
     return true;
   }
@@ -114,7 +151,7 @@ namespace FHEMLePresenceServer
   void publishTag(FHEMClient &fhemClient, const char *reason)
   {
     char msg[100] = "";
-    snprintf(msg,100, "absence;rssi=unreachable;daemon=%s V" VERSION "\n", SettingsMngr.gateway);
+    snprintf(msg, 100, "absence;rssi=unreachable;daemon=%s V" VERSION "\n", SettingsMngr.gateway.c_str());
     CRITICALSECTION_READSTART(trackedDevicesMutex)
     for (auto &trackedDevice : BLETrackedDevices)
     {
@@ -124,9 +161,9 @@ namespace FHEMLePresenceServer
       if ((trackedDevice.lastDiscoveryTime + fhemClient.timeout) >= NTPTime::seconds())
       {
         if (PUBLISH_BATTERY_LEVEL && trackedDevice.batteryLevel > 0)
-          snprintf(msg, 100, "present;device_name=%s;rssi=%d;batteryPercent=%d;daemon=%s V" VERSION "\n", fhemClient.requestedDeviceId, trackedDevice.rssiValue, trackedDevice.batteryLevel,SettingsMngr.gateway);
+          snprintf(msg, 100, "present;device_name=%s;rssi=%d;batteryPercent=%d;daemon=%s V" VERSION "\n", fhemClient.requestedDeviceId, trackedDevice.rssiValue, trackedDevice.batteryLevel, SettingsMngr.gateway.c_str());
         else
-          snprintf(msg, 100, "present;device_name=%s;rssi=%d;daemon=%s V" VERSION "\n", fhemClient.requestedDeviceId, trackedDevice.rssiValue,SettingsMngr.gateway);
+          snprintf(msg, 100, "present;device_name=%s;rssi=%d;daemon=%s V" VERSION "\n", fhemClient.requestedDeviceId, trackedDevice.rssiValue, SettingsMngr.gateway.c_str());
       }
       break;
     }
