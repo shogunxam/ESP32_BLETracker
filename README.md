@@ -248,20 +248,22 @@ For older versions without auto-discovery, see the [example configuration](Doc/)
 
 As an alternative to MQTT, the BLETracker can send UDP packets to a server.
 UDP server and port can be configured in the `user_config.h` file or in the web interface.
+To simulate a Loxone UDP receiver locally and test the UDP mode, run `python3 test/udp_server.py --port 1234`
+and configure `UDP_SERVER` to the computer's LAN IP and `UDP_SERVER_PORT` to `1234`.
 
 - **Device status message**:  
   The UDP packet contains the device status and RSSI value. The message format is:
   ```
-  module:<location>.<gateway_name> <BLE_ADDRESS>:<state> rssi:<rssi> timestamp:<timestamp>
+  module=<location>.<gateway_name> <BLE_ADDRESS>=<state> rssi=<rssi> battery=<battery> timestamp=<timestamp>
   i.e.
-  module=home.roomA 00:11:22:33:44:55=1 rssi=-65 timestamp=1718000000
+  module=home.roomA 00:11:22:33:44:55=1 rssi=-65 battery=100 timestamp=1718000000
   ```
 - **System information message**:  
   The UDP packet contains the system information. The message format is:
   ```
-  module:<location>.<gateway_name> uptime:<uptime> SSID:<wifi_ssid> rssi:<wifi_rssi> IP:<bletracker_ip> MAC:<bletracker_macaddress> timestamp:<timestamp>
+  module=<location>.<gateway_name> alive uptime=<uptime> SSID=<wifi_ssid> rssi=<wifi_rssi> IP=<bletracker_ip> MAC=<bletracker_macaddress> timestamp=<timestamp>
   i.e.
-  module=home.roomA uptime=1.00:00 SSID=mywifi rssi=-65 IP=192.168.1.100 MAC=00:11:22:33:44:55 timestamp=1718000000
+  module=home.roomA alive uptime=1.00:00 SSID=mywifi rssi=-65 IP=192.168.1.100 MAC=00:11:22:33:44:55 timestamp=1718000000
   ```
 
 ### FHEM Support
@@ -269,10 +271,22 @@ UDP server and port can be configured in the `user_config.h` file or in the web 
 As an alternative to MQTT, the BLETracker can integrate with FHEM:
 - Acts as a lepresenced daemon
 - Listens on port 5333 for collectord connections
+- Accepts FHEM scan requests in both `scan <MAC> <timeout>` and `<MAC> <timeout>` formats
 - Enable by choosing the **esp32dev-ble-fhem-release** build variant in PlatformIO
 - Note: FHEM and MQTT support are mutually exclusive due to memory constraints
 
 **Configuration Note**: The values of `presence_timeout` and `absence_timeout` in collectord.conf must be greater than the BLE_SCANNING_PERIOD (default: 10 seconds).
+
+The repository includes a Python client that simulates FHEM polling the ESP32:
+
+1. Flash the **esp32dev-ble-fhem-release** firmware and make sure the ESP32 is reachable on the network.
+2. Edit `test/fhem-test.py`: set `ESP_IP_ADDRESS` to the ESP32 IP and `MAC_TO_TEST` to the beacon's MAC address.
+3. Run the test from the repository root:
+   ```bash
+   python3 test/fhem-test.py
+   ```
+
+The script connects to TCP port `5333`, sends `scan <MAC> <timeout>`, and prints the ESP32 acknowledgement and presence report. Stop it with `Ctrl+C`.
 
 ## Tested BLE Devices
 
