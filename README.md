@@ -275,20 +275,20 @@ As an alternative to MQTT, the BLETracker can integrate with FHEM:
 - Enable by choosing the **esp32dev-ble-fhem-release** build variant in PlatformIO
 - Note: FHEM and MQTT support are mutually exclusive due to memory constraints
 
-**iBeacon limitation**: The firmware can identify BLE beacons by their payload, independently of their changing Bluetooth MAC address. However, the official FHEM `collectord` accepts only Bluetooth MAC addresses in scan requests, so iBeacon tracking through `collectord` is not supported unless the collector is modified to accept and forward beacon IDs.
+**iBeacon support**: `collectord` accepts Bluetooth MAC addresses, but cannot identify beacons by their advertising payload. For this reason, the FHEM build assigns each tracked beacon a deterministic virtual MAC, displayed alongside its device ID in the web configuration page; configure this virtual MAC in `collectord`. The virtual MAC is only an address for FHEM protocol compatibility: the ESP32 does not use it to identify or scan for the beacon. It tracks the beacon using its actual iBeacon characteristics (UUID, Major, and Minor), so rotating Bluetooth MAC addresses do not affect detection. The virtual MAC is generated at runtime from the existing beacon ID with a lightweight 64-bit FNV-1a hash; no additional settings are stored. Other builds and ordinary BLE device IDs are unchanged.
 
 **Configuration Note**: The values of `presence_timeout` and `absence_timeout` in collectord.conf must be greater than the BLE_SCANNING_PERIOD (default: 10 seconds).
 
-The repository includes a Python client that simulates FHEM polling the ESP32:
+The repository includes a Python client that simulates FHEM polling the ESP32. Configure one or more devices in `test/config.json`, in the `targets` array. For each target, set `name`, `host` (the ESP32 IP), `port` (5333), `mac` (the physical BLE MAC or the virtual MAC shown for an iBeacon), `presence_timeout`, and `absence_timeout`. The checked-in file contains example targets; update them for your network and devices.
 
 1. Flash the **esp32dev-ble-fhem-release** firmware and make sure the ESP32 is reachable on the network.
-2. Edit `test/fhem-test.py`: set `ESP_IP_ADDRESS` to the ESP32 IP and `MAC_TO_TEST` to the beacon's MAC address.
-3. Run the test from the repository root:
+2. Run the test from the repository root:
    ```bash
    python3 test/fhem-test.py
    ```
+   To use another configuration file, pass its path as an argument, for example `python3 test/fhem-test.py test/config.json`.
 
-The script connects to TCP port `5333`, sends `<MAC>|<timeout>`, and prints the ESP32 acknowledgement and presence report. Stop it with `Ctrl+C`.
+The script starts one monitor per configured target. Each monitor connects to the specified host and port, sends `<MAC>|<timeout>`, and prints the ESP32 acknowledgement and presence report. Stop it with `Ctrl+C`.
 
 ## Tested BLE Devices
 

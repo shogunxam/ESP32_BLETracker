@@ -12,8 +12,8 @@
       "name": "Device_2",
       "host": "192.168.1.121",
       "port": 5333,
-      "mac": "11:22:33:44:55:66",
-      "presence_timeout": 10,
+      "mac": "56:14:03:DE:A7:86",
+      "presence_timeout": 30,
       "absence_timeout": 120
     }
   ]

@@ -92,6 +92,7 @@ input:checked + .toggle-slider:before { transform: translateX(26px); }
 .data-table tr:nth-child(even) { background-color: rgba(0,0,0,0.02); }
 .data-table tr:hover { background-color: rgba(52,152,219,0.05); }
 .loading-message { text-align: center; color: #777; padding: 20px; }
+.virtual-address { display: block; color: var(--gray-color); font-family: monospace; font-size: 0.85em; }
 
 /* Tabs */
 .tabs { display: flex; flex-wrap: wrap; margin-bottom: 20px; border-bottom: 2px solid var(--primary-color); }

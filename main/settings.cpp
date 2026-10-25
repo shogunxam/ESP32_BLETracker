@@ -2,6 +2,9 @@
 #include "config.h"
 #include "DebugPrint.h"
 #include "WiFiManager.h" 
+#if USE_FHEM_LEPRESENCE_SERVER
+#include "fhem_lepresence_server.h"
+#endif
 
 #define CURRENT_SETTING_VERSION 9
 
@@ -193,6 +196,9 @@ String Settings::toJSON()
 {
     String data = "{";
     data += R"("version":)" + String(version) + R"(,)";
+#if USE_FHEM_LEPRESENCE_SERVER
+    data += R"("fhem":true,)";
+#endif
     data += R"("mqtt_enabled":)" + String(mqttEnabled ? "true" : "false") +  R"(,)";
     data += R"("wifi_ssid":")" + wifiSSID + R"(",)";
     data += R"("wifi_pwd":")" + wifiPwd + R"(",)";
@@ -218,6 +224,13 @@ String Settings::toJSON()
         else
             first = false;
         data += R"(")" + device.deviceId.toString() + R"(":{)";
+#if USE_FHEM_LEPRESENCE_SERVER
+        char virtualAddress[FHEMLePresenceServer::VIRTUAL_MAC_ADDRESS_SIZE];
+        if (FHEMLePresenceServer::GetVirtualAddress(device.deviceId, virtualAddress))
+        {
+            data += R"("virtualAddress":")" + String(virtualAddress) + R"(",)";
+        }
+#endif
         data += R"("battery":)" + String(device.readBattery ? "true" : "false") +  R"(,)";
         data += R"("desc":")" + String(device.description) + R"("})";
     }
