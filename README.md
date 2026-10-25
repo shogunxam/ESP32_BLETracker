@@ -279,7 +279,7 @@ As an alternative to MQTT, the BLETracker can integrate with FHEM:
 
 **Configuration Note**: The values of `presence_timeout` and `absence_timeout` in collectord.conf must be greater than the BLE_SCANNING_PERIOD (default: 10 seconds).
 
-The repository includes a Python client that simulates FHEM polling the ESP32. Configure one or more devices in `test/config.json`, in the `targets` array. For each target, set `name`, `host` (the ESP32 IP), `port` (5333), `mac` (the physical BLE MAC or the virtual MAC shown for an iBeacon), `presence_timeout`, and `absence_timeout`. The checked-in file contains example targets; update them for your network and devices.
+The repository includes a Python client that simulates FHEM polling the ESP32. Configure one or more devices in `test/fhem-test-config.json`, in the `targets` array. For each target, set `name`, `host` (the ESP32 IP), `port` (5333), `mac` (the physical BLE MAC or the virtual MAC shown for an iBeacon), `presence_timeout`, and `absence_timeout`. The checked-in file contains example targets; update them for your network and devices.
 
 1. Flash the **esp32dev-ble-fhem-release** firmware and make sure the ESP32 is reachable on the network.
 2. Run the test from the repository root:
@@ -344,6 +344,22 @@ PlatformIO is the recommended and maintained build path; the Arduino IDE setup i
 5. In Tools > Partition Scheme, select *Minimal SPIFFS*.
 
 MQTT is enabled by default (`USE_MQTT=true` in `main/config.h`). For FHEM or UDP builds, disable MQTT and enable the relevant `USE_FHEM_LEPRESENCE_SERVER` or `USE_UDP` option in `main/config.h`, as appropriate. PlatformIO environments remain the reference for these variants and their build flags. FHEM support does not currently require installing Regexp directly from the Arduino IDE instructions in this repository.
+
+### Testing the MQTT Build
+
+The repository includes an integration test that subscribes to the MQTT broker and validates the BLETracker's availability, system information, status, and device-list messages. It uses the Python `paho-mqtt` client:
+
+1. Build and flash the **esp32dev-ble-release** firmware, and configure its MQTT broker in the web configuration page or `main/user_config.h`.
+2. Install the test dependency:
+   ```bash
+   python3 -m pip install "paho-mqtt>=2.0"
+   ```
+3. Edit `test/mqtt-test-config.json`: set the broker host and credentials, and set `location` and `gateway` to match the MQTT topic prefix configured on the tracker. `gateway` must be the exact tracker hostname shown on its configuration page, not the example placeholder. Add tracked MAC addresses or beacon IDs to the `device_ids` array to validate each device's state and Home Assistant discovery messages. The legacy single `device_id` field is still accepted.
+4. Start the test from the repository root and restart the tracker while it is listening, so it can observe the startup status and device-list publications:
+   ```bash
+   python3 test/mqtt-test.py
+   ```
+   The test continues listening and prints each received MQTT message and the checks as they pass. Stop it with `Ctrl+C`; it then summarizes which expected topics were observed. A different JSON file can be supplied as an argument.
 
 ## License
 
