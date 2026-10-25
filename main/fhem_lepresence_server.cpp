@@ -14,6 +14,43 @@
 #include "settings.h"
 namespace FHEMLePresenceServer
 {
+  bool GetVirtualAddress(const BleDeviceId &deviceId, char output[VIRTUAL_MAC_ADDRESS_SIZE])
+  {
+    if (!deviceId.isIBeacon())
+    {
+      output[0] = '\0';
+      return false;
+    }
+
+    uint64_t hash = 14695981039346656037ULL;
+    const uint8_t *rawId = deviceId.getRawID();
+    for (size_t i = 0; i < BleDeviceId::RAW_ID_SIZE; i++)
+    {
+      hash ^= rawId[i];
+      hash *= 1099511628211ULL;
+    }
+
+    // Avalanche FNV-1a before truncating it to the 46-bit address payload.
+    hash ^= hash >> 33;
+    hash *= 0xff51afd7ed558ccdULL;
+    hash ^= hash >> 33;
+    hash *= 0xc4ceb9fe1a85ec53ULL;
+    hash ^= hash >> 33;
+
+    const uint8_t address[6] = {
+        static_cast<uint8_t>(((hash >> 40) & 0xFC) | 0x02),
+        static_cast<uint8_t>(hash >> 32),
+        static_cast<uint8_t>(hash >> 24),
+        static_cast<uint8_t>(hash >> 16),
+        static_cast<uint8_t>(hash >> 8),
+        static_cast<uint8_t>(hash)};
+    snprintf(output, VIRTUAL_MAC_ADDRESS_SIZE, "%02X:%02X:%02X:%02X:%02X:%02X",
+             static_cast<unsigned>(address[0]), static_cast<unsigned>(address[1]),
+             static_cast<unsigned>(address[2]), static_cast<unsigned>(address[3]),
+             static_cast<unsigned>(address[4]), static_cast<unsigned>(address[5]));
+    return true;
+  }
+
   bool ParseDeviceId(const char *input, BleDeviceId &deviceId)
   {
     char normalized[BleDeviceId::UUID_STRING_SIZE];
@@ -86,6 +123,78 @@ namespace FHEMLePresenceServer
       requestedDeviceId[i] = static_cast<char>(tolower(static_cast<unsigned char>(requestedDeviceId[i])));
     timeout = parsedTimeout;
     return true;
+  }
+
+  void ResolveVirtualAddress(BleDeviceId &deviceId)
+  {
+    if (deviceId.isIBeacon())
+      return;
+
+    const BleDeviceId requestedId = deviceId;
+    if ((requestedId.getRawID()[0] & 0x03) != 0x02)
+      return;
+
+    const std::vector<Settings::KnownDevice> &knownDevices = SettingsMngr.GetKnownDevicesList();
+    for (const auto &knownDevice : knownDevices)
+    {
+      if (!knownDevice.deviceId.isIBeacon() && knownDevice.deviceId == requestedId)
+        return;
+    }
+
+    bool physicalDeviceFound = false;
+    bool beaconFound = false;
+    BleDeviceId matchedBeacon;
+
+    CRITICALSECTION_READSTART(trackedDevicesMutex)
+    for (const auto &trackedDevice : BLETrackedDevices)
+    {
+      if (!trackedDevice.deviceId.isIBeacon() && trackedDevice.deviceId == requestedId)
+      {
+        physicalDeviceFound = true;
+        break;
+      }
+    }
+
+    if (!physicalDeviceFound)
+    {
+      char virtualAddress[VIRTUAL_MAC_ADDRESS_SIZE];
+      for (const auto &trackedDevice : BLETrackedDevices)
+      {
+        if (GetVirtualAddress(trackedDevice.deviceId, virtualAddress))
+        {
+          BleDeviceId candidate;
+          if (ParseDeviceId(virtualAddress, candidate) && candidate == requestedId)
+          {
+            matchedBeacon = trackedDevice.deviceId;
+            beaconFound = true;
+            break;
+          }
+        }
+      }
+    }
+    CRITICALSECTION_READEND
+
+    if (physicalDeviceFound)
+      return;
+    if (beaconFound)
+    {
+      deviceId = matchedBeacon;
+      return;
+    }
+
+    char virtualAddress[VIRTUAL_MAC_ADDRESS_SIZE];
+    for (const auto &knownDevice : knownDevices)
+    {
+      if (GetVirtualAddress(knownDevice.deviceId, virtualAddress))
+      {
+        BleDeviceId candidate;
+        if (ParseDeviceId(virtualAddress, candidate) && candidate == requestedId)
+        {
+          deviceId = knownDevice.deviceId;
+          return;
+        }
+      }
+    }
   }
 
   bool IsNowRequest(const char *input)
@@ -278,6 +387,7 @@ namespace FHEMLePresenceServer
                            fhemClient.requestedDeviceId, sizeof(fhemClient.requestedDeviceId),
                            fhemClient.timeout))
           {
+            ResolveVirtualAddress(fhemClient.deviceId);
             reason = "on request";
             publish = true;
             fhemClient.mClient.print("command accepted\n");

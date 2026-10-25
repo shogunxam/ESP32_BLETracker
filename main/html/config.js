@@ -183,12 +183,17 @@ $(document).ready(() => {
 });
 
 function PopulatePage(data) {
+  updateDeviceAddressHeader(data.fhem === true);
   data.trk_list = data.trk_list || {};
   locallyPairedDevices.forEach((device, address) => {
     const trackedAddress = Object.keys(data.trk_list).find(mac => deviceKey(mac) === address);
     if (device.paired && !trackedAddress) {
       // Preserva il valore impostato nell'oggetto locale (false di default)
-      data.trk_list[device.address] = { desc: device.description, battery: device.readBattery };
+      data.trk_list[device.address] = {
+        desc: device.description,
+        battery: device.readBattery,
+        virtualAddress: device.virtualAddress
+      };
     }
   });
 
@@ -225,6 +230,7 @@ function PopulatePage(data) {
     for (const mac in data.trk_list) {
       const device = {
         address: formatDeviceId(mac),
+        virtualAddress: data.trk_list[mac].virtualAddress || '',
         description: data.trk_list[mac].desc || '',
         readBattery: data.trk_list[mac].battery || false
       };
@@ -250,6 +256,7 @@ function refreshDiscoveryDevices(force = false) {
 }
 
 function updateDiscoveryView(data) {
+  updateDeviceAddressHeader(data.fhem === true);
   $('#discoveryMode').prop('checked', data.discovery === true);
   $('#add-device-section').toggle(data.discovery !== true);
   if (!data.discovery) return;
@@ -293,6 +300,7 @@ function updateDiscoveryView(data) {
 
     const row = createDeviceRow({
       address: device.address,
+      virtualAddress: device.virtualAddress || pending?.virtualAddress || '',
       description: pending
         ? pending.description
         : (trackedEntry?.desc || device.name || ''),
@@ -349,15 +357,19 @@ const createDeviceRow = (device) => {
   const row = document.createElement('tr');
   row.className = 'device-row';
   row.dataset.mac = device.address;
+  row.dataset.virtualAddress = device.virtualAddress || '';
   row.dataset.discovery = device.discovery ? 'true' : 'false';
 
 // In Discovery un device già in whitelist è già tracciato e non modificabile.
 // Fuori dal Discovery il toggle rappresenta esclusivamente Read Battery.
   const isChecked = device.discovery ? (device.whitelisted || device.paired ? 'checked' : '') : (device.readBattery ? 'checked' : ''); 
   const isDisabled = device.discovery && device.whitelisted ? 'disabled="disabled"' : '';
+  const virtualAddress = device.virtualAddress
+    ? `<small class="virtual-address">FHEM virtual MAC: ${device.virtualAddress}</small>`
+    : '';
 
   row.innerHTML = `
-    <td>${device.address}</td>
+    <td>${device.address}${virtualAddress}</td>
     <td><input type="text" name="${device.address}_desc" value="${device.description || ''}" placeholder="Description" maxLength="20" ${device.discovery ? 'readonly' : ''}></td>
     <td>
       <label class="toggle-switch">
@@ -385,6 +397,7 @@ const createDeviceRow = (device) => {
     pairCheckbox.onchange = () => {
       locallyPairedDevices.set(deviceKey(device.address), {
         address: device.address,
+        virtualAddress: device.virtualAddress,
         description: row.querySelector('input[type="text"]').value,
         discovery: true,
         paired: pairCheckbox.checked,
@@ -404,9 +417,12 @@ const createDeviceCard = (device) => {
 
   const isChecked = device.discovery ? (device.whitelisted || device.paired ? 'checked' : '') : (device.readBattery ? 'checked' : ''); 
   const isDisabled = device.discovery && device.whitelisted ? 'disabled="disabled"' : '';
+  const virtualAddress = device.virtualAddress
+    ? `<small class="virtual-address">FHEM virtual MAC: ${device.virtualAddress}</small>`
+    : '';
 
   card.innerHTML = `
-    <div class="device-card-header"><h3>${device.address}</h3></div>
+    <div class="device-card-header"><h3>${device.address}</h3>${virtualAddress}</div>
     <div class="device-card-content">
       <div class="card-item"><strong>Description:</strong><input type="text" name="${device.address}_desc_mobile" value="${device.description || ''}" placeholder="Description" maxLength="20" class="mobile-input" ${device.discovery ? 'readonly' : ''}></div>
       <div class="card-item"><strong>${device.discovery ? 'Track' : 'Read Battery'}:</strong>
@@ -440,6 +456,11 @@ const createDeviceCard = (device) => {
   document.getElementById('devices-cards').appendChild(card);
 };
 
+const updateDeviceAddressHeader = (isFhem) => {
+  $('#devices-table thead th:first-child')
+    .text(isFhem ? 'Device ID / FHEM Virtual MAC' : 'Device ID');
+};
+
 const updateDevicesView = (isInitial = false) => {
   const isMobile = window.innerWidth < 768;
   $('#devices-table').toggle(!isMobile);
@@ -455,6 +476,7 @@ const updateDevicesView = (isInitial = false) => {
         
         createDeviceCard({
           address: mac,
+          virtualAddress: this.dataset.virtualAddress || '',
           description: $(this).find(`input[name="${mac}_desc"]`).val() || '', 
           readBattery: isDiscovery ? false : toggleInput.prop('checked'), 
           discovery: isDiscovery,
@@ -465,4 +487,3 @@ const updateDevicesView = (isInitial = false) => {
     });
   }
 };
-

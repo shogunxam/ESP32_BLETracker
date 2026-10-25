@@ -202,7 +202,7 @@ def load_config(config_path):
 
 
 def main():
-    config_file = "config.json" if len(sys.argv) <= 1 else sys.argv[1]
+    config_file = "fhem-test-config.json" if len(sys.argv) <= 1 else sys.argv[1]
     logging.info(f"Starting Mock Collectord with config: {config_file}")
     config = load_config(config_file)
     
