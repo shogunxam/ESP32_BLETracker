@@ -19,8 +19,12 @@ struct BLETrackedDevice
   char name[BLE_NAME_STRING_SIZE];
   bool isDiscovered; //Until it's TRUE the device is considered Online, if it's not discovered for a period it become FALSE
   long lastDiscoveryTime;
+  long previousDiscoveryTime;
+  bool hasDiscovery;
+  bool hasPreviousDiscovery;
   long lastBattMeasureTime;
   int8_t batteryLevel;
+  int8_t lastSeenRssi;
   bool advertised;         //TRUE if the device is just advertised in the current scan
   bool hasBatteryService;  //Used to avoid connections with BLE without battery service
   uint8_t connectionRetry; //Number of retries if the connection with the device fails
@@ -36,8 +40,12 @@ struct BLETrackedDevice
     name[0] = '\0';
     isDiscovered = 0;
     lastDiscoveryTime = 0;
+    previousDiscoveryTime = 0;
+    hasDiscovery = false;
+    hasPreviousDiscovery = false;
     lastBattMeasureTime = 0;
     batteryLevel = -1;
+    lastSeenRssi = -100;
     advertised = false;
     hasBatteryService = true;
     connectionRetry = 0;

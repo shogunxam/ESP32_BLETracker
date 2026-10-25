@@ -156,8 +156,15 @@ class MyAdvertisedDeviceCallbacks : public NimBLEScanCallbacks
         {
           trackedDevice.addressType = advertisedDevice.getAddressType();
           trackedDevice.advertised = true;
+          if (trackedDevice.hasDiscovery)
+          {
+            trackedDevice.previousDiscoveryTime = trackedDevice.lastDiscoveryTime;
+            trackedDevice.hasPreviousDiscovery = true;
+          }
+          trackedDevice.hasDiscovery = NUM_OF_ADVERTISEMENT_IN_SCAN <= 1;
           trackedDevice.lastDiscoveryTime = NTPTime::seconds();
           trackedDevice.rssiValue = RSSI;
+          trackedDevice.lastSeenRssi = RSSI;
           if (shortName[0] != '\0')
           {
             strncpy(trackedDevice.name, shortName, BLE_NAME_STRING_SIZE - 1);
@@ -194,11 +201,15 @@ class MyAdvertisedDeviceCallbacks : public NimBLEScanCallbacks
     trackedDevice.addressType = advertisedDevice.getAddressType();
     trackedDevice.isDiscovered = NUM_OF_ADVERTISEMENT_IN_SCAN <= 1;
     trackedDevice.lastDiscoveryTime = NTPTime::seconds();
+    trackedDevice.previousDiscoveryTime = 0;
+    trackedDevice.hasDiscovery = true;
+    trackedDevice.hasPreviousDiscovery = false;
     trackedDevice.lastBattMeasureTime = 0;
     trackedDevice.batteryLevel = -1;
     trackedDevice.hasBatteryService = true;
     trackedDevice.connectionRetry = 0;
     trackedDevice.rssiValue = RSSI;
+    trackedDevice.lastSeenRssi = RSSI;
     trackedDevice.advertisementCounter = 1;
     BLETrackedDevices.push_back(std::move(trackedDevice));
     FastDiscovery[trackedDevice.deviceId] = true;

@@ -71,6 +71,9 @@
 #ifndef USE_FHEM_LEPRESENCE_SERVER
 #define USE_FHEM_LEPRESENCE_SERVER false
 #endif
+#ifndef FHEM_LEPRESENCE_SERVER_PORT
+#define FHEM_LEPRESENCE_SERVER_PORT 5333
+#endif
 /////////////////////////
 
 #ifndef USE_UDP
