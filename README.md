@@ -248,20 +248,22 @@ For older versions without auto-discovery, see the [example configuration](Doc/)
 
 As an alternative to MQTT, the BLETracker can send UDP packets to a server.
 UDP server and port can be configured in the `user_config.h` file or in the web interface.
+To simulate a Loxone UDP receiver locally and test the UDP mode, run `python3 test/udp_server.py --port 1234`
+and configure `UDP_SERVER` to the computer's LAN IP and `UDP_SERVER_PORT` to `1234`.
 
 - **Device status message**:  
   The UDP packet contains the device status and RSSI value. The message format is:
   ```
-  module:<location>.<gateway_name> <BLE_ADDRESS>:<state> rssi:<rssi> timestamp:<timestamp>
+  module=<location>.<gateway_name> <BLE_ADDRESS>=<state> rssi=<rssi> battery=<battery> timestamp=<timestamp>
   i.e.
-  module=home.roomA 00:11:22:33:44:55=1 rssi=-65 timestamp=1718000000
+  module=home.roomA 00:11:22:33:44:55=1 rssi=-65 battery=100 timestamp=1718000000
   ```
 - **System information message**:  
   The UDP packet contains the system information. The message format is:
   ```
-  module:<location>.<gateway_name> uptime:<uptime> SSID:<wifi_ssid> rssi:<wifi_rssi> IP:<bletracker_ip> MAC:<bletracker_macaddress> timestamp:<timestamp>
+  module=<location>.<gateway_name> alive uptime=<uptime> SSID=<wifi_ssid> rssi=<wifi_rssi> IP=<bletracker_ip> MAC=<bletracker_macaddress> timestamp=<timestamp>
   i.e.
-  module=home.roomA uptime=1.00:00 SSID=mywifi rssi=-65 IP=192.168.1.100 MAC=00:11:22:33:44:55 timestamp=1718000000
+  module=home.roomA alive uptime=1.00:00 SSID=mywifi rssi=-65 IP=192.168.1.100 MAC=00:11:22:33:44:55 timestamp=1718000000
   ```
 
 ### FHEM Support
@@ -269,10 +271,24 @@ UDP server and port can be configured in the `user_config.h` file or in the web 
 As an alternative to MQTT, the BLETracker can integrate with FHEM:
 - Acts as a lepresenced daemon
 - Listens on port 5333 for collectord connections
+- Accepts FHEM scan requests in `scan <MAC> <timeout>`, `<MAC> <timeout>`, and `<MAC>|<timeout>` formats
 - Enable by choosing the **esp32dev-ble-fhem-release** build variant in PlatformIO
 - Note: FHEM and MQTT support are mutually exclusive due to memory constraints
 
+**iBeacon support**: `collectord` accepts Bluetooth MAC addresses, but cannot identify beacons by their advertising payload. For this reason, the FHEM build assigns each tracked beacon a deterministic virtual MAC, displayed alongside its device ID in the web configuration page; configure this virtual MAC in `collectord`. The virtual MAC is only an address for FHEM protocol compatibility: the ESP32 does not use it to identify or scan for the beacon. It tracks the beacon using its actual iBeacon characteristics (UUID, Major, and Minor), so rotating Bluetooth MAC addresses do not affect detection. The virtual MAC is generated at runtime from the existing beacon ID with a lightweight 64-bit FNV-1a hash; no additional settings are stored. Other builds and ordinary BLE device IDs are unchanged.
+
 **Configuration Note**: The values of `presence_timeout` and `absence_timeout` in collectord.conf must be greater than the BLE_SCANNING_PERIOD (default: 10 seconds).
+
+The repository includes a Python client that simulates FHEM polling the ESP32. Configure one or more devices in `test/fhem-test-config.json`, in the `targets` array. For each target, set `name`, `host` (the ESP32 IP), `port` (5333), `mac` (the physical BLE MAC or the virtual MAC shown for an iBeacon), `presence_timeout`, and `absence_timeout`. The checked-in file contains example targets; update them for your network and devices.
+
+1. Flash the **esp32dev-ble-fhem-release** firmware and make sure the ESP32 is reachable on the network.
+2. Run the test from the repository root:
+   ```bash
+   python3 test/fhem-test.py
+   ```
+   To use another configuration file, pass its path as an argument, for example `python3 test/fhem-test.py test/config.json`.
+
+The script starts one monitor per configured target. Each monitor connects to the specified host and port, sends `<MAC>|<timeout>`, and prints the ESP32 acknowledgement and presence report. Stop it with `Ctrl+C`.
 
 ## Tested BLE Devices
 
@@ -328,6 +344,22 @@ PlatformIO is the recommended and maintained build path; the Arduino IDE setup i
 5. In Tools > Partition Scheme, select *Minimal SPIFFS*.
 
 MQTT is enabled by default (`USE_MQTT=true` in `main/config.h`). For FHEM or UDP builds, disable MQTT and enable the relevant `USE_FHEM_LEPRESENCE_SERVER` or `USE_UDP` option in `main/config.h`, as appropriate. PlatformIO environments remain the reference for these variants and their build flags. FHEM support does not currently require installing Regexp directly from the Arduino IDE instructions in this repository.
+
+### Testing the MQTT Build
+
+The repository includes an integration test that subscribes to the MQTT broker and validates the BLETracker's availability, system information, status, and device-list messages. It uses the Python `paho-mqtt` client:
+
+1. Build and flash the **esp32dev-ble-release** firmware, and configure its MQTT broker in the web configuration page or `main/user_config.h`.
+2. Install the test dependency:
+   ```bash
+   python3 -m pip install "paho-mqtt>=2.0"
+   ```
+3. Edit `test/mqtt-test-config.json`: set the broker host and credentials, and set `location` and `gateway` to match the MQTT topic prefix configured on the tracker. `gateway` must be the exact tracker hostname shown on its configuration page, not the example placeholder. Add tracked MAC addresses or beacon IDs to the `device_ids` array to validate each device's state and Home Assistant discovery messages. The legacy single `device_id` field is still accepted.
+4. Start the test from the repository root and restart the tracker while it is listening, so it can observe the startup status and device-list publications:
+   ```bash
+   python3 test/mqtt-test.py
+   ```
+   The test continues listening and prints each received MQTT message and the checks as they pass. Stop it with `Ctrl+C`; it then summarizes which expected topics were observed. A different JSON file can be supplied as an argument.
 
 ## License
 

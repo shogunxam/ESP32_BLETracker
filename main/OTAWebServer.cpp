@@ -17,6 +17,9 @@
 #include "macro_utility.h"
 #include "settings.h"
 #include "SPIFFSLogger.h"
+#if USE_FHEM_LEPRESENCE_SERVER
+#include "fhem_lepresence_server.h"
+#endif
 
 extern std::vector<BLETrackedDevice> BLETrackedDevices;
 
@@ -612,6 +615,9 @@ void OTAWebServer::sendSysInfoData(bool trackerInfo, bool deviceList)
   {
     SendChunkedContent(R"("discovery":)");
     SendChunkedContent(discoveryMode ? "true," : "false,");
+#if USE_FHEM_LEPRESENCE_SERVER
+    SendChunkedContent(R"("fhem":true,)");
+#endif
     SendChunkedContent(R"("devices":[)");
 
     bool first = true;
@@ -632,6 +638,15 @@ void OTAWebServer::sendSysInfoData(bool trackerInfo, bool deviceList)
       SendChunkedContent(R"({"mac":")");
       SendChunkedContent(deviceIdAsString);
       SendChunkedContent(R"(",)");
+#if USE_FHEM_LEPRESENCE_SERVER
+      char virtualAddress[FHEMLePresenceServer::VIRTUAL_MAC_ADDRESS_SIZE];
+      if (FHEMLePresenceServer::GetVirtualAddress(trackedDevice.deviceId, virtualAddress))
+      {
+        SendChunkedContent(R"("virtualAddress":")");
+        SendChunkedContent(virtualAddress);
+        SendChunkedContent(R"(",)");
+      }
+#endif
       SendChunkedContent(R"("name":")");
       Settings::KnownDevice *knownDevice = SettingsMngr.GetDevice(trackedDevice.deviceId);
       if (knownDevice != nullptr)
